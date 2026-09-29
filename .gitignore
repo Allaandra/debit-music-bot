@@ -1,0 +1,13 @@
+node_modules/
+dist/
+.env
+database.sqlite
+database.sqlite-journal
+*.log
+.DS_Store
+
+Agent Workspace/
+
+# Игнорировать все файлы в sounds, кроме .gitkeep
+sounds/*
+!sounds/.gitkeep
