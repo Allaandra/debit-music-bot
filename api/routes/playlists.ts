@@ -58,5 +58,17 @@ export default function playlistsRoutes() {
         }
     });
 
+    router.delete('/:id/tracks/:trackId', async (req, res) => {
+        const playlistId = req.params.id;
+        const trackId = req.params.trackId;
+        try {
+            const db = await openDb();
+            await db.run('DELETE FROM playlist_tracks WHERE playlist_id = ? AND track_id = ?', [playlistId, trackId]);
+            res.json({ status: 'success' });
+        } catch (e: any) {
+            res.status(500).json({ error: e.message });
+        }
+    });
+
     return router;
 }

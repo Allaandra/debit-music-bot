@@ -1,28 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import './App.css';
 
-import homeIcon from './icons/home_24dp_999999_FILL0_wght400_GRAD0_opsz24.svg';
-import musicNoteIcon from './icons/music_note_2_24dp_999999_FILL0_wght400_GRAD0_opsz24.svg';
-import addIcon from './icons/add_24dp_999999_FILL0_wght400_GRAD0_opsz24.svg';
-import uploadIcon from './icons/upload_24dp_999999_FILL0_wght400_GRAD0_opsz24.svg';
-import playArrowIcon from './icons/play_arrow_24dp_999999_FILL0_wght400_GRAD0_opsz24.svg';
-import playCircleIcon from './icons/play_circle_24dp_999999_FILL0_wght400_GRAD0_opsz24.svg';
-import pauseCircleIcon from './icons/pause_circle_24dp_999999_FILL0_wght400_GRAD0_opsz24.svg';
-import pauseIcon from './icons/pause_24dp_999999_FILL0_wght400_GRAD0_opsz24.svg';
-import shuffleIcon from './icons/shuffle_24dp_999999_FILL0_wght400_GRAD0_opsz24.svg';
-import repeatIcon from './icons/repeat_24dp_999999_FILL0_wght400_GRAD0_opsz24.svg';
-import skipPrevIcon from './icons/skip_previous_24dp_999999_FILL0_wght400_GRAD0_opsz24.svg';
-import skipNextIcon from './icons/skip_next_24dp_999999_FILL0_wght400_GRAD0_opsz24.svg';
-import searchIcon from './icons/search_24dp_999999_FILL0_wght400_GRAD0_opsz24.svg';
-import filterIcon from './icons/filter_alt_24dp_999999_FILL0_wght400_GRAD0_opsz24.svg';
-import moreVertIcon from './icons/more_vert_24dp_999999_FILL0_wght400_GRAD0_opsz24.svg';
-import queueListIcon from './icons/format_list_bulleted_24dp_999999_FILL0_wght400_GRAD0_opsz24.svg';
-import infoIcon from './icons/info_24dp_999999_FILL0_wght400_GRAD0_opsz24.svg';
-import volumeIcon from './icons/volume_up_24dp_999999_FILL0_wght400_GRAD0_opsz24.svg';
-import logoutIcon from './icons/logout_24dp_999999_FILL0_wght400_GRAD0_opsz24.svg';
-import settingsIcon from './icons/settings_24dp_999999_FILL0_wght400_GRAD0_opsz24.svg';
-import deleteIcon from './icons/delete_24dp_999999_FILL0_wght400_GRAD0_opsz24.svg';
-import addCircleIcon from './icons/add_circle_24dp_999999_FILL0_wght400_GRAD0_opsz24.svg';
+import { 
+  Home, Music, Plus, Upload, Play, CirclePlay, CirclePause, 
+  Pause, Shuffle, Repeat, SkipBack, SkipForward, Search, 
+  Filter, MoreVertical, ListMusic, Info, Volume2, LogOut, 
+  Settings, Trash2, PlusCircle 
+} from 'lucide-react';
+
 
 const USER_ID = '450362999073406977';
 
@@ -50,6 +35,9 @@ function App() {
   const [searchQuery, setSearchQuery] = useState('');
   const [showSearch, setShowSearch] = useState(false);
   const [rightPanelMode, setRightPanelMode] = useState<'queue' | 'info'>('queue');
+  const [importPlaylistModal, setImportPlaylistModal] = useState<any>(null);
+  const [importing, setImporting] = useState(false);
+  const [deleteTrackModal, setDeleteTrackModal] = useState<any>(null);
 
   const fetchTracks = async (playlistId: number | null = activePlaylistId) => {
     try {
@@ -132,7 +120,7 @@ function App() {
     e.preventDefault();
     if (!newTrackInput) return;
     try {
-      await fetch('http://localhost:3001/api/tracks', {
+      const res = await fetch('http://localhost:3001/api/tracks', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -141,6 +129,14 @@ function App() {
           type: 'url'
         })
       });
+      const data = await res.json();
+      
+      if (data.status === 'playlist_detected') {
+        setImportPlaylistModal({ query: newTrackInput, title: data.title, count: data.total_tracks });
+        setNewTrackInput('');
+        return;
+      }
+
       setNewTrackInput('');
       fetchTracks();
     } catch (e) {
@@ -148,22 +144,67 @@ function App() {
     }
   };
 
-  const handleDeleteTrack = async (e: React.MouseEvent, track: any) => {
-    e.stopPropagation();
-    const isLocal = track.type === 'local';
-    const msg = isLocal 
-      ? 'Вы уверены, что хотите удалить этот локальный файл? (Он будет навсегда удален с жесткого диска!)' 
-      : 'Вы уверены, что хотите удалить этот трек из библиотеки?';
-      
-    if (!window.confirm(msg)) return;
+  const handleImportPlaylist = async (createPlaylist: boolean) => {
+    if (!importPlaylistModal) return;
+    setImporting(true);
+    try {
+      await fetch('http://localhost:3001/api/tracks/import_playlist', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: USER_ID,
+          query: importPlaylistModal.query,
+          createPlaylist,
+          playlistName: importPlaylistModal.title
+        })
+      });
+      setImportPlaylistModal(null);
+      fetchPlaylists();
+      fetchTracks();
+    } catch (e) {
+      console.error('Failed to import playlist', e);
+    } finally {
+      setImporting(false);
+    }
+  };
+
+  const deleteTrackCompletely = async (track: any) => {
     try {
       await fetch(`http://localhost:3001/api/tracks/${track.id}?userId=${USER_ID}`, { method: 'DELETE' });
       fetchTracks();
       if (selectedTrack && selectedTrack.id === track.id) {
         setSelectedTrack(null);
       }
+      setDeleteTrackModal(null);
     } catch (e) {
       console.error('Failed to delete track', e);
+    }
+  };
+
+  const deleteTrackFromPlaylist = async (track: any) => {
+    if (activePlaylistId === null) return;
+    try {
+      await fetch(`http://localhost:3001/api/playlists/${activePlaylistId}/tracks/${track.id}`, { method: 'DELETE' });
+      fetchTracks();
+      setDeleteTrackModal(null);
+    } catch (e) {
+      console.error('Failed to remove from playlist', e);
+    }
+  };
+
+  const handleDeleteTrack = async (e: React.MouseEvent, track: any) => {
+    e.stopPropagation();
+    setActiveMenuId(null);
+    if (activePlaylistId !== null) {
+      setDeleteTrackModal(track);
+    } else {
+      const isLocal = track.type === 'local';
+      const msg = isLocal 
+        ? 'Вы уверены, что хотите удалить этот локальный файл? (Он будет навсегда удален с жесткого диска!)' 
+        : 'Вы уверены, что хотите удалить этот трек из библиотеки?';
+        
+      if (!window.confirm(msg)) return;
+      deleteTrackCompletely(track);
     }
   };
 
@@ -264,10 +305,10 @@ function App() {
               className="sidebar-input"
             />
             <button type="submit" className="add-btn">
-              <img src={addIcon} className="icon" alt="+" />
+              <Plus className="icon"  />
             </button>
             <label className="upload-btn" title="Upload File">
-              <img src={uploadIcon} className="icon" alt="upload" />
+              <Upload className="icon"  />
               <input type="file" accept=".mp3,.wav,.ogg" style={{ display: 'none' }} onChange={handleFileUpload} />
             </label>
           </form>
@@ -279,7 +320,7 @@ function App() {
               fetchTracks(null);
             }}
           >
-            <img src={homeIcon} className="icon" alt="home" />
+            <Home className="icon"  />
             <span>Home page</span>
           </div>
           
@@ -288,7 +329,7 @@ function App() {
         
         <div className="sidebar-middle">
           <button className="new-playlist-btn" onClick={() => setIsModalOpen(true)}>
-            <img src={addCircleIcon} className="icon" alt="new playlist" />
+            <PlusCircle className="icon"  />
             New Playlist
           </button>
           
@@ -302,7 +343,7 @@ function App() {
                   fetchTracks(pl.id);
                 }}
               >
-                <img src={musicNoteIcon} className="icon" alt="playlist" />
+                <Music className="icon"  />
                 <span>{pl.name}</span>
               </div>
             ))}
@@ -316,10 +357,10 @@ function App() {
           </div>
           <div className="user-actions">
             <button className="icon-btn" title="Logout">
-              <img src={logoutIcon} className="icon" alt="logout" />
+              <LogOut className="icon"  />
             </button>
             <button className="icon-btn" title="Settings">
-              <img src={settingsIcon} className="icon" alt="settings" />
+              <Settings className="icon"  />
             </button>
           </div>
         </div>
@@ -341,21 +382,21 @@ function App() {
             <button className="play-main-btn" onClick={() => {
               if (filteredTracks.length > 0) handlePlayTrack(filteredTracks[0]);
             }}>
-              <img src={playArrowIcon} className="icon" alt="play" />
+              <Play className="icon"  />
             </button>
             <button className="icon-btn" onClick={() => handleAction('shuffle')}>
-              <img src={shuffleIcon} className="icon" alt="shuffle" />
+              <Shuffle className="icon"  />
             </button>
             <button className="icon-btn" onClick={() => handleAction('repeat')}>
-              <img src={repeatIcon} className="icon" alt="repeat" />
+              <Repeat className="icon"  />
             </button>
           </div>
           <div className="controls-right">
             <button className="icon-btn" onClick={() => setShowSearch(!showSearch)}>
-              <img src={searchIcon} className="icon" alt="search" />
+              <Search className="icon"  />
             </button>
             <button className="icon-btn">
-              <img src={filterIcon} className="icon" alt="filter" />
+              <Filter className="icon"  />
             </button>
           </div>
         </div>
@@ -405,13 +446,13 @@ function App() {
                       </div>
                     ) : isPaused ? (
                       <div className="track-paused-icon">
-                        <img src={pauseIcon} className="icon" alt="paused" style={{ width: '16px', height: '16px' }} />
+                        <Pause className="icon"  style={{ width: '16px', height: '16px' }} />
                       </div>
                     ) : (
                       <>
                         <span className="track-number">{index + 1}</span>
                         <div className="track-play-icon" onClick={(e) => { e.stopPropagation(); handlePlayTrack(track); }}>
-                          <img src={playArrowIcon} className="icon" alt="play" />
+                          <Play className="icon"  />
                         </div>
                       </>
                     )}
@@ -422,7 +463,7 @@ function App() {
                       {track.thumbnail ? (
                         <img src={track.thumbnail.startsWith('/') ? `http://localhost:3001${track.thumbnail}` : track.thumbnail} style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '4px' }} alt="thumb" />
                       ) : (
-                        <img src={musicNoteIcon} className="icon" alt="music" style={{ width: '16px', height: '16px' }} />
+                        <Music className="icon"  style={{ width: '16px', height: '16px' }} />
                       )}
                     </div>
                     <div className="track-title">{track.title || track.name || track.query || track.url || 'Unknown Track'}</div>
@@ -439,7 +480,7 @@ function App() {
                         setMenuView('main');
                       }} 
                     >
-                      <img src={moreVertIcon} className="icon" alt="more" />
+                      <MoreVertical className="icon"  />
                     </button>
                     {activeMenuId === track.id && (
                       <div className="dropdown-menu">
@@ -458,7 +499,7 @@ function App() {
                               onClick={(e) => { e.stopPropagation(); handleDeleteTrack(e, track); }}
                             >
                               <span>Delete</span>
-                              <img src={deleteIcon} className="icon" alt="delete" style={{ filter: 'brightness(0) invert(1)' }} />
+                              <Trash2 className="icon"  style={{ filter: 'brightness(0) invert(1)' }} />
                             </div>
                           </>
                         ) : (
@@ -508,7 +549,7 @@ function App() {
                     {status.currentTrack.thumbnail ? (
                       <img src={status.currentTrack.thumbnail.startsWith('/') ? `http://localhost:3001${status.currentTrack.thumbnail}` : status.currentTrack.thumbnail} style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '4px' }} alt="thumb" />
                     ) : (
-                      <img src={musicNoteIcon} className="icon" alt="music" style={{ width: '20px', height: '20px' }} />
+                      <Music className="icon"  style={{ width: '20px', height: '20px' }} />
                     )}
                   </div>
                   <div className="queue-track-info">
@@ -530,7 +571,7 @@ function App() {
                       {qTrack.thumbnail ? (
                         <img src={qTrack.thumbnail.startsWith('/') ? `http://localhost:3001${qTrack.thumbnail}` : qTrack.thumbnail} style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '4px' }} alt="thumb" />
                       ) : (
-                        <img src={musicNoteIcon} className="icon" alt="music" style={{ width: '20px', height: '20px' }} />
+                        <Music className="icon"  style={{ width: '20px', height: '20px' }} />
                       )}
                     </div>
                     <div className="queue-track-info">
@@ -582,7 +623,7 @@ function App() {
                 {status.currentTrack.thumbnail ? (
                   <img src={status.currentTrack.thumbnail.startsWith('/') ? `http://localhost:3001${status.currentTrack.thumbnail}` : status.currentTrack.thumbnail} style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '4px' }} alt="thumb" />
                 ) : (
-                  <img src={musicNoteIcon} className="icon" alt="music" />
+                  <Music className="icon"  />
                 )}
               </div>
               <div className="player-track-info">
@@ -596,24 +637,24 @@ function App() {
         <div className="player-center">
           <div className="player-controls">
             <button className="icon-btn" onClick={() => handleAction('shuffle')}>
-              <img src={shuffleIcon} className={`icon ${status.shuffle ? 'active' : ''}`} alt="shuffle" title="Shuffle" />
+              <Shuffle className={`icon ${status.shuffle ? 'active' : ''}`}   />
             </button>
             <button className="icon-btn" onClick={() => handleAction('previous')}>
-              <img src={skipPrevIcon} className="icon" alt="prev" />
+              <SkipBack className="icon"  />
             </button>
             
             <button className="play-circle-btn" onClick={() => {
               if (status.isPlaying && !status.isPaused) handleAction('pause');
               else if (status.currentTrack) handleAction('resume');
             }}>
-              <img src={status.isPlaying && !status.isPaused ? pauseCircleIcon : playCircleIcon} className="icon" alt="play/pause" />
+              {status.isPlaying && !status.isPaused ? <CirclePause className="icon"  /> : <CirclePlay className="icon"  />}
             </button>
             
             <button className="icon-btn" onClick={() => handleAction('skip', { direction: 1 })}>
-              <img src={skipNextIcon} className="icon" alt="next" />
+              <SkipForward className="icon"  />
             </button>
             <button className="icon-btn" onClick={() => handleAction('repeat')} style={{ position: 'relative' }}>
-              <img src={repeatIcon} className={`icon ${status.repeatMode !== 'off' ? 'active' : ''}`} alt="repeat" title="Repeat" />
+              <Repeat className={`icon ${status.repeatMode !== 'off' ? 'active' : ''}`}   />
               {status.repeatMode === 'track' && (
                 <span style={{ position: 'absolute', top: 2, right: 2, fontSize: '10px', fontWeight: 'bold', color: '#fff', background: 'var(--accent)', borderRadius: '50%', width: '12px', height: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>1</span>
               )}
@@ -643,16 +684,16 @@ function App() {
             className="icon-btn"
             onClick={() => setRightPanelMode('queue')}
           >
-            <img src={queueListIcon} className={`icon ${rightPanelMode === 'queue' ? 'active' : ''}`} alt="queue" />
+            <ListMusic className={`icon ${rightPanelMode === 'queue' ? 'active' : ''}`}  />
           </button>
           <button 
             className="icon-btn"
             onClick={() => setRightPanelMode('info')}
           >
-            <img src={infoIcon} className={`icon ${rightPanelMode === 'info' ? 'active' : ''}`} alt="info" />
+            <Info className={`icon ${rightPanelMode === 'info' ? 'active' : ''}`}  />
           </button>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginLeft: '16px' }}>
-            <img src={volumeIcon} className="icon active" alt="volume" style={{ width: '18px', height: '18px' }} />
+            <Volume2 className="icon active"  style={{ width: '18px', height: '18px' }} />
             <input type="range" min="0" max="100" defaultValue="50" className="volume-slider" />
           </div>
         </div>
@@ -677,6 +718,89 @@ function App() {
                 <button type="submit" className="modal-btn create">Create</button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+
+      {/* Delete Track Modal */}
+      {deleteTrackModal && (
+        <div className="modal-overlay" onClick={() => setDeleteTrackModal(null)}>
+          <div className="modal-content" onClick={e => e.stopPropagation()}>
+            <h3>Remove Track</h3>
+            <p><strong>{deleteTrackModal.title || deleteTrackModal.query}</strong></p>
+            <p style={{ marginTop: '8px', fontSize: '14px', color: 'var(--text-secondary)' }}>
+              Do you want to remove this track from the current playlist, or delete it completely from your library?
+            </p>
+            <div className="modal-buttons" style={{ marginTop: '24px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <button 
+                className="modal-btn" 
+                onClick={() => deleteTrackFromPlaylist(deleteTrackModal)}
+                style={{ width: '100%', padding: '12px', background: 'var(--surface-hover)', color: 'white' }}
+              >
+                Remove from Playlist Only
+              </button>
+              <button 
+                className="modal-btn create" 
+                onClick={() => {
+                  const isLocal = deleteTrackModal.type === 'local';
+                  const msg = isLocal 
+                    ? 'Вы уверены, что хотите удалить этот локальный файл? (Он будет навсегда удален с жесткого диска!)' 
+                    : 'Вы уверены, что хотите полностью удалить этот трек из библиотеки?';
+                  if (window.confirm(msg)) {
+                    deleteTrackCompletely(deleteTrackModal);
+                  }
+                }}
+                style={{ width: '100%', padding: '12px', background: 'rgba(255, 60, 60, 0.2)', color: '#ff5555', border: '1px solid rgba(255, 60, 60, 0.5)' }}
+              >
+                Delete Completely from Library
+              </button>
+              <button 
+                className="modal-btn cancel" 
+                onClick={() => setDeleteTrackModal(null)}
+                style={{ width: '100%', padding: '12px', marginTop: '8px' }}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Import Playlist Modal */}
+      {importPlaylistModal && (
+        <div className="modal-overlay" onClick={() => !importing && setImportPlaylistModal(null)}>
+          <div className="modal-content" onClick={e => e.stopPropagation()}>
+            <h3>Import Playlist</h3>
+            <p>Detected playlist <strong>{importPlaylistModal.title}</strong> with {importPlaylistModal.count} tracks.</p>
+            <p style={{ marginTop: '8px', fontSize: '14px', color: 'var(--text-secondary)' }}>
+              Do you want to create a new folder (playlist) for these tracks, or just add them all to the main library?
+            </p>
+            <div className="modal-buttons" style={{ marginTop: '24px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <button 
+                className="modal-btn create" 
+                onClick={() => handleImportPlaylist(true)}
+                disabled={importing}
+                style={{ width: '100%', padding: '12px' }}
+              >
+                {importing ? 'Importing...' : 'Create Playlist & Add Tracks'}
+              </button>
+              <button 
+                className="modal-btn" 
+                onClick={() => handleImportPlaylist(false)}
+                disabled={importing}
+                style={{ width: '100%', padding: '12px', background: 'var(--surface-hover)', color: 'white' }}
+              >
+                {importing ? 'Importing...' : 'Add to Main Library Only'}
+              </button>
+              <button 
+                className="modal-btn cancel" 
+                onClick={() => setImportPlaylistModal(null)}
+                disabled={importing}
+                style={{ width: '100%', padding: '12px', marginTop: '8px' }}
+              >
+                Cancel
+              </button>
+            </div>
           </div>
         </div>
       )}

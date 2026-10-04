@@ -76,22 +76,25 @@ export class GuildPlayer {
             } catch (e) {}
         } else if (type === 'url') {
             let watchUrl = query;
-            if (query.includes('spotify.com')) {
+            if (query.includes('spotify.com') || query.startsWith('spotify:')) {
                 const data = await spotify.getPreview(query);
                 const searchResult = await play.search(`${data.title} ${data.artist}`, { limit: 1 });
                 if (searchResult && searchResult.length > 0) watchUrl = searchResult[0].url;
+                title = data.title;
+                artist = data.artist;
+                thumbnail = data.image; // Use Spotify cover art if available
             } else if (!query.includes('youtube.com') && !query.includes('youtu.be') && !query.includes('soundcloud.com')) {
                 const searchResult = await play.search(query, { limit: 1 });
                 if (searchResult && searchResult.length > 0) watchUrl = searchResult[0].url;
             }
 
-            // Используем yt-dlp для получения чистой прямой ссылки на аудио
+            // Ищем прямую ссылку через yt-dlp
             const info = await youtubedl(watchUrl, { dumpJson: true, f: 'bestaudio', noWarnings: true } as any);
-            title = (info as any).title || query;
-            artist = (info as any).uploader || 'Unknown';
-            streamUrl = (info as any).url || watchUrl; // Свежая прямая ссылка!
-            duration = (info as any).duration || 0;
-            thumbnail = (info as any).thumbnail;
+            if (!title || title === query) title = (info as any).title || query;
+            if (artist === 'Unknown') artist = (info as any).uploader || 'Unknown';
+            streamUrl = (info as any).url || watchUrl;
+            if (!duration) duration = (info as any).duration || 0;
+            if (!thumbnail) thumbnail = (info as any).thumbnail;
         }
 
         return { type, query, title, artist, duration, url: streamUrl, thumbnail };

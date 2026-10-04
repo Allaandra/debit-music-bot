@@ -44,12 +44,14 @@ export default function playerRoutes(client: Client) {
             await guildPlayer.play(track);
 
             // Сохраняем в историю/библиотеку треков, если его еще там нет
-            const existing = await db.get('SELECT id FROM tracks WHERE query = ?', [track.query]);
+            const existing = await db.get('SELECT id, thumbnail FROM tracks WHERE query = ?', [track.query]);
             if (!existing) {
                 await db.run(
-                    'INSERT INTO tracks (title, artist, type, query, duration) VALUES (?, ?, ?, ?, ?)',
-                    [track.title, track.artist, track.type, track.query, track.duration]
+                    'INSERT INTO tracks (title, artist, type, query, duration, thumbnail) VALUES (?, ?, ?, ?, ?, ?)',
+                    [track.title, track.artist, track.type, track.query, track.duration, track.thumbnail]
                 );
+            } else if (!existing.thumbnail && track.thumbnail) {
+                await db.run('UPDATE tracks SET thumbnail = ? WHERE id = ?', [track.thumbnail, existing.id]);
             }
 
             // Автоматически ставим в очередь все следующие треки из базы данных

@@ -29,13 +29,13 @@
     "spotify-url-info": "^3.3.3",
     "sqlite": "^5.1.1",
     "sqlite3": "^6.0.1",
-    "youtube-dl-exec": "^3.1.15"
+    "youtube-dl-exec": "^3.1.15",
+    "tsx": "^4.23.12"
   },
   "devDependencies": {
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.6",
     "@types/node": "^26.3.0",
-    "tsx": "^4.23.12",
     "typescript": "^7.0.2"
   }
 }

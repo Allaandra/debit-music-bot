@@ -12,7 +12,7 @@ async function fixThumbnails() {
     const spotify = spotifyUrlInfo(fetch);
 
     const db = await open({
-        filename: path.join(__dirname, 'database.sqlite'),
+        filename: path.join(__dirname, '..', 'database.sqlite'),
         driver: sqlite3.Database
     });
 
@@ -25,12 +25,12 @@ async function fixThumbnails() {
             let newThumbnail = null;
 
             if (track.type === 'local') {
-                const filePath = path.join(__dirname, 'sounds', track.query);
+                const filePath = path.join(__dirname, '..', 'sounds', track.query);
                 if (fs.existsSync(filePath)) {
                     const metadata = await mm.parseFile(filePath);
                     if (metadata.common.picture && metadata.common.picture.length > 0) {
                         const pic = metadata.common.picture[0];
-                        const coversDir = path.join(__dirname, 'covers');
+                        const coversDir = path.join(__dirname, '..', 'covers');
                         if (!fs.existsSync(coversDir)) fs.mkdirSync(coversDir);
                         const coverName = track.query.replace(/\.[^/.]+$/, "") + '.jpg';
                         fs.writeFileSync(path.join(coversDir, coverName), pic.data);
