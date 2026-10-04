@@ -7,7 +7,7 @@ export default function playerRoutes(client: Client) {
     const router = Router();
 
     router.post('/play', async (req, res) => {
-        const { userId, type, query } = req.body;
+        const { userId, type, query, playlistId, playlistName } = req.body;
 
         if (!userId || !type || !query) {
             return res.status(400).json({ error: 'Не переданы все параметры (userId, type, query)' });
@@ -55,11 +55,29 @@ export default function playerRoutes(client: Client) {
             }
 
             // Автоматически ставим в очередь все следующие треки из базы данных
-            const allTracks = await db.all('SELECT * FROM tracks ORDER BY addedAt DESC');
+            let allTracks = [];
+            if (playlistId) {
+                allTracks = await db.all(`
+                    SELECT t.* FROM tracks t
+                    JOIN playlist_tracks pt ON t.id = pt.track_id
+                    WHERE pt.playlist_id = ?
+                    ORDER BY pt.position ASC
+                `, [playlistId]);
+            } else {
+                allTracks = await db.all('SELECT * FROM tracks ORDER BY addedAt DESC, id DESC');
+            }
             const trackIndex = allTracks.findIndex(t => t.query === track.query);
+console.log('--- DEBUG ---');
+console.log('Target Query:', track.query);
+console.log('First Track Query in DB:', allTracks.length > 0 ? allTracks[0].query : 'None');
+console.log('Found Index:', trackIndex);
+console.log('allTracks length:', allTracks.length);
+console.log('PlaylistId:', playlistId);
+console.log('-------------');
             if (trackIndex !== -1) {
                 // Копируем все треки после текущего в очередь
                 guildPlayer.queue = allTracks.slice(trackIndex + 1);
+                guildPlayer.activePlaylistName = playlistName || 'Main Library';
                 if (guildPlayer.shuffle) {
                     guildPlayer.originalQueue = [...guildPlayer.queue];
                     for (let i = guildPlayer.queue.length - 1; i > 0; i--) {
@@ -122,3 +140,5 @@ export default function playerRoutes(client: Client) {
 
     return router;
 }
+
+

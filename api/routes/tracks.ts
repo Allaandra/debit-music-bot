@@ -10,7 +10,7 @@ export default function tracksRoutes() {
         const { userId } = req.query;
         try {
             const db = await openDb();
-            const tracks = await db.all('SELECT * FROM tracks WHERE owner_id = ? ORDER BY addedAt DESC', [userId || '450362999073406977']);
+            const tracks = await db.all('SELECT * FROM tracks WHERE owner_id = ? ORDER BY addedAt DESC, id DESC', [userId || '450362999073406977']);
             res.json(tracks);
         } catch (e: any) {
             res.status(500).json({ error: e.message });
@@ -24,8 +24,9 @@ export default function tracksRoutes() {
                 const play = (await import('play-dl')).default;
                 const validation = await play.validate(query);
                 if (validation === 'yt_playlist') {
-                    const info = await play.playlist_info(query, { incomplete: true });
-                    return res.json({ status: 'playlist_detected', title: info.title || 'YouTube Playlist', total_tracks: info.videoCount });
+                    const youtubedl = (await import('youtube-dl-exec')).default;
+                    const info = await youtubedl(query, { dumpSingleJson: true, flat: true } as any);
+                    return res.json({ status: 'playlist_detected', title: (info as any).title || 'YouTube Playlist', total_tracks: (info as any).entries?.length || 0 });
                 }
                 if (query.includes('spotify.com/playlist') || query.includes('spotify.com/album')) {
                     const spotifyUrlInfo = (await import('spotify-url-info')).default;
@@ -73,13 +74,14 @@ export default function tracksRoutes() {
             let tracksToImport: any[] = [];
 
             if (validation === 'yt_playlist') {
-                const info = await play.playlist_info(query, { incomplete: true });
-                const tracks = await info.all_videos();
-                tracksToImport = tracks.map(t => ({
+                const youtubedl = (await import('youtube-dl-exec')).default;
+                const info = await youtubedl(query, { dumpSingleJson: true, flat: true } as any);
+                const tracks = (info as any).entries || [];
+                tracksToImport = tracks.map((t: any) => ({
                     title: t.title,
-                    artist: t.channel?.name || 'Unknown',
-                    query: t.url,
-                    duration: t.durationInSec,
+                    artist: t.uploader || t.channel || 'Unknown',
+                    query: t.url || `https://www.youtube.com/watch?v=${t.id}`,
+                    duration: Math.round(t.duration || 0),
                     thumbnail: t.thumbnails ? t.thumbnails[0]?.url : null
                 }));
             } else if (query.includes('spotify.com/playlist') || query.includes('spotify.com/album')) {
@@ -98,15 +100,15 @@ export default function tracksRoutes() {
                 }));
             }
 
-            let position = 1;
-            for (const t of tracksToImport) {
+            const reversedTracks = tracksToImport.map((t, i) => ({ ...t, originalPos: i + 1 })).reverse();
+            for (const t of reversedTracks) {
                 const result = await db.run(
                     'INSERT INTO tracks (title, artist, type, query, duration, thumbnail, owner_id) VALUES (?, ?, ?, ?, ?, ?, ?)',
                     [t.title || 'Unknown', t.artist || 'Unknown', 'url', t.query, t.duration || 0, t.thumbnail, uid]
                 );
                 
                 if (targetPlaylistId) {
-                    await db.run('INSERT INTO playlist_tracks (playlist_id, track_id, position) VALUES (?, ?, ?)', [targetPlaylistId, result.lastID, position++]);
+                    await db.run('INSERT INTO playlist_tracks (playlist_id, track_id, position) VALUES (?, ?, ?)', [targetPlaylistId, result.lastID, t.originalPos]);
                 }
             }
 

@@ -25,7 +25,8 @@ export class GuildPlayer {
     connection: VoiceConnection | null = null;
     
     queue: Track[] = [];
-    originalQueue: Track[] = []; // Для восстановления после шафла
+    originalQueue: Track[] = [];
+    activePlaylistName: string = 'Main Library'; // Для восстановления после шафла
     history: Track[] = [];
     currentTrack: Track | null = null;
     
@@ -131,7 +132,9 @@ export class GuildPlayer {
             ffmpegArgs.push(
                 '-reconnect', '1',
                 '-reconnect_streamed', '1',
-                '-reconnect_delay_max', '5'
+                '-reconnect_delay_max', '5',
+                '-reconnect_on_network_error', '1',
+                '-reconnect_on_http_error', '4xx,5xx'
             );
         }
 
@@ -333,7 +336,8 @@ export class GuildPlayer {
             isPaused: this.isPaused,
             currentTrack: this.currentTrack,
             elapsed,
-            queue: this.queue,        // массив следующих треков для UI
+            queue: this.queue,
+            activePlaylistName: this.activePlaylistName,        // массив следующих треков для UI
             queueLength: this.queue.length,
             shuffle: this.shuffle,
             repeatMode: this.repeatMode

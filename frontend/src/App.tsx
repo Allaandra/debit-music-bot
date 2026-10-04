@@ -216,7 +216,9 @@ function App() {
         body: JSON.stringify({
           userId: USER_ID,
           query: track.query,
-          type: track.type
+          type: track.type,
+          playlistId: activePlaylistId,
+          playlistName: activePlaylistId ? playlists.find(p => p.id === activePlaylistId)?.name : 'Main Library'
         })
       });
     } catch (e) {
@@ -540,7 +542,7 @@ function App() {
       <aside className="queue-area">
         {rightPanelMode === 'queue' ? (
           <>
-            <div className="queue-header">Queue: {playlistName}</div>
+            <div className="queue-header">Queue: {status.activePlaylistName || 'Main Library'}</div>
             <div className="queue-content">
               <div className="queue-section-title">Now playing</div>
               {status.currentTrack ? (
