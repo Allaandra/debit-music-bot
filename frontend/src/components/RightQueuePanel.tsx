@@ -23,7 +23,7 @@ export const RightQueuePanel = () => {
                           ) : (
                             <div className="art-placeholder" style={{ borderRadius: '4px' }}></div>
                           )}
-                          <div className="cd-hole-overlay"></div>
+
                         </div>
                         <div className="queue-track-info">
                           <span className="queue-track-name">{status.currentTrack.title || status.currentTrack.query}</span>
@@ -46,8 +46,7 @@ export const RightQueuePanel = () => {
                             ) : (
                               <div className="art-placeholder" style={{ borderRadius: '4px' }}></div>
                             )}
-                            <div className="cd-hole-overlay"></div>
-                          </div>
+                            </div>
                           <div className="queue-track-info">
                             <span className="queue-track-name">{qTrack.title || qTrack.query}</span>
                             <span className="queue-track-author">{qTrack.artist || 'Unknown'}</span>

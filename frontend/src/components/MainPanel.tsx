@@ -127,7 +127,7 @@ export const MainPanel = () => {
                           ) : (
                             <div className="art-placeholder" style={{ borderRadius: '4px' }}></div>
                           )}
-                          <div className="cd-hole-overlay"></div>
+
                         </div>
                         <span className="track-name">{track.title || track.name || track.query || track.url || 'Unknown Track'}</span>
                       </div>

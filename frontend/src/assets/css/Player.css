@@ -528,12 +528,7 @@ body {
 }
 .track-row.active .track-name,
 .track-row.active .track-num {
-  width: 30px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-weight: 600;
-  color: var(--text-muted);
+  color: var(--accent);
 }
 
 /* RIGHT SIDEBAR */
@@ -896,20 +891,39 @@ body {
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  width: 25%;
-  height: 25%;
+  width: 75%;
+  height: 75%;
   border-radius: 50%;
-  background-color: var(--base-bg);
-  box-shadow: inset 0 2px 5px rgba(0,0,0,0.8), 0 0 0 1px rgba(255,255,255,0.05);
+  background: rgba(0, 0, 0, 0.25); /* semi-transparent black to show cover under it */
+  box-shadow: 
+    inset 0 8px 24px rgba(0,0,0,0.6),
+    inset 0 -2px 8px rgba(255,255,255,0.05),
+    0 0 0 1px rgba(0,0,0,0.6); /* crisp edge of the cutout */
   pointer-events: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.cd-hole-overlay::after {
+  content: '';
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.5);
+  box-shadow: 
+    inset 0 4px 12px rgba(0,0,0,0.9),
+    0 0 0 1px rgba(0,0,0,0.5);
 }
 
 .art-placeholder {
   width: 100%;
   height: 100%;
-  background-color: var(--track-active);
-  border-radius: inherit;
-  border: 1px dashed var(--border-color);
+  border-radius: 16px !important;
+  background: var(--placeholder-bg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .animated-eq {
