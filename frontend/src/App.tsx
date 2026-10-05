@@ -11,12 +11,14 @@ import './assets/css/App.css';
 import './assets/css/Player.css';
 
 function AppLayout() {
-  const { theme } = usePlayer();
+  const { theme, setActiveMenuId, setMenuView } = usePlayer();
   return (
-    <div className={`layout theme-${theme}`}>
-      <LeftSidebar />
-      <MainPanel />
-      <RightSidebar />
+    <div className={`player-app theme-${theme}`} onClick={() => { setActiveMenuId(null); setMenuView('main'); }}>
+      <div className="main-container">
+        <LeftSidebar />
+        <MainPanel />
+        <RightSidebar />
+      </div>
       <PlayerBar />
       <Modals />
     </div>
