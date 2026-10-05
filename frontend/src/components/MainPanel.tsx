@@ -17,7 +17,8 @@ export const MainPanel = () => {
       fetchTracks, fetchPlaylists, fetchStatus, handleAction, handleAddTrack,
       handleImportPlaylist, deleteTrackCompletely, deleteTrackFromPlaylist,
       handleDeleteTrack, handlePlayTrack, handleFileUpload, handleCreatePlaylist,
-      handleAddToPlaylist, formatTime, toggleTheme, handleRightToggle
+      handleAddToPlaylist, formatTime, toggleTheme, handleRightToggle,
+      USER_ID, duration, elapsed, filteredTracks, playlistName
   } = player;
 
   return (
@@ -84,7 +85,7 @@ export const MainPanel = () => {
                   <div className="track-duration-col">Duration</div>
                 </div>
                 
-                {filteredTracks.map((track, index) => {
+                {filteredTracks.map((track: any, index: number) => {
                   const isCurrentTrack = status.currentTrack && (status.currentTrack.id === track.id || status.currentTrack.query === track.query);
                   const isPlaying = isCurrentTrack && status.isPlaying && !status.isPaused;
                   const isPaused = isCurrentTrack && status.isPaused;
@@ -173,7 +174,7 @@ export const MainPanel = () => {
                                 <div style={{ height: '1px', background: 'var(--border-light)', margin: '4px 0' }}></div>
                                 <div style={{ maxHeight: '200px', overflowY: 'auto' }}>
                                   {playlists.length === 0 && <div style={{ padding: '8px 16px', color: 'var(--text-secondary)', fontSize: '14px' }}>No playlists</div>}
-                                  {playlists.map(pl => (
+                                  {playlists.map((pl: any) => (
                                     <div 
                                       key={pl.id} 
                                       className="dropdown-item"

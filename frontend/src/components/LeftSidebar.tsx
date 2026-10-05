@@ -17,7 +17,8 @@ export const LeftSidebar = () => {
       fetchTracks, fetchPlaylists, fetchStatus, handleAction, handleAddTrack,
       handleImportPlaylist, deleteTrackCompletely, deleteTrackFromPlaylist,
       handleDeleteTrack, handlePlayTrack, handleFileUpload, handleCreatePlaylist,
-      handleAddToPlaylist, formatTime, toggleTheme, handleRightToggle
+      handleAddToPlaylist, formatTime, toggleTheme, handleRightToggle,
+      USER_ID, duration, elapsed, filteredTracks, playlistName
   } = player;
 
   return (

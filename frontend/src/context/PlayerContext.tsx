@@ -333,7 +333,8 @@ export const PlayerProvider = ({ children }: { children: React.ReactNode }) => {
       deleteTrackCompletely, deleteTrackFromPlaylist,
       handleDeleteTrack, handlePlayTrack, handleFileUpload,
       handleCreatePlaylist, handleAddToPlaylist, formatTime,
-      toggleTheme, handleRightToggle
+      toggleTheme, handleRightToggle,
+      USER_ID, duration, elapsed, filteredTracks, playlistName
     }}>
       {children}
     </PlayerContext.Provider>
