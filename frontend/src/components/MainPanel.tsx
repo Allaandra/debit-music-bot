@@ -95,28 +95,39 @@ export const MainPanel = () => {
                       key={index} 
                       className={`track-row ${isCurrentTrack ? 'active' : ''}`}
                       onClick={() => {
-                        setSelectedTrack(track);
-                        handlePlayTrack(track);
+                        if (isCurrentTrack && isPlaying) {
+                          handleAction('pause');
+                        } else if (isCurrentTrack && isPaused) {
+                          handleAction('resume');
+                        } else {
+                          setSelectedTrack(track);
+                          handlePlayTrack(track);
+                        }
                       }}
                     >
                       <div className="track-num">
                         {isPlaying ? (
-                          <BarChart2 size={16} />
-                        ) : isPaused ? (
-                          <Pause size={16} />
-                        ) : isCurrentTrack ? (
-                          <Play size={16} fill="currentColor" />
+                          <>
+                            <div className="icon-playing animated-eq">
+                              <span></span><span></span><span></span>
+                            </div>
+                            <Pause size={16} fill="currentColor" className="icon-pause-hover" />
+                          </>
                         ) : (
-                          index + 1
+                          <>
+                            <span className="track-number">{isPaused ? index + 1 : index + 1}</span>
+                            <Play size={16} fill="currentColor" className="icon-play-hover" />
+                          </>
                         )}
                       </div>
                       <div className="track-title-col">
-                        <div className="track-icon">
+                        <div className="track-icon" style={{ position: 'relative' }}>
                           {track.thumbnail ? (
                             <img src={track.thumbnail.startsWith('/') ? `http://localhost:3001${track.thumbnail}` : track.thumbnail} style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '4px' }} alt="thumb" />
                           ) : (
-                            <Music size={16} />
+                            <div className="art-placeholder" style={{ borderRadius: '4px' }}></div>
                           )}
+                          <div className="cd-hole-overlay"></div>
                         </div>
                         <span className="track-name">{track.title || track.name || track.query || track.url || 'Unknown Track'}</span>
                       </div>

@@ -17,12 +17,13 @@ export const RightQueuePanel = () => {
                     <h3 className="section-title">Now playing</h3>
                     {status.currentTrack ? (
                       <div className="queue-track">
-                        <div className="track-icon-lg">
+                        <div className="track-icon-lg" style={{ position: 'relative' }}>
                           {status.currentTrack.thumbnail ? (
                             <img src={status.currentTrack.thumbnail.startsWith('/') ? `http://localhost:3001${status.currentTrack.thumbnail}` : status.currentTrack.thumbnail} style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '4px' }} alt="thumb" />
                           ) : (
-                            <Music size={20} />
+                            <div className="art-placeholder" style={{ borderRadius: '4px' }}></div>
                           )}
+                          <div className="cd-hole-overlay"></div>
                         </div>
                         <div className="queue-track-info">
                           <span className="queue-track-name">{status.currentTrack.title || status.currentTrack.query}</span>
@@ -39,12 +40,13 @@ export const RightQueuePanel = () => {
                     {status.queue && status.queue.length > 0 ? (
                       status.queue.map((qTrack: any, i: number) => (
                         <div className="queue-track" key={i}>
-                          <div className="track-icon-lg">
+                          <div className="track-icon-lg" style={{ position: 'relative' }}>
                             {qTrack.thumbnail ? (
                               <img src={qTrack.thumbnail.startsWith('/') ? `http://localhost:3001${qTrack.thumbnail}` : qTrack.thumbnail} style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '4px' }} alt="thumb" />
                             ) : (
-                              <Music size={20} />
+                              <div className="art-placeholder" style={{ borderRadius: '4px' }}></div>
                             )}
+                            <div className="cd-hole-overlay"></div>
                           </div>
                           <div className="queue-track-info">
                             <span className="queue-track-name">{qTrack.title || qTrack.query}</span>
