@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import './Player.css';
+import './assets/css/Player.css';
 import { 
   Home, Plus, Upload, Music, Settings, LogOut, Search, Filter, 
   Play, SkipBack, SkipForward, Repeat, Shuffle, Volume2, Info, ListMusic,

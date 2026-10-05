@@ -19,10 +19,10 @@ export function startApi(client: Client) {
     app.use('/api', filesRoutes());
 
     // Раздача статики React-приложения
-    app.use(express.static(path.join(__dirname, '..', 'frontend', 'dist')));
-    app.use('/covers', express.static(path.join(__dirname, '..', 'covers')));
+    app.use(express.static(path.join(__dirname, '..', '..', 'frontend', 'dist')));
+    app.use('/covers', express.static(path.join(__dirname, '..', '..', 'covers')));
     app.get(/.*/, (req, res) => {
-        res.sendFile(path.join(__dirname, '..', 'frontend', 'dist', 'index.html'));
+        res.sendFile(path.join(__dirname, '..', '..', 'frontend', 'dist', 'index.html'));
     });
 
     const PORT = 3001;

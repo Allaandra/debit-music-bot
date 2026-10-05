@@ -5,7 +5,7 @@ import path from 'path';
 // Функция для подключения к БД и автоматического создания таблиц
 export async function openDb(): Promise<Database> {
     const db = await open({
-        filename: path.join(__dirname, 'database.sqlite'),
+        filename: path.join(__dirname, '..', 'database.sqlite'),
         driver: sqlite3.Database
     });
 

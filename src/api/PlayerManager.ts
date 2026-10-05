@@ -70,7 +70,7 @@ export class GuildPlayer {
             title = path.basename(query, path.extname(query));
             try {
                 const mm = await import('music-metadata');
-                const metadata = await mm.parseFile(path.join(__dirname, '..', 'sounds', query));
+                const metadata = await mm.parseFile(path.join(__dirname, '..', '..', 'sounds', query));
                 if (metadata.format.duration) duration = Math.round(metadata.format.duration);
                 if (metadata.common.title) title = metadata.common.title;
                 if (metadata.common.artist) artist = metadata.common.artist;
@@ -117,7 +117,7 @@ export class GuildPlayer {
         let input: any = null;
 
         if (track.type === 'local') {
-            input = path.join(__dirname, '..', 'sounds', track.query);
+            input = path.join(__dirname, '..', '..', 'sounds', track.query);
         } else {
             // track.url теперь содержит ПРЯМУЮ ссылку на медиа-файл (googlevideo.com/...)
             input = track.url;

@@ -9,7 +9,7 @@ export default function filesRoutes() {
 
     const storage = multer.diskStorage({
         destination: (req: any, file: any, cb: any) => {
-            const dir = path.join(__dirname, '../..', 'sounds');
+            const dir = path.join(__dirname, '../../..', 'sounds');
             if (!fs.existsSync(dir)) fs.mkdirSync(dir);
             cb(null, dir);
         },
@@ -23,7 +23,7 @@ export default function filesRoutes() {
     async function syncSounds() {
         try {
             const db = await openDb();
-            const dir = path.join(__dirname, '../..', 'sounds');
+            const dir = path.join(__dirname, '../../..', 'sounds');
             if (!fs.existsSync(dir)) fs.mkdirSync(dir);
             const files = fs.readdirSync(dir).filter((f: string) => f.endsWith('.mp3') || f.endsWith('.wav') || f.endsWith('.ogg'));
             
@@ -43,7 +43,7 @@ export default function filesRoutes() {
                         if (metadata.common.artist) artist = metadata.common.artist;
                         if (metadata.common.picture && metadata.common.picture.length > 0) {
                             const pic = metadata.common.picture[0];
-                            const coversDir = path.join(__dirname, '../..', 'covers');
+                            const coversDir = path.join(__dirname, '../../..', 'covers');
                             if (!fs.existsSync(coversDir)) fs.mkdirSync(coversDir);
                             // Имя файла без расширения + .jpg
                             const coverName = file.replace(/\.[^/.]+$/, "") + '.jpg';
@@ -77,7 +77,7 @@ export default function filesRoutes() {
     });
 
     router.get('/sounds', async (req, res) => {
-        const soundsDir = path.join(__dirname, '../..', 'sounds');
+        const soundsDir = path.join(__dirname, '../../..', 'sounds');
         try {
             if (!fs.existsSync(soundsDir)) fs.mkdirSync(soundsDir);
             const files = fs.readdirSync(soundsDir).filter((f: string) => f.endsWith('.mp3') || f.endsWith('.wav') || f.endsWith('.ogg'));
