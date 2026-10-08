@@ -1,5 +1,5 @@
 ﻿import React, { createContext, useContext, useState, useEffect } from 'react';
-import { api, USER_ID } from '../services/api';
+import { api, BASE_URL } from '../services/api';
 
 export const PlayerContext = createContext<any>(null);
 
@@ -13,6 +13,16 @@ export const PlayerProvider = ({ children }: { children: React.ReactNode }) => {
     duration: 0,
     queue: []
   });
+  const [user, setUser] = useState<any>(null);
+  const [loadingUser, setLoadingUser] = useState(true);
+
+  useEffect(() => {
+    api.fetchMe().then(data => {
+      if (data && !data.error) setUser(data);
+      setLoadingUser(false);
+    });
+  }, []);
+
   const [tracks, setTracks] = useState<any[]>([]);
   const [newTrackInput, setNewTrackInput] = useState('');
   const [seekValue, setSeekValue] = useState<number | null>(null);
@@ -79,11 +89,11 @@ export const PlayerProvider = ({ children }: { children: React.ReactNode }) => {
 
   const fetchTracks = async (playlistId: number | null = activePlaylistId) => {
     try {
-      let url = `http://localhost:3001/api/tracks?userId=${USER_ID}`;
+      let url = `${BASE_URL}/tracks`;
       if (playlistId) {
-        url = `http://localhost:3001/api/playlists/${playlistId}/tracks?userId=${USER_ID}`;
+        url = `${BASE_URL}/playlists/${playlistId}/tracks`;
       }
-      const res = await fetch(url);
+      const res = await fetch(url, { credentials: "include" });
       if (res.ok) {
         const data = await res.json();
         setTracks(Array.isArray(data) ? data : (data.tracks || []));
@@ -95,7 +105,7 @@ export const PlayerProvider = ({ children }: { children: React.ReactNode }) => {
 
   const fetchPlaylists = async () => {
     try {
-      const res = await fetch('http://localhost:3001/api/playlists');
+      const res = await fetch(`${BASE_URL}/playlists`, { credentials: "include" });
       const data = await res.json();
       setPlaylists(data);
     } catch (e) {
@@ -106,7 +116,7 @@ export const PlayerProvider = ({ children }: { children: React.ReactNode }) => {
   useEffect(() => {
     const fetchStatus = async () => {
       try {
-        const res = await fetch(`http://localhost:3001/api/status?userId=${USER_ID}`);
+        const res = await fetch(`${BASE_URL}/status`, { credentials: "include" });
         if (res.ok) {
           const data = await res.json();
           setStatus((prev: any) => ({ ...prev, ...data, queue: data.queue || [] }));
@@ -138,7 +148,7 @@ export const PlayerProvider = ({ children }: { children: React.ReactNode }) => {
     if (!selectedTrack || playlists.length === 0) { setTrackPlaylists([]); return; }
     Promise.all(
       playlists.map(pl =>
-        fetch(`http://localhost:3001/api/playlists/${pl.id}/tracks`)
+        fetch(`${BASE_URL}/playlists/${pl.id}/tracks`, { credentials: "include" })
           .then(r => r.json())
           .then((tracks: any[]) => tracks.some((t: any) => t.id === selectedTrack.id) ? pl.name : null)
           .catch(() => null)
@@ -150,11 +160,11 @@ export const PlayerProvider = ({ children }: { children: React.ReactNode }) => {
 
   const handleAction = async (action: string, payload?: any) => {
     try {
-      await fetch('http://localhost:3001/api/action', {
+      await fetch(`${BASE_URL}/action`, { credentials: "include",
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          userId: USER_ID,
+          
           action,
           payload
         })
@@ -168,11 +178,11 @@ export const PlayerProvider = ({ children }: { children: React.ReactNode }) => {
     e.preventDefault();
     if (!newTrackInput) return;
     try {
-      const res = await fetch('http://localhost:3001/api/tracks', {
+      const res = await fetch(`${BASE_URL}/tracks`, { credentials: "include",
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          userId: USER_ID,
+          
           query: newTrackInput,
           type: 'url'
         })
@@ -196,11 +206,11 @@ export const PlayerProvider = ({ children }: { children: React.ReactNode }) => {
     if (!importPlaylistModal) return;
     setImporting(true);
     try {
-      await fetch('http://localhost:3001/api/tracks/import_playlist', {
+      await fetch(`${BASE_URL}/tracks/import_playlist`, { credentials: "include",
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          userId: USER_ID,
+          
           query: importPlaylistModal.query,
           createPlaylist,
           playlistName: importPlaylistModal.title
@@ -218,7 +228,7 @@ export const PlayerProvider = ({ children }: { children: React.ReactNode }) => {
 
   const deleteTrackCompletely = async (track: any) => {
     try {
-      await fetch(`http://localhost:3001/api/tracks/${track.id}?userId=${USER_ID}`, { method: 'DELETE' });
+      await fetch(`${BASE_URL}/tracks/${track.id}`, { credentials: "include", method: 'DELETE' });
       fetchTracks();
       if (selectedTrack && selectedTrack.id === track.id) {
         setSelectedTrack(null);
@@ -232,7 +242,7 @@ export const PlayerProvider = ({ children }: { children: React.ReactNode }) => {
   const deleteTrackFromPlaylist = async (track: any) => {
     if (activePlaylistId === null) return;
     try {
-      await fetch(`http://localhost:3001/api/playlists/${activePlaylistId}/tracks/${track.id}`, { method: 'DELETE' });
+      await fetch(`${BASE_URL}/playlists/${activePlaylistId}/tracks/${track.id}`, { credentials: "include", method: 'DELETE' });
       fetchTracks();
       setDeleteTrackModal(null);
     } catch (e) {
@@ -242,7 +252,7 @@ export const PlayerProvider = ({ children }: { children: React.ReactNode }) => {
 
   const deletePlaylist = async (playlistId: number, deleteTracks: boolean) => {
     try {
-      await fetch(`http://localhost:3001/api/playlists/${playlistId}?deleteTracks=${deleteTracks}`, { method: 'DELETE' });
+      await fetch(`${BASE_URL}/playlists/${playlistId}?deleteTracks=${deleteTracks}`, { credentials: "include", method: 'DELETE' });
       if (activePlaylistId === playlistId) {
         setActivePlaylistId(null);
         fetchTracks(null);
@@ -256,7 +266,7 @@ export const PlayerProvider = ({ children }: { children: React.ReactNode }) => {
 
   const editPlaylist = async (playlistId: number, name?: string, icon?: string) => {
     try {
-       await fetch(`http://localhost:3001/api/playlists/${playlistId}`, {
+       await fetch(`${BASE_URL}/playlists/${playlistId}`, { credentials: "include",
          method: 'PUT',
          headers: { 'Content-Type': 'application/json' },
          body: JSON.stringify({ name, icon })
@@ -287,11 +297,11 @@ export const PlayerProvider = ({ children }: { children: React.ReactNode }) => {
 
   const handlePlayTrack = async (track: any) => {
     try {
-      await fetch('http://localhost:3001/api/play', {
+      await fetch(`${BASE_URL}/play`, { credentials: "include",
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          userId: USER_ID,
+          
           query: track.query,
           type: track.type,
           playlistId: activePlaylistId,
@@ -310,7 +320,7 @@ export const PlayerProvider = ({ children }: { children: React.ReactNode }) => {
     formData.append('file', file);
     
     try {
-      await fetch('http://localhost:3001/api/upload', {
+      await fetch(`${BASE_URL}/upload`, { credentials: "include",
         method: 'POST',
         body: formData
       });
@@ -324,7 +334,7 @@ export const PlayerProvider = ({ children }: { children: React.ReactNode }) => {
     e.preventDefault();
     if (!newPlaylistName.trim()) return;
     try {
-      await fetch('http://localhost:3001/api/playlists', {
+      await fetch(`${BASE_URL}/playlists`, { credentials: "include",
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name: newPlaylistName })
@@ -340,7 +350,7 @@ export const PlayerProvider = ({ children }: { children: React.ReactNode }) => {
   const handleAddToPlaylist = async (e: React.MouseEvent, trackId: number, playlistId: number) => {
     e.stopPropagation();
     try {
-      await fetch(`http://localhost:3001/api/playlists/${playlistId}/tracks`, {
+      await fetch(`${BASE_URL}/playlists/${playlistId}/tracks`, { credentials: "include",
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ trackId })
@@ -390,6 +400,7 @@ export const PlayerProvider = ({ children }: { children: React.ReactNode }) => {
 
   return (
     <PlayerContext.Provider value={{
+      user, loadingUser,
       status, setStatus,
       tracks, setTracks,
       newTrackInput, setNewTrackInput,
@@ -420,7 +431,7 @@ export const PlayerProvider = ({ children }: { children: React.ReactNode }) => {
       handleDeleteTrack, handlePlayTrack, handleFileUpload,
       handleCreatePlaylist, handleAddToPlaylist, formatTime,
       toggleTheme, handleRightToggle,
-      USER_ID, duration, elapsed, filteredTracks, playlistName
+      duration, elapsed, filteredTracks, playlistName
     }}>
       {children}
     </PlayerContext.Provider>

@@ -7,7 +7,7 @@ export default function playlistsRoutes() {
     const router = Router();
 
     router.get('/', async (req, res) => {
-        const { userId } = req.query;
+        const userId = (req as any).user.id;
         try {
             const db = await openDb();
             const playlists = await db.all(`
@@ -16,7 +16,7 @@ export default function playlistsRoutes() {
                 LEFT JOIN playlist_tracks pt ON p.id = pt.playlist_id 
                 WHERE p.owner_id = ? 
                 GROUP BY p.id 
-                ORDER BY p.createdAt DESC`, [userId || '450362999073406977']);
+                ORDER BY p.createdAt DESC`, [userId]);
             res.json(playlists);
         } catch (e: any) {
             res.status(500).json({ error: e.message });
@@ -24,11 +24,12 @@ export default function playlistsRoutes() {
     });
 
     router.post('/', async (req, res) => {
-        const { name, userId } = req.body;
+        const { name } = req.body;
+        const userId = (req as any).user.id;
         if (!name) return res.status(400).json({ error: 'Название обязательно' });
         try {
             const db = await openDb();
-            const result = await db.run('INSERT INTO playlists (name, owner_id) VALUES (?, ?)', [name, userId || '450362999073406977']);
+            const result = await db.run('INSERT INTO playlists (name, owner_id) VALUES (?, ?)', [name, userId]);
             res.json({ status: 'success', id: result.lastID });
         } catch (e: any) {
             res.status(500).json({ error: e.message });

@@ -1,5 +1,6 @@
 import React from 'react';
 import { usePlayer } from '../context/PlayerContext';
+import { BASE_URL } from '../services/api';
 import { Play, Pause, SkipBack, SkipForward, Shuffle, Repeat, Volume2, ListMusic, Info, Search, Filter, Trash2, MoreVertical, Music, BarChart2, Home, Plus, Upload, Settings, LogOut, Palette, ChevronLeft, ChevronRight, Edit2 } from 'lucide-react';
 
 export const LeftSidebar = () => {
@@ -20,7 +21,7 @@ export const LeftSidebar = () => {
       handleImportPlaylist, deleteTrackCompletely, deleteTrackFromPlaylist,
       handleDeleteTrack, handlePlayTrack, handleFileUpload, handleCreatePlaylist,
       handleAddToPlaylist, formatTime, toggleTheme, handleRightToggle,
-      USER_ID, duration, elapsed, filteredTracks, playlistName
+      user, duration, elapsed, filteredTracks, playlistName
   } = player;
 
   React.useEffect(() => {
@@ -116,9 +117,9 @@ export const LeftSidebar = () => {
             </div>
 
             <div className="user-section">
-              <div className="user-avatar"></div>
-              <span className="user-name">{USER_ID}</span>
-              <LogOut size={20} className="text-icon"  />
+              <img src={user?.avatar || ""} className="user-avatar" style={{ backgroundColor: user?.avatar ? "transparent" : "#5865F2" }} alt="" />
+              <span className="user-name">{user?.username || "Guest"}</span>
+              <LogOut size={20} className="text-icon" onClick={() => window.location.href = `${BASE_URL}/auth/logout`} />
               <Palette size={20} className="text-icon palette-btn"  onClick={toggleTheme} />
               <Settings size={20} className="text-icon"  />
             </div>

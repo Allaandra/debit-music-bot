@@ -7,10 +7,10 @@ export default function tracksRoutes() {
     const router = Router();
 
     router.get('/', async (req, res) => {
-        const { userId } = req.query;
+        const userId = (req as any).user.id;
         try {
             const db = await openDb();
-            const tracks = await db.all('SELECT * FROM tracks WHERE owner_id = ? ORDER BY addedAt DESC, id DESC', [userId || '450362999073406977']);
+            const tracks = await db.all('SELECT * FROM tracks WHERE owner_id = ? ORDER BY addedAt DESC, id DESC', [userId]);
             res.json(tracks);
         } catch (e: any) {
             res.status(500).json({ error: e.message });
@@ -18,7 +18,8 @@ export default function tracksRoutes() {
     });
 
     router.post('/', async (req, res) => {
-        const { query, type, userId } = req.body;
+        const { query, type } = req.body;
+        const userId = (req as any).user.id;
         try {
             if (type === 'url') {
                 const play = (await import('play-dl')).default;
@@ -48,7 +49,7 @@ export default function tracksRoutes() {
             const db = await openDb();
             const result = await db.run(
                 'INSERT INTO tracks (title, artist, type, query, duration, thumbnail, owner_id) VALUES (?, ?, ?, ?, ?, ?, ?)',
-                [track.title, track.artist, track.type, track.query, track.duration, track.thumbnail, userId || '450362999073406977']
+                [track.title, track.artist, track.type, track.query, track.duration, track.thumbnail, userId]
             );
             res.json({ status: 'success', id: result.lastID, track });
         } catch (e: any) {
@@ -57,12 +58,13 @@ export default function tracksRoutes() {
     });
 
     router.post('/import_playlist', async (req, res) => {
-        const { query, userId, createPlaylist, playlistName } = req.body;
+        const userId = (req as any).user.id;
+        const { query, createPlaylist, playlistName } = req.body;
         if (!query) return res.status(400).json({ error: 'No query' });
         
         try {
             const db = await openDb();
-            const uid = userId || '450362999073406977';
+            const uid = userId;
             let targetPlaylistId = null;
             
             if (createPlaylist) {
@@ -164,10 +166,10 @@ export default function tracksRoutes() {
     });
 
     router.delete('/:id', async (req, res) => {
-        const { userId } = req.query;
+        const userId = (req as any).user.id;
         try {
             const db = await openDb();
-            const track = await db.get('SELECT * FROM tracks WHERE id = ? AND owner_id = ?', [req.params.id, userId || '450362999073406977']);
+            const track = await db.get('SELECT * FROM tracks WHERE id = ? AND owner_id = ?', [req.params.id, userId]);
             if (!track) return res.status(404).json({ error: 'Трек не найден' });
             
             if (track.type === 'local') {

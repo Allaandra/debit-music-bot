@@ -1,5 +1,6 @@
 import express from 'express';
 import cors from 'cors';
+import cookieParser from 'cookie-parser';
 import { Client } from 'discord.js';
 import path from 'path';
 
@@ -7,12 +8,20 @@ import playerRoutes from './routes/player';
 import tracksRoutes from './routes/tracks';
 import playlistsRoutes from './routes/playlists';
 import filesRoutes from './routes/files';
+import authRoutes from './routes/auth';
+import { requireAuth } from './middlewares/authMiddleware';
 
 export function startApi(client: Client) {
     const app = express();
-    app.use(cors());
+    app.use(cors({ origin: true, credentials: true })); // Allow cookies for cross-origin if needed
     app.use(express.json());
+    app.use(cookieParser());
 
+    app.use('/api/auth', authRoutes());
+    
+    // Protect all other /api routes
+    app.use('/api', requireAuth);
+    
     app.use('/api', playerRoutes(client));
     app.use('/api/tracks', tracksRoutes());
     app.use('/api/playlists', playlistsRoutes());

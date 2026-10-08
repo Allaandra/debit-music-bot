@@ -16,11 +16,13 @@
     "@discordjs/voice": "^0.19.2",
     "@distube/ytdl-core": "^4.16.12",
     "@types/multer": "^2.2.0",
+    "cookie-parser": "^1.4.7",
     "cors": "^2.8.6",
     "discord.js": "^14.27.0",
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
     "ffmpeg-static": "^5.3.0",
+    "jsonwebtoken": "^9.0.3",
     "libsodium-wrappers": "^0.8.4",
     "multer": "^2.4.0",
     "music-metadata": "^11.16.0",
@@ -29,12 +31,14 @@
     "spotify-url-info": "^3.3.3",
     "sqlite": "^5.1.1",
     "sqlite3": "^6.0.1",
-    "youtube-dl-exec": "^3.1.15",
-    "tsx": "^4.23.12"
+    "tsx": "^4.23.12",
+    "youtube-dl-exec": "^3.1.15"
   },
   "devDependencies": {
+    "@types/cookie-parser": "^1.4.10",
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.6",
+    "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "^26.3.0",
     "typescript": "^7.0.2"
   }

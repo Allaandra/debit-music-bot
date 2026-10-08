@@ -7,9 +7,10 @@ export default function playerRoutes(client: Client) {
     const router = Router();
 
     router.post('/play', async (req, res) => {
-        const { userId, type, query, playlistId, playlistName } = req.body;
+        const { type, query, playlistId, playlistName } = req.body;
+        const userId = (req as any).user.id;
 
-        if (!userId || !type || !query) {
+        if (!type || !query) {
             return res.status(400).json({ error: 'Не переданы все параметры (userId, type, query)' });
         }
 
@@ -96,7 +97,7 @@ console.log('-------------');
     });
 
     router.get('/status', async (req, res) => {
-        const userId = req.query.userId;
+        const userId = (req as any).user.id;
         if (!userId) return res.status(400).json({ error: 'Не передан userId' });
 
         try {
@@ -113,8 +114,9 @@ console.log('-------------');
     });
 
     router.post('/action', async (req, res) => {
-        const { userId, action, payload } = req.body;
-        if (!userId || !action) return res.status(400).json({ error: 'Не переданы параметры' });
+        const { action, payload } = req.body;
+        const userId = (req as any).user.id;
+        if (!action) return res.status(400).json({ error: 'Не переданы параметры' });
 
         try {
             const db = await openDb();
