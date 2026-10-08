@@ -135,10 +135,10 @@ export const Modals = () => {
               let newIcon = editPlaylistModal.icon;
               
               if (editPlaylistModal.editMode === 'cover') {
-                const iconInput = form.elements.namedItem('plicon');
+                const iconInput = form.elements.namedItem('plicon') as HTMLInputElement;
                 if (iconInput) newIcon = iconInput.value;
               } else {
-                const input = form.elements.namedItem('plname');
+                const input = form.elements.namedItem('plname') as HTMLInputElement;
                 if (input) newName = input.value;
               }
               

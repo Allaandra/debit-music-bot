@@ -24,9 +24,29 @@ export const RightInfoPanel = () => {
         {selectedTrack ? (
           <div className="ti-stair-2">
             <div className="ti-details">
-              <div className="ti-detail-item">Platform: {selectedTrack.type === 'local' ? 'Local File' : 'YouTube'}</div>
-              {selectedTrack.url && (
-                <div className="ti-detail-item">URL: <a href={selectedTrack.url} target="_blank" rel="noreferrer" style={{color: 'var(--accent)'}}>Link</a></div>
+              <div className="ti-detail-item">Platform: {(() => {
+                if (selectedTrack.type === 'local') return 'Local File';
+                const q = selectedTrack.query || '';
+                if (q.includes('spotify.com') || q.startsWith('spotify:')) return 'Spotify';
+                if (q.includes('youtube.com') || q.includes('youtu.be')) return 'YouTube';
+                if (q.includes('soundcloud.com')) return 'SoundCloud';
+                if (q.startsWith('http')) return 'Web';
+                return 'Search Query';
+              })()}</div>
+              {selectedTrack.type === 'url' && (
+                <div className="ti-detail-item">Streaming: {(() => {
+                  const u = selectedTrack.url || '';
+                  if (u.includes('youtube.com') || u.includes('youtu.be')) return 'YouTube';
+                  if (u.includes('soundcloud.com')) return 'SoundCloud';
+                  return 'YouTube';
+                })()}</div>
+              )}
+              {selectedTrack.type === 'url' && selectedTrack.query && (
+                <div className="ti-detail-item">Source: {(selectedTrack.query.startsWith('http') || selectedTrack.query.startsWith('spotify:')) ? (
+                  <a href={selectedTrack.query} target="_blank" rel="noreferrer" style={{color: 'var(--accent)'}}>URL</a>
+                ) : (
+                  <span>{selectedTrack.query}</span>
+                )}</div>
               )}
               <div className="ti-detail-item">Is in: {trackPlaylists.length > 0 ? trackPlaylists.join(', ') : '-'}</div>
             </div>

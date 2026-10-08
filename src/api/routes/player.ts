@@ -50,7 +50,7 @@ export default function playerRoutes(client: Client) {
                     'INSERT INTO tracks (title, artist, type, query, duration, thumbnail) VALUES (?, ?, ?, ?, ?, ?)',
                     [track.title, track.artist, track.type, track.query, track.duration, track.thumbnail]
                 );
-            } else if (!existing.thumbnail && track.thumbnail) {
+            } else if (track.thumbnail && existing.thumbnail !== track.thumbnail) {
                 await db.run('UPDATE tracks SET thumbnail = ? WHERE id = ?', [track.thumbnail, existing.id]);
             }
 

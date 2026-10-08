@@ -29,7 +29,8 @@ export default function tracksRoutes() {
                     return res.json({ status: 'playlist_detected', title: (info as any).title || 'YouTube Playlist', total_tracks: (info as any).entries?.length || 0 });
                 }
                 if (query.includes('spotify.com/playlist') || query.includes('spotify.com/album')) {
-                    const spotifyUrlInfo = (await import('spotify-url-info')).default;
+                    // @ts-ignore
+                    const spotifyUrlInfo = (await import('spotify-url-info')).default || (await import('spotify-url-info'));
                     // @ts-ignore
                     const spotify = spotifyUrlInfo(fetch);
                     const data = await spotify.getData(query);
@@ -72,11 +73,13 @@ export default function tracksRoutes() {
             const play = (await import('play-dl')).default;
             const validation = await play.validate(query);
             let tracksToImport: any[] = [];
+            let ytInfo: any = null;
+            let fetchedPlaylistCover: string | null = null;
 
             if (validation === 'yt_playlist') {
                 const youtubedl = (await import('youtube-dl-exec')).default;
-                const info = await youtubedl(query, { dumpSingleJson: true, flat: true } as any);
-                const tracks = (info as any).entries || [];
+                ytInfo = await youtubedl(query, { dumpSingleJson: true, flat: true } as any);
+                const tracks = ytInfo.entries || [];
                 tracksToImport = tracks.map((t: any) => ({
                     title: t.title,
                     artist: t.uploader || t.channel || 'Unknown',
@@ -85,18 +88,19 @@ export default function tracksRoutes() {
                     thumbnail: t.thumbnails ? t.thumbnails[0]?.url : null
                 }));
             } else if (query.includes('spotify.com/playlist') || query.includes('spotify.com/album')) {
-                const spotifyUrlInfo = (await import('spotify-url-info')).default;
+                // @ts-ignore
+                const spotifyUrlInfo = (await import('spotify-url-info')).default || (await import('spotify-url-info'));
                 // @ts-ignore
                 const spotify = spotifyUrlInfo(fetch);
                 const data = await spotify.getData(query);
-                const playlistCover = data.coverArt?.sources?.[0]?.url || data.visualIdentity?.image?.[0]?.url || null;
+                fetchedPlaylistCover = data.coverArt?.sources?.[0]?.url || data.visualIdentity?.image?.[0]?.url || null;
                 const tracks = await spotify.getTracks(query);
                 tracksToImport = tracks.map((t: any) => ({
                     title: t.name,
                     artist: t.artist || (t.artists && t.artists[0]?.name) || 'Unknown',
                     query: t.uri || t.external_urls?.spotify || query,
                     duration: Math.round((t.duration || t.duration_ms || 0) / 1000),
-                    thumbnail: playlistCover // Use playlist cover as fallback
+                    thumbnail: fetchedPlaylistCover // Use playlist cover as fallback
                 }));
             }
 
@@ -106,17 +110,43 @@ export default function tracksRoutes() {
                     'INSERT INTO tracks (title, artist, type, query, duration, thumbnail, owner_id) VALUES (?, ?, ?, ?, ?, ?, ?)',
                     [t.title || 'Unknown', t.artist || 'Unknown', 'url', t.query, t.duration || 0, t.thumbnail, uid]
                 );
+                t.dbId = result.lastID; // Save the inserted ID to update later
                 
                 if (targetPlaylistId) {
                     await db.run('INSERT INTO playlist_tracks (playlist_id, track_id, position) VALUES (?, ?, ?)', [targetPlaylistId, result.lastID, t.originalPos]);
                 }
             }
 
+            // Background task to fetch real thumbnails for Spotify tracks
+            if (query.includes('spotify.com/playlist') || query.includes('spotify.com/album')) {
+                setTimeout(async () => {
+                    try {
+                        // @ts-ignore
+                        const spotifyUrlInfo = (await import('spotify-url-info')).default || (await import('spotify-url-info'));
+                        // @ts-ignore
+                        const spotify = spotifyUrlInfo(fetch);
+                        const bgDb = await openDb();
+                        for (const t of reversedTracks) {
+                            try {
+                                const preview = await spotify.getPreview(t.query);
+                                if (preview && preview.image) {
+                                    await bgDb.run('UPDATE tracks SET thumbnail = ? WHERE id = ? AND thumbnail = ?', [preview.image, t.dbId, t.thumbnail]);
+                                }
+                            } catch (err) {
+                                // Ignore preview fetch errors for individual tracks
+                            }
+                        }
+                    } catch (e) {
+                        console.error('Background spotify thumbnail fetch failed', e);
+                    }
+                }, 0);
+            }
+
             if (createPlaylist && targetPlaylistId) {
                 let pIcon = null;
                 if (tracksToImport.length > 0 && tracksToImport[0].thumbnail) pIcon = tracksToImport[0].thumbnail;
-                if (validation === 'yt_playlist' && info && (info as any).thumbnails && (info as any).thumbnails.length > 0) {
-                    pIcon = (info as any).thumbnails[0].url;
+                if (validation === 'yt_playlist' && ytInfo && ytInfo.thumbnails && ytInfo.thumbnails.length > 0) {
+                    pIcon = ytInfo.thumbnails[0].url;
                 }
                 if (query.includes('spotify.com/playlist') || query.includes('spotify.com/album')) {
                     // We already set thumbnail to playlistCover in spotify tracks

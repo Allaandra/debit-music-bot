@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+﻿import React, { createContext, useContext, useState, useEffect } from 'react';
 import { api, USER_ID } from '../services/api';
 
 export const PlayerContext = createContext<any>(null);
@@ -122,6 +122,17 @@ export const PlayerProvider = ({ children }: { children: React.ReactNode }) => {
     const interval = setInterval(fetchStatus, 1000);
     return () => clearInterval(interval);
   }, []);
+
+  useEffect(() => {
+    if (status.currentTrack) {
+      const matchingTrack = tracks.find((t: any) => t.query === status.currentTrack.query);
+      if (matchingTrack) {
+        setSelectedTrack({ ...matchingTrack, ...status.currentTrack });
+      } else {
+        setSelectedTrack(status.currentTrack);
+      }
+    }
+  }, [status.currentTrack?.query, tracks]);
 
   useEffect(() => {
     if (!selectedTrack || playlists.length === 0) { setTrackPlaylists([]); return; }
@@ -266,8 +277,8 @@ export const PlayerProvider = ({ children }: { children: React.ReactNode }) => {
     } else {
       const isLocal = track.type === 'local';
       const msg = isLocal 
-        ? 'Вы уверены, что хотите удалить этот локальный файл? (Он будет навсегда удален с жесткого диска!)' 
-        : 'Вы уверены, что хотите удалить этот трек из библиотеки?';
+        ? 'Р’С‹ СѓРІРµСЂРµРЅС‹, С‡С‚Рѕ С…РѕС‚РёС‚Рµ СѓРґР°Р»РёС‚СЊ СЌС‚РѕС‚ Р»РѕРєР°Р»СЊРЅС‹Р№ С„Р°Р№Р»? (РћРЅ Р±СѓРґРµС‚ РЅР°РІСЃРµРіРґР° СѓРґР°Р»РµРЅ СЃ Р¶РµСЃС‚РєРѕРіРѕ РґРёСЃРєР°!)' 
+        : 'Р’С‹ СѓРІРµСЂРµРЅС‹, С‡С‚Рѕ С…РѕС‚РёС‚Рµ СѓРґР°Р»РёС‚СЊ СЌС‚РѕС‚ С‚СЂРµРє РёР· Р±РёР±Р»РёРѕС‚РµРєРё?';
         
       if (!window.confirm(msg)) return;
       deleteTrackCompletely(track);
@@ -415,6 +426,7 @@ export const PlayerProvider = ({ children }: { children: React.ReactNode }) => {
     </PlayerContext.Provider>
   );
 };
+
 
 
 
