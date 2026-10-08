@@ -1,0 +1,113 @@
+/* RIGHT SIDEBAR */
+.right-sidebar {
+  width: var(--right-sidebar-w);
+  background-color: var(--app-bg);
+  border-left: none;
+  display: flex;
+  flex-direction: column;
+  z-index: 1;
+  margin-left: -24px;
+  transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1), margin-left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  overflow: hidden;
+  position: relative; /* Added for absolute positioning of inner */
+}
+.right-sidebar.collapsed {
+  width: 0;
+  margin-left: 0;
+}
+
+.right-sidebar-inner {
+  width: var(--right-sidebar-w);
+  display: flex;
+  flex-direction: column;
+  position: absolute; /* Anchors to the right so it crops from the left! */
+  right: 0;
+  top: 0;
+  bottom: 0;
+}
+
+.right-sidebar-content {
+  min-height: 0;
+  padding: 0;
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.queue-view {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+}
+
+.queue-stair-1 {
+  background-color: var(--app-bg);
+  padding: 24px 24px 24px 48px;
+  position: relative;
+  z-index: 3;
+  box-shadow: 0 12px 24px var(--shadow-color);
+}
+
+.queue-stair-2 {
+  background-color: rgba(0, 0, 0, 0.15);
+  padding: 24px 24px 24px 48px;
+  position: relative;
+  z-index: 2;
+  box-shadow: 0 12px 24px var(--shadow-color);
+}
+
+.queue-stair-3 {
+  background-color: rgba(0, 0, 0, 0.25);
+  padding: 24px 24px 24px 48px;
+  position: relative;
+  z-index: 1;
+  flex: 1;
+}
+
+.queue-title {
+  font-size: 20px;
+  font-weight: 500;
+  margin: 0;
+}
+.section-title {
+  font-size: 18px;
+  margin-bottom: 16px;
+}
+.queue-track {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+.queue-divider {
+  display: none;
+}
+.track-icon-lg {
+  width: 48px;
+  height: 48px;
+  background-color: rgba(0,0,0,0.2);
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+}
+.queue-track-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.queue-track-name {
+  font-weight: 600;
+  font-size: 14px;
+}
+.queue-track-author {
+  font-size: 12px;
+  color: var(--text-main);
+}
+.next-section {
+  margin-top: 32px;
+}
+
+

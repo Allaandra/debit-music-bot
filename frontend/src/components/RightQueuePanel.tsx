@@ -31,7 +31,7 @@ export const RightQueuePanel = () => {
                         </div>
                       </div>
                     ) : (
-                      <div style={{ color: 'var(--text-secondary)', fontSize: '14px' }}>Empty</div>
+                      <div style={{ color: 'var(--text-muted)', fontSize: '14px' }}>Empty</div>
                     )}
                   </div>
                   
@@ -54,7 +54,7 @@ export const RightQueuePanel = () => {
                         </div>
                       ))
                     ) : (
-                      <div style={{ color: 'var(--text-secondary)', fontSize: '14px' }}>Queue is empty</div>
+                      <div style={{ color: 'var(--text-muted)', fontSize: '14px' }}>Queue is empty</div>
                     )}
                   </div>
                 </div>

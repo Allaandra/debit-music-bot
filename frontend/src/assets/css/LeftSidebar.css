@@ -1,0 +1,186 @@
+/* LEFT SIDEBAR */
+.left-sidebar {
+  width: var(--sidebar-w);
+  background-color: var(--app-bg);
+  display: flex;
+  flex-direction: column;
+  border-right: none;
+  z-index: 1;
+  margin-right: -24px;
+  transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  overflow: hidden; /* This makes the cropping work! */
+}
+
+.sidebar-inner {
+  width: var(--sidebar-w); /* Locks internal width to prevent squishing during animation */
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.left-sidebar.collapsed {
+  width: 104px; /* 80px visible + 24px overlap */
+}
+
+/* We just hide elements that get cropped, with a fade for polish */
+.left-sidebar .search-input,
+.left-sidebar .search-bar-container .icon-btn:not(.toggle-btn),
+.left-sidebar .nav-item span,
+.left-sidebar .user-name,
+.left-sidebar .user-section .text-icon:not(.palette-btn) {
+  transition: opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  opacity: 1;
+  white-space: nowrap; /* Ensure text doesn't wrap while fading */
+}
+
+.left-sidebar.collapsed .search-input,
+.left-sidebar.collapsed .search-bar-container .icon-btn:not(.toggle-btn),
+.left-sidebar.collapsed .nav-item span,
+.left-sidebar.collapsed .user-name,
+.left-sidebar.collapsed .user-section .text-icon:not(.palette-btn) {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.search-bar-container {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 16px 40px 16px 24px;
+  background-color: var(--app-bg);
+  position: relative;
+  z-index: 4;
+  box-shadow: 0 12px 24px var(--shadow-color);
+}
+
+.search-input {
+  flex: 1;
+  min-width: 0;
+  background-color: rgba(0, 0, 0, 0.2);
+  border: 1px solid transparent;
+  border-radius: 20px;
+  padding: 8px 12px;
+  font-size: 13px;
+  outline: none;
+  color: var(--text-main);
+  transition: all 0.2s;
+}
+.search-input::placeholder {
+  color: var(--text-muted);
+}
+.search-input:focus {
+  border-color: var(--accent);
+  background-color: rgba(0, 0, 0, 0.3);
+}
+
+.icon-btn {
+  background-color: rgba(0, 0, 0, 0.2);
+  border: none;
+  border-radius: 50%;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: var(--text-main);
+  transition: all 0.2s;
+  flex-shrink: 0;
+}
+.icon-btn:hover {
+  background-color: var(--shadow-color);
+}
+.icon-btn.transparent {
+  background: transparent;
+  color: var(--text-muted);
+}
+.icon-btn.transparent:hover {
+  background-color: rgba(255,255,255,0.1);
+  color: var(--text-main);
+}
+
+.nav-section {
+  padding: 16px 24px 16px 0;
+  background-color: rgba(0, 0, 0, 0.15);
+  position: relative;
+  z-index: 3;
+  box-shadow: 0 12px 24px var(--shadow-color);
+}
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 10px 24px 10px 30px;
+  cursor: pointer;
+  font-size: 16px;
+  font-weight: 500;
+  color: var(--text-muted);
+  transition: color 0.2s, background-color 0.2s;
+}
+.nav-item:hover, .nav-item.active {
+  background-color: rgba(255,255,255,0.1);
+  color: var(--text-main);
+}
+
+.playlists-section {
+  min-height: 0;
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px 24px 16px 0;
+  display: flex;
+  flex-direction: column;
+  background-color: rgba(0, 0, 0, 0.35);
+  position: relative;
+  z-index: 1;
+}
+.playlists-section .nav-item {
+  font-weight: 400;
+  font-size: 15px;
+}
+.playlists-section .nav-item.new-playlist {
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.user-section {
+  padding: 16px 40px 16px 24px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background-color: var(--app-bg);
+  position: relative;
+  z-index: 2;
+  box-shadow: 0 -12px 24px var(--shadow-color);
+}
+.text-icon {
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: color 0.2s;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.text-icon:hover {
+  color: var(--text-main);
+}
+.user-avatar {
+  width: 32px;
+  height: 32px;
+  background-color: var(--placeholder-bg);
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.user-name {
+  flex: 1;
+  font-size: 14px;
+  color: var(--text-main);
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+
+
+

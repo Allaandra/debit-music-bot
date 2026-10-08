@@ -6,9 +6,13 @@ import { RightSidebar } from './components/RightSidebar';
 import { PlayerBar } from './components/PlayerBar';
 import { Modals } from './components/Modals';
 
-import './assets/css/index.css';
-import './assets/css/App.css';
-import './assets/css/Player.css';
+import './assets/css/Themes.css';
+import './assets/css/Globals.css';
+import './assets/css/LeftSidebar.css';
+import './assets/css/MainPanel.css';
+import './assets/css/RightSidebar.css';
+import './assets/css/PlayerBar.css';
+import './assets/css/Modals.css';
 
 function AppLayout() {
   const { theme, setActiveMenuId, setMenuView } = usePlayer();

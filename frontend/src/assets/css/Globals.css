@@ -1,0 +1,224 @@
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: 'Inter', sans-serif;
+  background-color: var(--base-bg);
+  color: var(--text-main);
+  overflow: hidden;
+}
+
+.player-app {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  padding: 12px;
+  gap: 12px; /* Отделяем нижний плеер */
+  background-color: var(--app-outer-bg);
+}
+
+.main-container {
+  display: flex;
+  flex: 1;
+  background-color: transparent;
+  gap: 0;
+  border-radius: 12px; /* Скругляем все углы */
+  overflow: hidden;
+}
+
+
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 8px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background-color: rgba(255,255,255,0.2);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(255,255,255,0.3);
+}
+
+/* Track Info View */
+.track-info-view {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+.ti-stair-1 {
+  background-color: var(--app-bg);
+  padding: 40px 24px 32px 56px;
+  position: relative;
+  z-index: 3;
+  box-shadow: 0 12px 24px var(--shadow-color);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.ti-stair-2 {
+  background-color: rgba(0, 0, 0, 0.15);
+  padding: 32px 24px 40px 56px;
+  position: relative;
+  z-index: 2;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+.large-art {
+  width: 220px;
+  height: 220px;
+  background-color: var(--placeholder-bg);
+  border-radius: 16px;
+  margin-bottom: 24px;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5); /* Добавляем сочную тень под обложку */
+}
+.cd-circle {
+  width: 160px;
+  height: 160px;
+  border-radius: 50%;
+  border: 1.5px solid #293825;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.cd-hole {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 1.5px solid #293825;
+}
+.ti-title {
+  font-size: 24px;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+.ti-author {
+  font-size: 16px;
+  color: var(--text-main);
+  margin-bottom: 8px;
+}
+.ti-details {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+.ti-detail-item {
+  font-size: 15px;
+}
+
+
+
+
+
+.track-row .icon-play-hover,
+.track-row .icon-pause-hover {
+  display: none;
+}
+.track-row:hover .track-number,
+.track-row:hover .icon-playing {
+  display: none;
+}
+.track-row:hover .icon-play-hover,
+.track-row:hover .icon-pause-hover {
+  display: block;
+}
+
+.cd-hole-overlay {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 75%;
+  height: 75%;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.25); /* semi-transparent black to show cover under it */
+  box-shadow: 
+    inset 0 8px 24px rgba(0,0,0,0.6),
+    inset 0 -2px 8px rgba(255,255,255,0.05),
+    0 0 0 1px rgba(0,0,0,0.6); /* crisp edge of the cutout */
+  pointer-events: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.cd-hole-overlay::after {
+  content: '';
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.5);
+  box-shadow: 
+    inset 0 4px 12px rgba(0,0,0,0.9),
+    0 0 0 1px rgba(0,0,0,0.5);
+}
+
+.art-placeholder {
+  width: 100%;
+  height: 100%;
+  border-radius: 16px !important;
+  background: var(--placeholder-bg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.animated-eq {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 2px;
+  width: 16px;
+  height: 14px;
+}
+.animated-eq span {
+  display: block;
+  width: 3px;
+  background-color: var(--accent);
+  border-radius: 1px;
+  transform-origin: bottom;
+  animation: eq-bounce 0.6s ease-in-out infinite alternate;
+}
+.animated-eq span:nth-child(1) { height: 60%; animation-delay: 0s; }
+.animated-eq span:nth-child(2) { height: 100%; animation-delay: 0.2s; }
+.animated-eq span:nth-child(3) { height: 80%; animation-delay: 0.4s; }
+
+@keyframes eq-bounce {
+  0% { transform: scaleY(0.3); }
+  100% { transform: scaleY(1); }
+}
+
+/* Dropdown Menus */
+.dropdown-menu {
+  text-align: left;
+}
+.dropdown-item {
+  color: var(--text-main);
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  text-align: left;
+  transition: background-color 0.2s;
+  padding: 8px 16px;
+  cursor: pointer;
+  gap: 12px;
+}
+.dropdown-item:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+
+

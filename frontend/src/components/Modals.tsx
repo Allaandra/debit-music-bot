@@ -51,7 +51,7 @@ export const Modals = () => {
           <div className="modal-content" style={{background: 'var(--glass-bg)', backdropFilter: 'blur(20px)', padding: '24px', borderRadius: '12px', border: '1px solid var(--border-light)', maxWidth: '400px'}} onClick={e => e.stopPropagation()}>
             <h3 style={{margin: '0 0 8px 0'}}>Remove Track</h3>
             <p style={{margin: '0 0 16px 0'}}><strong>{deleteTrackModal.title || deleteTrackModal.query}</strong></p>
-            <p style={{ margin: '0 0 24px 0', fontSize: '14px', color: 'var(--text-secondary)' }}>
+            <p style={{ margin: '0 0 24px 0', fontSize: '14px', color: 'var(--text-muted)' }}>
               Do you want to remove this track from the current playlist, or delete it completely from your library?
             </p>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
@@ -94,7 +94,7 @@ export const Modals = () => {
           <div className="modal-content" style={{background: 'var(--glass-bg)', backdropFilter: 'blur(20px)', padding: '24px', borderRadius: '12px', border: '1px solid var(--border-light)', maxWidth: '400px'}} onClick={e => e.stopPropagation()}>
             <h3 style={{margin: '0 0 8px 0'}}>Import Playlist</h3>
             <p style={{margin: '0 0 8px 0'}}>Detected playlist <strong>{importPlaylistModal.title}</strong> with {importPlaylistModal.count} tracks.</p>
-            <p style={{ margin: '0 0 24px 0', fontSize: '14px', color: 'var(--text-secondary)' }}>
+            <p style={{ margin: '0 0 24px 0', fontSize: '14px', color: 'var(--text-muted)' }}>
               Do you want to create a new folder (playlist) for these tracks, or just add them all to the main library?
             </p>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
@@ -179,7 +179,7 @@ export const Modals = () => {
             <p style={{margin: '0 0 16px 0'}}><strong>{deletePlaylistModal.name}</strong></p>
             {deletePlaylistModal.trackCount === 0 ? (
               <>
-                <p style={{ margin: '0 0 24px 0', fontSize: '14px', color: 'var(--text-secondary)' }}>
+                <p style={{ margin: '0 0 24px 0', fontSize: '14px', color: 'var(--text-muted)' }}>
                   This playlist is empty. Are you sure you want to delete it?
                 </p>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
@@ -201,7 +201,7 @@ export const Modals = () => {
               </>
             ) : (
               <>
-                <p style={{ margin: '0 0 24px 0', fontSize: '14px', color: 'var(--text-secondary)' }}>
+                <p style={{ margin: '0 0 24px 0', fontSize: '14px', color: 'var(--text-muted)' }}>
                   This playlist has {deletePlaylistModal.trackCount} tracks. Do you want to delete the playlist only, or also completely delete all its tracks from your library?
                 </p>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>

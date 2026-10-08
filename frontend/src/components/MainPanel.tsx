@@ -68,6 +68,18 @@ export const MainPanel = () => {
       USER_ID, duration, elapsed, filteredTracks, playlistName, sortMethod, setSortMethod
   } = player;
 
+  React.useEffect(() => {
+    const handleClickOutside = () => {
+      setActiveMenuId(null);
+    };
+    if (activeMenuId !== null) {
+      document.addEventListener('click', handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener('click', handleClickOutside);
+    };
+  }, [activeMenuId, setActiveMenuId]);
+
   return (
     <>
       <main className="center-panel">
@@ -231,13 +243,13 @@ export const MainPanel = () => {
                             border: '1px solid var(--border-light)', borderRadius: '8px',
                             minWidth: '150px', padding: '4px 0',
                             boxShadow: '0 4px 12px rgba(0,0,0,0.5)'
-                          }}>
+                          }} onClick={(e) => e.stopPropagation()}>
                             {menuView === 'main' ? (
                               <>
                                 <div 
                                   className="dropdown-item"
                                   onClick={(e) => { e.stopPropagation(); setMenuView('playlists'); }}
-                                  style={{ padding: '8px 16px', cursor: 'pointer', display: 'flex', justifyContent: 'space-between' }}
+                                  style={{ justifyContent: 'space-between' }}
                                 >
                                   <span>Add to playlist</span>
                                   <span style={{ fontSize: '10px', marginTop: '4px' }}>▶</span>
@@ -246,7 +258,7 @@ export const MainPanel = () => {
                                 <div 
                                   className="dropdown-item"
                                   onClick={(e) => { e.stopPropagation(); handleDeleteTrack(e, track); }}
-                                  style={{ padding: '8px 16px', cursor: 'pointer', color: '#ff5555', display: 'flex', justifyContent: 'space-between' }}
+                                  style={{ color: '#ff5555', justifyContent: 'space-between' }}
                                 >
                                   <span>Delete</span>
                                   <Trash2 size={14} />
@@ -257,19 +269,19 @@ export const MainPanel = () => {
                                 <div 
                                   className="dropdown-item"
                                   onClick={(e) => { e.stopPropagation(); setMenuView('main'); }}
-                                  style={{ padding: '8px 16px', cursor: 'pointer', color: 'var(--text-secondary)' }}
+                                  style={{ color: 'var(--text-muted)' }}
                                 >
                                   <span>← Back</span>
                                 </div>
                                 <div style={{ height: '1px', background: 'var(--border-light)', margin: '4px 0' }}></div>
                                 <div style={{ maxHeight: '200px', overflowY: 'auto' }}>
-                                  {playlists.length === 0 && <div style={{ padding: '8px 16px', color: 'var(--text-secondary)', fontSize: '14px' }}>No playlists</div>}
+                                  {playlists.length === 0 && <div style={{ padding: '8px 16px', color: 'var(--text-muted)', fontSize: '14px' }}>No playlists</div>}
                                   {playlists.map((pl: any) => (
                                     <div 
                                       key={pl.id} 
                                       className="dropdown-item"
                                       onClick={(e) => { e.stopPropagation(); handleAddToPlaylist(e, track.id, pl.id); }}
-                                      style={{ padding: '8px 16px', cursor: 'pointer' }}
+                                      
                                     >
                                       <span>{pl.name}</span>
                                     </div>

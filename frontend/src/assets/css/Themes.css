@@ -1,0 +1,55 @@
+:root, .theme-forest {
+  --app-outer-bg: #0a0f0b;
+  --base-bg: #1a241b; 
+  --app-bg: #3c5240;  
+  --panel-bg: #405944; 
+  --bottom-bar-bg: #243326; 
+  --text-main: #f2f7f3;
+  --text-muted: #adc4b0; 
+  --border-color: rgba(255, 255, 255, 0.1);
+  --track-active: rgba(255, 255, 255, 0.08);
+  --accent: #86e59c; 
+  --dark-text: #0b110d;
+  --placeholder-bg: #d1ddd1;
+  --shadow-color: rgba(0, 0, 0, 0.4);
+  --shadow-glow: rgba(134, 229, 156, 0.4);
+  --shadow-glow-strong: rgba(134, 229, 156, 0.8);
+  --sidebar-w: 284px;
+  --right-sidebar-w: 344px;
+}
+
+.theme-dark {
+  --app-outer-bg: #050505;
+  --base-bg: #121212; 
+  --app-bg: #181818;  
+  --panel-bg: #222222; 
+  --bottom-bar-bg: #121212; 
+  --text-main: #ffffff;
+  --text-muted: #a0a0a0; 
+  --border-color: rgba(255, 255, 255, 0.1);
+  --track-active: rgba(255, 255, 255, 0.08);
+  --accent: #86e59c; 
+  --dark-text: #050505;
+  --placeholder-bg: #333333;
+  --shadow-color: rgba(0, 0, 0, 0.6);
+  --shadow-glow: rgba(134, 229, 156, 0.4);
+  --shadow-glow-strong: rgba(134, 229, 156, 0.8);
+}
+
+.theme-light {
+  --app-outer-bg: #d6d6d6;
+  --base-bg: #e5e5e5; 
+  --app-bg: #f5f5f5;  
+  --panel-bg: #ffffff; 
+  --bottom-bar-bg: #f5f5f5; 
+  --text-main: #121212;
+  --text-muted: #666666; 
+  --border-color: rgba(0, 0, 0, 0.1);
+  --track-active: rgba(0, 0, 0, 0.05);
+  --accent: #2ab54c; 
+  --dark-text: #ffffff; 
+  --placeholder-bg: #cccccc;
+  --shadow-color: rgba(0, 0, 0, 0.1);
+  --shadow-glow: rgba(42, 181, 76, 0.3);
+  --shadow-glow-strong: rgba(42, 181, 76, 0.6);
+}
