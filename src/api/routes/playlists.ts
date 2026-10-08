@@ -1,5 +1,7 @@
 import { Router } from 'express';
 import { openDb } from '../../database';
+import path from 'path';
+import fs from 'fs';
 
 export default function playlistsRoutes() {
     const router = Router();
@@ -8,7 +10,13 @@ export default function playlistsRoutes() {
         const { userId } = req.query;
         try {
             const db = await openDb();
-            const playlists = await db.all('SELECT * FROM playlists WHERE owner_id = ? ORDER BY createdAt DESC', [userId || '450362999073406977']);
+            const playlists = await db.all(`
+                SELECT p.*, COUNT(pt.track_id) as trackCount 
+                FROM playlists p 
+                LEFT JOIN playlist_tracks pt ON p.id = pt.playlist_id 
+                WHERE p.owner_id = ? 
+                GROUP BY p.id 
+                ORDER BY p.createdAt DESC`, [userId || '450362999073406977']);
             res.json(playlists);
         } catch (e: any) {
             res.status(500).json({ error: e.message });
@@ -64,6 +72,56 @@ export default function playlistsRoutes() {
         try {
             const db = await openDb();
             await db.run('DELETE FROM playlist_tracks WHERE playlist_id = ? AND track_id = ?', [playlistId, trackId]);
+            res.json({ status: 'success' });
+        } catch (e: any) {
+            res.status(500).json({ error: e.message });
+        }
+    });
+
+    router.put('/:id', async (req, res) => {
+        const { name, icon } = req.body;
+        const playlistId = req.params.id;
+        try {
+            const db = await openDb();
+            const updates = [];
+            const values = [];
+            if (name !== undefined) {
+                updates.push('name = ?');
+                values.push(name);
+            }
+            if (icon !== undefined) {
+                updates.push('icon = ?');
+                values.push(icon);
+            }
+            if (updates.length > 0) {
+                values.push(playlistId);
+                await db.run(`UPDATE playlists SET ${updates.join(', ')} WHERE id = ?`, values);
+            }
+            res.json({ status: 'success' });
+        } catch (e: any) {
+            res.status(500).json({ error: e.message });
+        }
+    });
+
+    router.delete('/:id', async (req, res) => {
+        const { deleteTracks } = req.query;
+        const playlistId = req.params.id;
+        try {
+            const db = await openDb();
+            
+            if (deleteTracks === 'true') {
+                const tracks = await db.all('SELECT t.* FROM tracks t JOIN playlist_tracks pt ON t.id = pt.track_id WHERE pt.playlist_id = ?', [playlistId]);
+                for (const track of tracks) {
+                    if (track.type === 'local') {
+                        const filePath = path.join(__dirname, '../..', 'sounds', track.query);
+                        if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+                    }
+                    await db.run('DELETE FROM tracks WHERE id = ?', [track.id]);
+                }
+            }
+            
+            await db.run('DELETE FROM playlist_tracks WHERE playlist_id = ?', [playlistId]);
+            await db.run('DELETE FROM playlists WHERE id = ?', [playlistId]);
             res.json({ status: 'success' });
         } catch (e: any) {
             res.status(500).json({ error: e.message });

@@ -1,11 +1,13 @@
 import React from 'react';
 import { usePlayer } from '../context/PlayerContext';
-import { Play, Pause, SkipBack, SkipForward, Shuffle, Repeat, Volume2, ListMusic, Info, Search, Filter, Trash2, MoreVertical, Music, BarChart2, Home, Plus, Upload, Settings, LogOut, Palette, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Play, Pause, SkipBack, SkipForward, Shuffle, Repeat, Volume2, ListMusic, Info, Search, Filter, Trash2, MoreVertical, Music, BarChart2, Home, Plus, Upload, Settings, LogOut, Palette, ChevronLeft, ChevronRight, Edit2 } from 'lucide-react';
 
 export const LeftSidebar = () => {
   const player = usePlayer();
+  const [activePlaylistMenuId, setActivePlaylistMenuId] = React.useState<number | null>(null);
   const { 
       status, setStatus, tracks, setTracks, newTrackInput, setNewTrackInput,
+      setEditPlaylistModal, setDeletePlaylistModal,
       seekValue, setSeekValue, playlists, setPlaylists, isModalOpen, setIsModalOpen,
       newPlaylistName, setNewPlaylistName, activeMenuId, setActiveMenuId,
       menuView, setMenuView, activePlaylistId, setActivePlaylistId,
@@ -69,21 +71,34 @@ export const LeftSidebar = () => {
                     setActivePlaylistId(pl.id);
                     fetchTracks(pl.id);
                   }}
-                  style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
+                  style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', position: 'relative' }}
                 >
                   <div style={{ display: 'flex', alignItems: 'center', gap: '16px', overflow: 'hidden' }}>
-                    <Music size={20} style={{ flexShrink: 0 }} />
+                    {pl.icon ? <img src={pl.icon} style={{ width: 20, height: 20, borderRadius: 4, objectFit: 'cover', flexShrink: 0 }} alt="cover" /> : <Music size={20} style={{ flexShrink: 0 }} />}
                     <span className="hide-on-collapse" style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{pl.name}</span>
                   </div>
                   <MoreVertical 
                     size={16} 
                     className="text-icon hide-on-collapse" 
-                    style={{ flexShrink: 0, opacity: 0.7 }}
+                    style={{ flexShrink: 0, opacity: 0.7, position: 'relative' }}
                     onClick={(e) => {
                       e.stopPropagation();
-                      // TODO: Playlist menu
+                      setActivePlaylistMenuId(activePlaylistMenuId === pl.id ? null : pl.id);
                     }} 
                   />
+                  {activePlaylistMenuId === pl.id && (
+                    <div className="dropdown-menu" style={{ position: 'absolute', right: '40px', background: 'var(--glass-bg)', padding: '4px 0', borderRadius: '8px', border: '1px solid var(--border-light)', zIndex: 10, backdropFilter: 'blur(10px)', display: 'flex', flexDirection: 'column', minWidth: '150px', boxShadow: '0 4px 12px rgba(0,0,0,0.5)' }}>
+                      <div className="dropdown-item" style={{display:'flex', gap:'8px', cursor:'pointer'}} onClick={(e) => { e.stopPropagation(); setEditPlaylistModal({ ...pl, editMode: 'rename' }); setActivePlaylistMenuId(null); }}>
+                        <Edit2 size={16} /> Rename
+                      </div>
+                      <div className="dropdown-item" style={{display:'flex', gap:'8px', cursor:'pointer'}} onClick={(e) => { e.stopPropagation(); setEditPlaylistModal({ ...pl, editMode: 'cover' }); setActivePlaylistMenuId(null); }}>
+                        <Palette size={16} /> Edit Cover
+                      </div>
+                      <div className="dropdown-item" style={{display:'flex', gap:'8px', cursor:'pointer', color: '#ff5555'}} onClick={(e) => { e.stopPropagation(); setDeletePlaylistModal(pl); setActivePlaylistMenuId(null); }}>
+                        <Trash2 size={16} /> Delete
+                      </div>
+                    </div>
+                  )}
                 </div>
               ))}
             </div>

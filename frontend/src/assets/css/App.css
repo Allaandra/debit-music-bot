@@ -837,3 +837,6 @@ body {
   background-color: #1db954;
   color: white;
 }
+.delete-option-btn { transition: background 0.2s; } 
+.delete-option-btn:hover { background: rgba(255,255,255,0.2) !important; } 
+.delete-option-btn.danger:hover { background: rgba(255, 60, 60, 0.4) !important; }

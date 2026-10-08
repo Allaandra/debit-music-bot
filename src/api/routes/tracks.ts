@@ -112,6 +112,21 @@ export default function tracksRoutes() {
                 }
             }
 
+            if (createPlaylist && targetPlaylistId) {
+                let pIcon = null;
+                if (tracksToImport.length > 0 && tracksToImport[0].thumbnail) pIcon = tracksToImport[0].thumbnail;
+                if (validation === 'yt_playlist' && info && (info as any).thumbnails && (info as any).thumbnails.length > 0) {
+                    pIcon = (info as any).thumbnails[0].url;
+                }
+                if (query.includes('spotify.com/playlist') || query.includes('spotify.com/album')) {
+                    // We already set thumbnail to playlistCover in spotify tracks
+                    pIcon = tracksToImport.length > 0 ? tracksToImport[0].thumbnail : null;
+                }
+                if (pIcon) {
+                    await db.run('UPDATE playlists SET icon = ? WHERE id = ?', [pIcon, targetPlaylistId]);
+                }
+            }
+
             res.json({ status: 'success', imported: tracksToImport.length, playlistId: targetPlaylistId });
         } catch (e: any) {
             res.status(500).json({ error: e.message });

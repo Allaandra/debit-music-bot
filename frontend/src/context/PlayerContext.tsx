@@ -37,6 +37,8 @@ export const PlayerProvider = ({ children }: { children: React.ReactNode }) => {
   const [importPlaylistModal, setImportPlaylistModal] = useState<any>(null);
   const [importing, setImporting] = useState(false);
   const [deleteTrackModal, setDeleteTrackModal] = useState<any>(null);
+  const [deletePlaylistModal, setDeletePlaylistModal] = useState<any>(null);
+  const [editPlaylistModal, setEditPlaylistModal] = useState<any>(null);
 
   // Layout states
   const [rightCollapsed, setRightCollapsed] = useState(() => {
@@ -227,6 +229,35 @@ export const PlayerProvider = ({ children }: { children: React.ReactNode }) => {
     }
   };
 
+  const deletePlaylist = async (playlistId: number, deleteTracks: boolean) => {
+    try {
+      await fetch(`http://localhost:3001/api/playlists/${playlistId}?deleteTracks=${deleteTracks}`, { method: 'DELETE' });
+      if (activePlaylistId === playlistId) {
+        setActivePlaylistId(null);
+        fetchTracks(null);
+      }
+      fetchPlaylists();
+      setDeletePlaylistModal(null);
+    } catch (e) {
+      console.error('Failed to delete playlist', e);
+    }
+  };
+
+  const editPlaylist = async (playlistId: number, name?: string, icon?: string) => {
+    try {
+       await fetch(`http://localhost:3001/api/playlists/${playlistId}`, {
+         method: 'PUT',
+         headers: { 'Content-Type': 'application/json' },
+         body: JSON.stringify({ name, icon })
+       });
+       fetchPlaylists();
+       if (activePlaylistId === playlistId) fetchTracks(playlistId);
+       setEditPlaylistModal(null);
+    } catch (e) {
+       console.error('Failed to edit playlist', e);
+    }
+  };
+
   const handleDeleteTrack = async (e: React.MouseEvent, track: any) => {
     e.stopPropagation();
     setActiveMenuId(null);
@@ -366,12 +397,15 @@ export const PlayerProvider = ({ children }: { children: React.ReactNode }) => {
       importPlaylistModal, setImportPlaylistModal,
       importing, setImporting,
       deleteTrackModal, setDeleteTrackModal,
+      deletePlaylistModal, setDeletePlaylistModal,
+      editPlaylistModal, setEditPlaylistModal,
       rightCollapsed, setRightCollapsed,
       theme, setTheme, sortMethod, setSortMethod,
       leftCollapsed, setLeftCollapsed,
       fetchTracks, fetchPlaylists,
       handleAction, handleAddTrack, handleImportPlaylist,
       deleteTrackCompletely, deleteTrackFromPlaylist,
+      deletePlaylist, editPlaylist,
       handleDeleteTrack, handlePlayTrack, handleFileUpload,
       handleCreatePlaylist, handleAddToPlaylist, formatTime,
       toggleTheme, handleRightToggle,
