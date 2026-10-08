@@ -2,6 +2,53 @@ import React from 'react';
 import { usePlayer } from '../context/PlayerContext';
 import { Play, Pause, SkipBack, SkipForward, Shuffle, Repeat, Volume2, ListMusic, Info, Search, Filter, Trash2, MoreVertical, Music, BarChart2, Home, Plus, Upload, Settings, LogOut, Palette, ChevronLeft, ChevronRight } from 'lucide-react';
 
+
+const HoverScroller = ({ text, className, style }: any) => {
+  const containerRef = React.useRef<HTMLDivElement>(null);
+  const textRef = React.useRef<HTMLDivElement>(null);
+  const [isHovered, setIsHovered] = React.useState(false);
+  const [overflowAmount, setOverflowAmount] = React.useState(0);
+
+  React.useEffect(() => {
+    const check = () => {
+      if (containerRef.current && textRef.current) {
+        const over = textRef.current.scrollWidth - containerRef.current.clientWidth;
+        setOverflowAmount(over > 0 ? over : 0);
+      }
+    };
+    check();
+    window.addEventListener('resize', check);
+    return () => window.removeEventListener('resize', check);
+  }, [text]);
+
+  const shouldAnimate = isHovered && overflowAmount > 0;
+
+  return (
+    <div 
+      ref={containerRef} 
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+      style={{ overflow: 'hidden', whiteSpace: 'nowrap', width: '100%', minWidth: 0 }}
+    >
+      <div 
+        ref={textRef} 
+        className={className} 
+        style={{ 
+          ...style,
+          display: shouldAnimate ? 'inline-block' : 'block', 
+          whiteSpace: 'nowrap',
+          overflow: shouldAnimate ? 'visible' : 'hidden',
+          textOverflow: shouldAnimate ? 'clip' : 'ellipsis',
+          transition: shouldAnimate ? `transform ${overflowAmount * 0.04}s linear 0.3s` : 'transform 0.3s ease',
+          transform: shouldAnimate ? `translateX(-${overflowAmount + 20}px)` : 'translateX(0)',
+        }}
+      >
+        {text}
+      </div>
+    </div>
+  );
+};
+
 export const MainPanel = () => {
   const player = usePlayer();
   const { 
@@ -18,7 +65,7 @@ export const MainPanel = () => {
       handleImportPlaylist, deleteTrackCompletely, deleteTrackFromPlaylist,
       handleDeleteTrack, handlePlayTrack, handleFileUpload, handleCreatePlaylist,
       handleAddToPlaylist, formatTime, toggleTheme, handleRightToggle,
-      USER_ID, duration, elapsed, filteredTracks, playlistName
+      USER_ID, duration, elapsed, filteredTracks, playlistName, sortMethod, setSortMethod
   } = player;
 
   return (
@@ -35,7 +82,17 @@ export const MainPanel = () => {
             </div>
             
             <div className="glass-card meta-pill">
-              <span className="track-count">Created Sep 2026</span>
+              <span className="track-count">
+                {(() => {
+                  if (!activePlaylistId) return "Home";
+                  const p = playlists.find((pl: any) => pl.id === activePlaylistId);
+                  if (p && p.createdAt) {
+                    const d = new Date(p.createdAt);
+                    return "Created " + d.toLocaleString("en-US", { month: "short", year: "numeric" });
+                  }
+                  return "Created Date Unknown";
+                })()}
+              </span>
             </div>
           </div>
           
@@ -57,31 +114,48 @@ export const MainPanel = () => {
                   )}
                 </button>
                 
-                <div className="controls-right">
+                <div className="controls-right" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  {showSearch && (
+                    <input 
+                      type="text" 
+                      className="search-input"
+                      placeholder="Search..." 
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      style={{ padding: '6px 12px', height: '32px', minWidth: '200px' }}
+                      autoFocus
+                    />
+                  )}
                   <button className="icon-btn" style={{background: 'none', border: 'none', padding: 0}} onClick={() => setShowSearch(!showSearch)}>
                     <Search size={20} color={showSearch ? "var(--accent)" : "var(--text-muted)"} />
                   </button>
-                  <Filter size={20} color="var(--text-muted)" />
+                  
+                  <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                    <button 
+                      className="icon-btn" 
+                      style={{background: 'none', border: 'none', padding: 0}} 
+                      onClick={() => {
+                        const nextSort = sortMethod === 'default' ? 'name' : sortMethod === 'name' ? 'duration' : sortMethod === 'duration' ? 'author' : 'default';
+                        setSortMethod(nextSort);
+                      }}
+                      title="Sort by"
+                    >
+                      <Filter size={20} color={sortMethod !== 'default' ? "var(--accent)" : "var(--text-muted)"} />
+                    </button>
+                    {sortMethod !== 'default' && (
+                      <span style={{ position: 'absolute', top: -12, right: -8, fontSize: '10px', color: 'var(--text-primary)', background: 'var(--accent)', padding: '2px 4px', borderRadius: '4px', pointerEvents: 'none' }}>
+                        {sortMethod}
+                      </span>
+                    )}
+                  </div>
                 </div>
               </div>
-
-              {showSearch && (
-                <div style={{ padding: '0 20px', marginBottom: '10px' }}>
-                  <input 
-                    type="text" 
-                    placeholder="Search..." 
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid var(--border-light)', background: 'var(--glass-bg)', color: 'var(--text-primary)' }}
-                    autoFocus
-                  />
-                </div>
-              )}
               
               <div className="track-list">
                 <div className="track-row track-header">
                   <div className="track-num" style={{textAlign: 'center'}}>№</div>
                   <div className="track-title-col">Title</div>
+                  <div className="track-author-col">Author</div>
                   <div className="track-duration-col">Duration</div>
                 </div>
                 
@@ -128,8 +202,13 @@ export const MainPanel = () => {
                             <div className="art-placeholder" style={{ borderRadius: '4px' }}></div>
                           )}
 
+                                                </div>
+                        <div style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden', paddingRight: '8px', minWidth: 0, width: '100%' }}>
+                          <HoverScroller text={track.title || track.name || track.query || track.url || 'Unknown Track'} className="track-name" />
                         </div>
-                        <span className="track-name">{track.title || track.name || track.query || track.url || 'Unknown Track'}</span>
+                      </div>
+                      <div className="track-author-col">
+                        <HoverScroller text={track.artist || 'Unknown Artist'} />
                       </div>
                       <div className="track-duration-col" style={{position: 'relative'}}>
                         {formatTime(track.duration || 0)} 
@@ -211,3 +290,8 @@ export const MainPanel = () => {
     </>
   );
 };
+
+
+
+
+

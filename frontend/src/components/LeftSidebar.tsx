@@ -69,9 +69,21 @@ export const LeftSidebar = () => {
                     setActivePlaylistId(pl.id);
                     fetchTracks(pl.id);
                   }}
+                  style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
                 >
-                  <Music size={20} />
-                  <span className="hide-on-collapse">{pl.name}</span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '16px', overflow: 'hidden' }}>
+                    <Music size={20} style={{ flexShrink: 0 }} />
+                    <span className="hide-on-collapse" style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{pl.name}</span>
+                  </div>
+                  <MoreVertical 
+                    size={16} 
+                    className="text-icon hide-on-collapse" 
+                    style={{ flexShrink: 0, opacity: 0.7 }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      // TODO: Playlist menu
+                    }} 
+                  />
                 </div>
               ))}
             </div>

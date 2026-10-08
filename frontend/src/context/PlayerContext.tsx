@@ -22,21 +22,45 @@ export const PlayerProvider = ({ children }: { children: React.ReactNode }) => {
   const [newPlaylistName, setNewPlaylistName] = useState('');
   const [activeMenuId, setActiveMenuId] = useState<number | null>(null);
   const [menuView, setMenuView] = useState<'main' | 'playlists'>('main');
-  const [activePlaylistId, setActivePlaylistId] = useState<number | null>(null);
+  const [activePlaylistId, setActivePlaylistId] = useState<number | null>(() => {
+    const saved = localStorage.getItem('activePlaylistId');
+    return saved && saved !== 'undefined' ? JSON.parse(saved) : null;
+  });
   
   const [selectedTrack, setSelectedTrack] = useState<any>(null);
   const [trackPlaylists, setTrackPlaylists] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [showSearch, setShowSearch] = useState(false);
-  const [rightPanelMode, setRightPanelMode] = useState<'queue' | 'info'>('queue');
+  const [rightPanelMode, setRightPanelMode] = useState<'queue' | 'info'>(() => {
+    return (localStorage.getItem('rightPanelMode') as 'queue' | 'info') || 'queue';
+  });
   const [importPlaylistModal, setImportPlaylistModal] = useState<any>(null);
   const [importing, setImporting] = useState(false);
   const [deleteTrackModal, setDeleteTrackModal] = useState<any>(null);
 
   // Layout states
-  const [rightCollapsed, setRightCollapsed] = useState(false);
-  const [theme, setTheme] = useState<'forest' | 'dark' | 'light'>('forest');
-  const [leftCollapsed, setLeftCollapsed] = useState(false);
+  const [rightCollapsed, setRightCollapsed] = useState(() => {
+    const saved = localStorage.getItem('rightCollapsed');
+    return saved ? JSON.parse(saved) : false;
+  });
+  const [theme, setTheme] = useState<'forest' | 'dark' | 'light'>(() => {
+    return (localStorage.getItem('theme') as 'forest' | 'dark' | 'light') || 'forest';
+  });
+  const [leftCollapsed, setLeftCollapsed] = useState(() => {
+    const saved = localStorage.getItem('leftCollapsed');
+    return saved ? JSON.parse(saved) : false;
+  });
+  
+  const [sortMethod, setSortMethod] = useState<'default'|'name'|'duration'|'author'>(() => {
+    return (localStorage.getItem('sortMethod') as 'default'|'name'|'duration'|'author') || 'default';
+  });
+
+  useEffect(() => { localStorage.setItem('activePlaylistId', JSON.stringify(activePlaylistId)); }, [activePlaylistId]);
+  useEffect(() => { localStorage.setItem('rightPanelMode', rightPanelMode); }, [rightPanelMode]);
+  useEffect(() => { localStorage.setItem('rightCollapsed', JSON.stringify(rightCollapsed)); }, [rightCollapsed]);
+  useEffect(() => { localStorage.setItem('theme', theme); }, [theme]);
+  useEffect(() => { localStorage.setItem('leftCollapsed', JSON.stringify(leftCollapsed)); }, [leftCollapsed]);
+  useEffect(() => { localStorage.setItem('sortMethod', sortMethod); }, [sortMethod]);
 
   const toggleTheme = () => {
     setTheme(prev => prev === 'forest' ? 'dark' : prev === 'dark' ? 'light' : 'forest');
@@ -299,6 +323,23 @@ export const PlayerProvider = ({ children }: { children: React.ReactNode }) => {
     const titleMatch = (track.title || track.name || track.query || '').toLowerCase().includes(searchQuery.toLowerCase());
     const artistMatch = (track.artist || '').toLowerCase().includes(searchQuery.toLowerCase());
     return titleMatch || artistMatch;
+  }).sort((a, b) => {
+    if (sortMethod === 'name') {
+      const aName = (a.title || a.name || a.query || '').toLowerCase();
+      const bName = (b.title || b.name || b.query || '').toLowerCase();
+      return aName.localeCompare(bName);
+    }
+    if (sortMethod === 'duration') {
+      const aDur = parseInt(a.duration || '0');
+      const bDur = parseInt(b.duration || '0');
+      return bDur - aDur;
+    }
+    if (sortMethod === 'author') {
+      const aArtist = (a.artist || '').toLowerCase();
+      const bArtist = (b.artist || '').toLowerCase();
+      return aArtist.localeCompare(bArtist);
+    }
+    return 0;
   });
 
   const activePlaylist = playlists.find(p => p.id === activePlaylistId);
@@ -326,7 +367,7 @@ export const PlayerProvider = ({ children }: { children: React.ReactNode }) => {
       importing, setImporting,
       deleteTrackModal, setDeleteTrackModal,
       rightCollapsed, setRightCollapsed,
-      theme, setTheme,
+      theme, setTheme, sortMethod, setSortMethod,
       leftCollapsed, setLeftCollapsed,
       fetchTracks, fetchPlaylists,
       handleAction, handleAddTrack, handleImportPlaylist,
@@ -340,3 +381,6 @@ export const PlayerProvider = ({ children }: { children: React.ReactNode }) => {
     </PlayerContext.Provider>
   );
 };
+
+
+
