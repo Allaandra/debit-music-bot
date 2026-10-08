@@ -90,12 +90,42 @@ export class GuildPlayer {
             }
 
             // Ищем прямую ссылку через yt-dlp
-            const info = await youtubedl(watchUrl, { dumpJson: true, f: 'bestaudio', noWarnings: true } as any);
-            if (!title || title === query) title = (info as any).title || query;
-            if (artist === 'Unknown') artist = (info as any).uploader || 'Unknown';
-            streamUrl = (info as any).url || watchUrl;
-            if (!duration) duration = (info as any).duration || 0;
-            if (!thumbnail) thumbnail = (info as any).thumbnail;
+            const ytDlpOptions: any = { dumpJson: true, f: 'bestaudio', noWarnings: true };
+
+            try {
+                const info = await youtubedl(watchUrl, ytDlpOptions);
+                if (!title || title === query) title = (info as any).title || query;
+                if (artist === 'Unknown') artist = (info as any).uploader || 'Unknown';
+                streamUrl = (info as any).url || watchUrl;
+                if (!duration) duration = (info as any).duration || 0;
+                if (!thumbnail) thumbnail = (info as any).thumbnail;
+            } catch (youtubeErr: any) {
+                console.warn(`[YouTube] Error for ${watchUrl}. Attempting SoundCloud fallback...`);
+                
+                // Формируем поисковый запрос для SoundCloud
+                let scQueryStr = '';
+                if (title && title !== query && title !== 'Unknown') {
+                    scQueryStr = `${title} ${artist !== 'Unknown' ? artist : ''}`.trim();
+                } else if (!query.includes('http')) {
+                    scQueryStr = query;
+                }
+
+                if (scQueryStr) {
+                    try {
+                        const scInfo = await youtubedl(`scsearch1:${scQueryStr}`, { dumpJson: true, f: 'bestaudio', noWarnings: true });
+                        if (!title || title === query) title = (scInfo as any).title || scQueryStr;
+                        if (artist === 'Unknown') artist = (scInfo as any).uploader || 'Unknown';
+                        streamUrl = (scInfo as any).url;
+                        if (!duration) duration = (scInfo as any).duration || 0;
+                        if (!thumbnail) thumbnail = (scInfo as any).thumbnail;
+                        console.log(`[SoundCloud] Fallback success: ${title}`);
+                    } catch (scErr: any) {
+                        throw new Error(`Failed to resolve track on both YouTube and SoundCloud. YouTube Error: ${youtubeErr.message.split('\n')[0]}`);
+                    }
+                } else {
+                    throw new Error(`YouTube blocked the request and cannot fallback to SoundCloud for direct URLs: ${youtubeErr.message.split('\n')[0]}`);
+                }
+            }
         }
 
         return { type, query, title, artist, duration, url: streamUrl, thumbnail };

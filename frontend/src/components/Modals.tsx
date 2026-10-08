@@ -30,6 +30,8 @@ export const Modals = () => {
             <h3 style={{margin: '0 0 16px 0'}}>New Playlist</h3>
             <form onSubmit={handleCreatePlaylist} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
               <input 
+                id="newPlaylistName"
+                name="newPlaylistName"
                 type="text" 
                 autoFocus
                 placeholder="Playlist name..." 
@@ -146,6 +148,7 @@ export const Modals = () => {
             }} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
               {editPlaylistModal.editMode === 'cover' ? (
                 <input 
+                  id="plicon"
                   name="plicon"
                   type="text" 
                   autoFocus
@@ -155,6 +158,7 @@ export const Modals = () => {
                 />
               ) : (
                 <input 
+                  id="plname"
                   name="plname"
                   type="text" 
                   autoFocus

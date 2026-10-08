@@ -63,9 +63,7 @@ export const PlayerBar = () => {
           <div className="progress-bar-container">
             <span>{formatTime(elapsed)}</span>
             <div className="progress-bar" style={{position: 'relative'}}>
-              <input 
-                type="range" 
-                min="0" max={duration || 100} 
+              <input id="seek-bar" name="seekBar" type="range" min="0" max={duration || 100} 
                 value={elapsed} 
                 onChange={(e) => setSeekValue(Number(e.target.value))}
                 onMouseUp={(e) => {
@@ -87,7 +85,7 @@ export const PlayerBar = () => {
           <button style={{background: 'none', border: 'none', padding: 0}} className={rightPanelMode === 'info' && !rightCollapsed ? 'active-icon' : ''} onClick={() => handleRightToggle('info')}><Info size={18} /></button>
           <Volume2 size={18} />
           <div className="volume-bar" style={{position: 'relative'}}>
-            <input type="range" min="0" max="100" defaultValue="50" style={{position: 'absolute', width: '100%', opacity: 0, cursor: 'pointer', zIndex: 2}} />
+            <input id="volume-bar" name="volumeBar" type="range" min="0" max="100" defaultValue="50" style={{position: 'absolute', width: '100%', opacity: 0, cursor: 'pointer', zIndex: 2}} />
             <div className="volume-filled" style={{width: '50%'}}></div>
           </div>
         </div>
@@ -95,3 +93,4 @@ export const PlayerBar = () => {
     </>
   );
 };
+

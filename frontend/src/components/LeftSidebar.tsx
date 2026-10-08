@@ -43,9 +43,7 @@ export const LeftSidebar = () => {
               <button type="button" className="icon-btn toggle-btn" onClick={() => setLeftCollapsed(!leftCollapsed)}>
                 {leftCollapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
               </button>
-              <input 
-                type="text" 
-                className="search-input" 
+              <input id="search-input" name="searchInput" type="text" className="search-input" 
                 placeholder="url / name" 
                 value={newTrackInput}
                 onChange={(e) => setNewTrackInput(e.target.value)}
@@ -53,7 +51,7 @@ export const LeftSidebar = () => {
               <button type="submit" className="icon-btn"><Plus size={16} /></button>
               <label className="icon-btn" style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 <Upload size={16} />
-                <input type="file" accept=".mp3,.wav,.ogg" style={{ display: 'none' }} onChange={handleFileUpload} />
+                <input id="fileUpload" name="fileUpload" type="file" accept=".mp3,.wav,.ogg" style={{ display: 'none' }} onChange={handleFileUpload} />
               </label>
             </form>
             
@@ -129,5 +127,6 @@ export const LeftSidebar = () => {
     </>
   );
 };
+
 
 

@@ -128,9 +128,7 @@ export const MainPanel = () => {
                 
                 <div className="controls-right" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                   {showSearch && (
-                    <input 
-                      type="text" 
-                      className="search-input"
+                    <input id="main-search-input" name="mainSearchInput" type="text" className="search-input"
                       placeholder="Search..." 
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
@@ -302,6 +300,7 @@ export const MainPanel = () => {
     </>
   );
 };
+
 
 
 

@@ -2,8 +2,12 @@ import sqlite3 from 'sqlite3';
 import { open, Database } from 'sqlite';
 import path from 'path';
 
+let dbInstance: Database | null = null;
+
 // Функция для подключения к БД и автоматического создания таблиц
 export async function openDb(): Promise<Database> {
+    if (dbInstance) return dbInstance;
+
     const db = await open({
         filename: path.join(__dirname, '..', 'database.sqlite'),
         driver: sqlite3.Database
@@ -59,6 +63,6 @@ export async function openDb(): Promise<Database> {
         await db.exec(`ALTER TABLE tracks ADD COLUMN thumbnail TEXT`);
     } catch {}
 
-
-    return db;
+    dbInstance = db;
+    return dbInstance;
 }
