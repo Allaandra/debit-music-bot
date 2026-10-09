@@ -77,20 +77,35 @@ export class GuildPlayer {
             } catch (e) {}
         } else if (type === 'url') {
             let watchUrl = query;
+            let isDirectQuery = false;
+
             if (query.includes('spotify.com') || query.startsWith('spotify:')) {
                 const data = await spotify.getPreview(query);
-                const searchResult = await play.search(`${data.title} ${data.artist}`, { limit: 1 });
-                if (searchResult && searchResult.length > 0) watchUrl = searchResult[0].url;
                 title = data.title;
                 artist = data.artist;
                 thumbnail = data.image; // Use Spotify cover art if available
+                watchUrl = `scsearch1:${title} ${artist}`; // Bypass YT completely
+                isDirectQuery = true;
             } else if (!query.includes('youtube.com') && !query.includes('youtu.be') && !query.includes('soundcloud.com')) {
-                const searchResult = await play.search(query, { limit: 1 });
-                if (searchResult && searchResult.length > 0) watchUrl = searchResult[0].url;
+                // If it's a simple text query, skip play-dl YouTube search and go straight to SoundCloud
+                watchUrl = `scsearch1:${query}`;
+                isDirectQuery = true;
             }
 
-            // Ищем прямую ссылку через yt-dlp
-            const ytDlpOptions: any = { dumpJson: true, f: 'bestaudio', noWarnings: true };
+            const ytDlpOptions: any = { 
+                dumpJson: true, 
+                f: 'bestaudio', 
+                noWarnings: true,
+                noPlaylist: true,
+                noCallHome: true,
+                skipDownload: true,
+            };
+
+            if (process.env.YOUTUBE_COOKIES_FILE) {
+                ytDlpOptions.cookies = path.resolve(process.env.YOUTUBE_COOKIES_FILE);
+            } else if (process.env.YOUTUBE_BROWSER_COOKIES) {
+                ytDlpOptions.cookiesFromBrowser = process.env.YOUTUBE_BROWSER_COOKIES;
+            }
 
             try {
                 const info = await youtubedl(watchUrl, ytDlpOptions);
@@ -102,17 +117,29 @@ export class GuildPlayer {
             } catch (youtubeErr: any) {
                 console.warn(`[YouTube] Error for ${watchUrl}. Attempting SoundCloud fallback...`);
                 
-                // Формируем поисковый запрос для SoundCloud
                 let scQueryStr = '';
-                if (title && title !== query && title !== 'Unknown') {
+                if (isDirectQuery) {
+                    scQueryStr = watchUrl.replace('scsearch1:', '');
+                } else if (title && title !== query && title !== 'Unknown') {
                     scQueryStr = `${title} ${artist !== 'Unknown' ? artist : ''}`.trim();
                 } else if (!query.includes('http')) {
                     scQueryStr = query;
+                } else if (query.includes('youtube.com') || query.includes('youtu.be')) {
+                    // Fetch title via oEmbed to bypass IP bans
+                    try {
+                        const res = await fetch(`https://www.youtube.com/oembed?url=${query}&format=json`);
+                        const json = await res.json();
+                        if (json && json.title) {
+                            scQueryStr = json.title;
+                        }
+                    } catch (e) {
+                        console.error("Failed to fetch oEmbed title for fallback");
+                    }
                 }
 
                 if (scQueryStr) {
                     try {
-                        const scInfo = await youtubedl(`scsearch1:${scQueryStr}`, { dumpJson: true, f: 'bestaudio', noWarnings: true });
+                        const scInfo = await youtubedl(`scsearch1:${scQueryStr}`, { dumpJson: true, f: 'bestaudio', noWarnings: true } as any);
                         if (!title || title === query) title = (scInfo as any).title || scQueryStr;
                         if (artist === 'Unknown') artist = (scInfo as any).uploader || 'Unknown';
                         streamUrl = (scInfo as any).url;

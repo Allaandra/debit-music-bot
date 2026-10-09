@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { Client } from 'discord.js';
 import { joinVoiceChannel } from '@discordjs/voice';
-import { openDb } from '../../database';
+import { prisma } from '../../database'; // Используем новый Prisma Client
 
 export default function playerRoutes(client: Client) {
     const router = Router();
@@ -15,8 +15,9 @@ export default function playerRoutes(client: Client) {
         }
 
         try {
-            const db = await openDb();
-            const session = await db.get('SELECT * FROM active_sessions WHERE userId = ?', [userId]);
+            const session = await prisma.activeSession.findUnique({
+                where: { userId }
+            });
 
             if (!session) {
                 return res.status(404).json({ error: 'Сессия не найдена' });
@@ -45,39 +46,75 @@ export default function playerRoutes(client: Client) {
             await guildPlayer.play(track);
 
             // Сохраняем в историю/библиотеку треков, если его еще там нет
-            const existing = await db.get('SELECT id, thumbnail FROM tracks WHERE query = ?', [track.query]);
+            const existing = await prisma.track.findFirst({
+                where: { query: track.query }
+            });
+            
             if (!existing) {
-                await db.run(
-                    'INSERT INTO tracks (title, artist, type, query, duration, thumbnail) VALUES (?, ?, ?, ?, ?, ?)',
-                    [track.title, track.artist, track.type, track.query, track.duration, track.thumbnail]
-                );
+                await prisma.track.create({
+                    data: {
+                        title: track.title,
+                        artist: track.artist || 'Unknown',
+                        type: track.type,
+                        query: track.query,
+                        duration: track.duration,
+                        thumbnail: track.thumbnail
+                    }
+                });
             } else if (track.thumbnail && existing.thumbnail !== track.thumbnail) {
-                await db.run('UPDATE tracks SET thumbnail = ? WHERE id = ?', [track.thumbnail, existing.id]);
+                await prisma.track.update({
+                    where: { id: existing.id },
+                    data: { thumbnail: track.thumbnail }
+                });
             }
 
             // Автоматически ставим в очередь все следующие треки из базы данных
-            let allTracks = [];
+            let allTracks: any[] = [];
             if (playlistId) {
-                allTracks = await db.all(`
-                    SELECT t.* FROM tracks t
-                    JOIN playlist_tracks pt ON t.id = pt.track_id
-                    WHERE pt.playlist_id = ?
-                    ORDER BY pt.position ASC
-                `, [playlistId]);
+                const playlist = await prisma.playlist.findUnique({
+                    where: { id: parseInt(playlistId) },
+                    include: {
+                        tracks: {
+                            orderBy: { position: 'asc' },
+                            include: { track: true }
+                        }
+                    }
+                });
+                if (playlist) {
+                    allTracks = playlist.tracks.map(pt => pt.track);
+                }
             } else {
-                allTracks = await db.all('SELECT * FROM tracks ORDER BY addedAt DESC, id DESC');
+                allTracks = await prisma.track.findMany({
+                    orderBy: [
+                        { addedAt: 'desc' },
+                        { id: 'desc' }
+                    ]
+                });
             }
+            
             const trackIndex = allTracks.findIndex(t => t.query === track.query);
-console.log('--- DEBUG ---');
-console.log('Target Query:', track.query);
-console.log('First Track Query in DB:', allTracks.length > 0 ? allTracks[0].query : 'None');
-console.log('Found Index:', trackIndex);
-console.log('allTracks length:', allTracks.length);
-console.log('PlaylistId:', playlistId);
-console.log('-------------');
+            
+            console.log('--- DEBUG ---');
+            console.log('Target Query:', track.query);
+            console.log('First Track Query in DB:', allTracks.length > 0 ? allTracks[0].query : 'None');
+            console.log('Found Index:', trackIndex);
+            console.log('allTracks length:', allTracks.length);
+            console.log('PlaylistId:', playlistId);
+            console.log('-------------');
+            
             if (trackIndex !== -1) {
                 // Копируем все треки после текущего в очередь
-                guildPlayer.queue = allTracks.slice(trackIndex + 1);
+                // Приводим Prisma-типы к типам нашего PlayerManager (Track)
+                const queueTracks = allTracks.slice(trackIndex + 1).map(t => ({
+                    type: t.type as 'local' | 'url',
+                    query: t.query,
+                    title: t.title,
+                    artist: t.artist || 'Unknown',
+                    duration: t.duration || 0,
+                    thumbnail: t.thumbnail || undefined
+                }));
+
+                guildPlayer.queue = queueTracks;
                 guildPlayer.activePlaylistName = playlistName || 'Main Library';
                 if (guildPlayer.shuffle) {
                     guildPlayer.originalQueue = [...guildPlayer.queue];
@@ -101,8 +138,9 @@ console.log('-------------');
         if (!userId) return res.status(400).json({ error: 'Не передан userId' });
 
         try {
-            const db = await openDb();
-            const session = await db.get('SELECT * FROM active_sessions WHERE userId = ?', [userId]);
+            const session = await prisma.activeSession.findUnique({
+                where: { userId }
+            });
             if (!session) return res.status(404).json({ error: 'Сессия не найдена' });
 
             const playerManager = (await import('../PlayerManager')).PlayerManager;
@@ -119,8 +157,9 @@ console.log('-------------');
         if (!action) return res.status(400).json({ error: 'Не переданы параметры' });
 
         try {
-            const db = await openDb();
-            const session = await db.get('SELECT * FROM active_sessions WHERE userId = ?', [userId]);
+            const session = await prisma.activeSession.findUnique({
+                where: { userId }
+            });
             if (!session) return res.status(404).json({ error: 'Сессия не найдена' });
 
             const playerManager = (await import('../PlayerManager')).PlayerManager;
@@ -142,5 +181,3 @@ console.log('-------------');
 
     return router;
 }
-
-

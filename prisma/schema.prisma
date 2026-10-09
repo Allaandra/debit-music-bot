@@ -1,0 +1,56 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model ActiveSession {
+  userId    String @id
+  guildId   String
+  channelId String
+
+  @@map("active_sessions")
+}
+
+model Track {
+  id        Int       @id @default(autoincrement())
+  ownerId   String    @default("450362999073406977") @map("owner_id")
+  title     String
+  artist    String?
+  type      String
+  query     String
+  duration  Int?
+  thumbnail String?
+  addedAt   DateTime? @default(now())
+
+  playlists PlaylistTrack[]
+
+  @@map("tracks")
+}
+
+model Playlist {
+  id        Int       @id @default(autoincrement())
+  ownerId   String    @default("450362999073406977") @map("owner_id")
+  name      String
+  icon      String?
+  createdAt DateTime? @default(now())
+
+  tracks PlaylistTrack[]
+
+  @@map("playlists")
+}
+
+model PlaylistTrack {
+  playlistId Int   @map("playlist_id")
+  trackId    Int   @map("track_id")
+  position   Int?
+
+  playlist Playlist @relation(fields: [playlistId], references: [id], onDelete: Cascade)
+  track    Track    @relation(fields: [trackId], references: [id], onDelete: Cascade)
+
+  @@id([playlistId, trackId])
+  @@map("playlist_tracks")
+}

@@ -15,6 +15,7 @@
   "dependencies": {
     "@discordjs/voice": "^0.19.2",
     "@distube/ytdl-core": "^4.16.12",
+    "@prisma/client": "^5.22.0",
     "@types/multer": "^2.2.0",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.6",
@@ -27,6 +28,7 @@
     "multer": "^2.4.0",
     "music-metadata": "^11.16.0",
     "play-dl": "^1.9.7",
+    "prisma": "^5.22.0",
     "spotify-uri": "^4.1.0",
     "spotify-url-info": "^3.3.3",
     "sqlite": "^5.1.1",

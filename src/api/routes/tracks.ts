@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { openDb } from '../../database';
+import { prisma } from '../../database';
 import path from 'path';
 import fs from 'fs';
 
@@ -9,8 +9,13 @@ export default function tracksRoutes() {
     router.get('/', async (req, res) => {
         const userId = (req as any).user.id;
         try {
-            const db = await openDb();
-            const tracks = await db.all('SELECT * FROM tracks WHERE owner_id = ? ORDER BY addedAt DESC, id DESC', [userId]);
+            const tracks = await prisma.track.findMany({
+                where: { ownerId: userId },
+                orderBy: [
+                    { addedAt: 'desc' },
+                    { id: 'desc' }
+                ]
+            });
             res.json(tracks);
         } catch (e: any) {
             res.status(500).json({ error: e.message });
@@ -46,12 +51,18 @@ export default function tracksRoutes() {
             const guildPlayer = playerManager.getPlayer('default'); // Just for resolve
             const track = await guildPlayer.resolveTrack(type, query);
             
-            const db = await openDb();
-            const result = await db.run(
-                'INSERT INTO tracks (title, artist, type, query, duration, thumbnail, owner_id) VALUES (?, ?, ?, ?, ?, ?, ?)',
-                [track.title, track.artist, track.type, track.query, track.duration, track.thumbnail, userId]
-            );
-            res.json({ status: 'success', id: result.lastID, track });
+            const result = await prisma.track.create({
+                data: {
+                    title: track.title,
+                    artist: track.artist || 'Unknown',
+                    type: track.type,
+                    query: track.query,
+                    duration: track.duration,
+                    thumbnail: track.thumbnail,
+                    ownerId: userId
+                }
+            });
+            res.json({ status: 'success', id: result.id, track });
         } catch (e: any) {
             res.status(500).json({ error: e.message });
         }
@@ -63,13 +74,16 @@ export default function tracksRoutes() {
         if (!query) return res.status(400).json({ error: 'No query' });
         
         try {
-            const db = await openDb();
-            const uid = userId;
-            let targetPlaylistId = null;
+            let targetPlaylistId: number | null = null;
             
             if (createPlaylist) {
-                const result = await db.run('INSERT INTO playlists (name, owner_id) VALUES (?, ?)', [playlistName || 'Imported Playlist', uid]);
-                targetPlaylistId = result.lastID;
+                const result = await prisma.playlist.create({
+                    data: {
+                        name: playlistName || 'Imported Playlist',
+                        ownerId: userId
+                    }
+                });
+                targetPlaylistId = result.id;
             }
 
             const play = (await import('play-dl')).default;
@@ -108,14 +122,27 @@ export default function tracksRoutes() {
 
             const reversedTracks = tracksToImport.map((t, i) => ({ ...t, originalPos: i + 1 })).reverse();
             for (const t of reversedTracks) {
-                const result = await db.run(
-                    'INSERT INTO tracks (title, artist, type, query, duration, thumbnail, owner_id) VALUES (?, ?, ?, ?, ?, ?, ?)',
-                    [t.title || 'Unknown', t.artist || 'Unknown', 'url', t.query, t.duration || 0, t.thumbnail, uid]
-                );
-                t.dbId = result.lastID; // Save the inserted ID to update later
+                const result = await prisma.track.create({
+                    data: {
+                        title: t.title || 'Unknown',
+                        artist: t.artist || 'Unknown',
+                        type: 'url',
+                        query: t.query,
+                        duration: t.duration || 0,
+                        thumbnail: t.thumbnail,
+                        ownerId: userId
+                    }
+                });
+                t.dbId = result.id; // Save the inserted ID to update later
                 
                 if (targetPlaylistId) {
-                    await db.run('INSERT INTO playlist_tracks (playlist_id, track_id, position) VALUES (?, ?, ?)', [targetPlaylistId, result.lastID, t.originalPos]);
+                    await prisma.playlistTrack.create({
+                        data: {
+                            playlistId: targetPlaylistId,
+                            trackId: result.id,
+                            position: t.originalPos
+                        }
+                    });
                 }
             }
 
@@ -127,12 +154,19 @@ export default function tracksRoutes() {
                         const spotifyUrlInfo = (await import('spotify-url-info')).default || (await import('spotify-url-info'));
                         // @ts-ignore
                         const spotify = spotifyUrlInfo(fetch);
-                        const bgDb = await openDb();
+                        
                         for (const t of reversedTracks) {
                             try {
                                 const preview = await spotify.getPreview(t.query);
                                 if (preview && preview.image) {
-                                    await bgDb.run('UPDATE tracks SET thumbnail = ? WHERE id = ? AND thumbnail = ?', [preview.image, t.dbId, t.thumbnail]);
+                                    // Update the track with the new thumbnail, if it hasn't been changed manually
+                                    await prisma.track.updateMany({
+                                        where: { 
+                                            id: t.dbId,
+                                            thumbnail: t.thumbnail 
+                                        },
+                                        data: { thumbnail: preview.image }
+                                    });
                                 }
                             } catch (err) {
                                 // Ignore preview fetch errors for individual tracks
@@ -155,7 +189,10 @@ export default function tracksRoutes() {
                     pIcon = tracksToImport.length > 0 ? tracksToImport[0].thumbnail : null;
                 }
                 if (pIcon) {
-                    await db.run('UPDATE playlists SET icon = ? WHERE id = ?', [pIcon, targetPlaylistId]);
+                    await prisma.playlist.update({
+                        where: { id: targetPlaylistId },
+                        data: { icon: pIcon }
+                    });
                 }
             }
 
@@ -168,8 +205,12 @@ export default function tracksRoutes() {
     router.delete('/:id', async (req, res) => {
         const userId = (req as any).user.id;
         try {
-            const db = await openDb();
-            const track = await db.get('SELECT * FROM tracks WHERE id = ? AND owner_id = ?', [req.params.id, userId]);
+            const track = await prisma.track.findFirst({
+                where: { 
+                    id: parseInt(req.params.id), 
+                    ownerId: userId 
+                }
+            });
             if (!track) return res.status(404).json({ error: 'Трек не найден' });
             
             if (track.type === 'local') {
@@ -179,9 +220,13 @@ export default function tracksRoutes() {
                 }
             }
             
-            await db.run('DELETE FROM tracks WHERE id = ?', [req.params.id]);
+            await prisma.track.delete({
+                where: { id: track.id }
+            });
             res.json({ status: 'success' });
-        } catch (e: any) { res.status(500).json({ error: e.message }); }
+        } catch (e: any) { 
+            res.status(500).json({ error: e.message }); 
+        }
     });
 
     return router;

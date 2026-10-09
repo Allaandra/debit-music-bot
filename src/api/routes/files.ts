@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { openDb } from '../../database';
+import { prisma } from '../../database';
 import path from 'path';
 import fs from 'fs';
 import multer from 'multer';
@@ -22,7 +22,6 @@ export default function filesRoutes() {
     // Функция синхронизации папки sounds и БД
     async function syncSounds() {
         try {
-            const db = await openDb();
             const dir = path.join(__dirname, '../../..', 'sounds');
             if (!fs.existsSync(dir)) fs.mkdirSync(dir);
             const files = fs.readdirSync(dir).filter((f: string) => f.endsWith('.mp3') || f.endsWith('.wav') || f.endsWith('.ogg'));
@@ -30,7 +29,14 @@ export default function filesRoutes() {
             const mm = await import('music-metadata');
 
             for (const file of files) {
-                const existing = await db.get('SELECT id FROM tracks WHERE type = ? AND query = ? AND owner_id = ?', ['local', file, '450362999073406977']);
+                const existing = await prisma.track.findFirst({
+                    where: { 
+                        type: 'local', 
+                        query: file,
+                        ownerId: '450362999073406977' // Оставлено для обратной совместимости локальных треков
+                    }
+                });
+                
                 if (!existing) {
                     let duration = 0;
                     let title = file;
@@ -54,11 +60,17 @@ export default function filesRoutes() {
                         console.error('Failed to parse metadata for', file);
                     }
 
-                    await db.run(
-                        'INSERT INTO tracks (title, artist, type, query, duration, thumbnail, owner_id) VALUES (?, ?, ?, ?, ?, ?, ?)',
-                        [title, artist, 'local', file, duration, thumbnail, '450362999073406977']
-                    );
-
+                    await prisma.track.create({
+                        data: {
+                            title,
+                            artist,
+                            type: 'local',
+                            query: file,
+                            duration,
+                            thumbnail,
+                            ownerId: '450362999073406977'
+                        }
+                    });
                 }
             }
         } catch (e) {

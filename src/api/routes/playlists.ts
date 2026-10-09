@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { openDb } from '../../database';
+import { prisma } from '../../database';
 import path from 'path';
 import fs from 'fs';
 
@@ -9,15 +9,23 @@ export default function playlistsRoutes() {
     router.get('/', async (req, res) => {
         const userId = (req as any).user.id;
         try {
-            const db = await openDb();
-            const playlists = await db.all(`
-                SELECT p.*, COUNT(pt.track_id) as trackCount 
-                FROM playlists p 
-                LEFT JOIN playlist_tracks pt ON p.id = pt.playlist_id 
-                WHERE p.owner_id = ? 
-                GROUP BY p.id 
-                ORDER BY p.createdAt DESC`, [userId]);
-            res.json(playlists);
+            const playlists = await prisma.playlist.findMany({
+                where: { ownerId: userId },
+                orderBy: { createdAt: 'desc' },
+                include: {
+                    _count: {
+                        select: { tracks: true }
+                    }
+                }
+            });
+            
+            // Форматируем под старый формат (свойство trackCount)
+            const formatted = playlists.map(p => ({
+                ...p,
+                trackCount: p._count.tracks
+            }));
+            
+            res.json(formatted);
         } catch (e: any) {
             res.status(500).json({ error: e.message });
         }
@@ -28,9 +36,13 @@ export default function playlistsRoutes() {
         const userId = (req as any).user.id;
         if (!name) return res.status(400).json({ error: 'Название обязательно' });
         try {
-            const db = await openDb();
-            const result = await db.run('INSERT INTO playlists (name, owner_id) VALUES (?, ?)', [name, userId]);
-            res.json({ status: 'success', id: result.lastID });
+            const result = await prisma.playlist.create({
+                data: {
+                    name,
+                    ownerId: userId
+                }
+            });
+            res.json({ status: 'success', id: result.id });
         } catch (e: any) {
             res.status(500).json({ error: e.message });
         }
@@ -38,12 +50,22 @@ export default function playlistsRoutes() {
 
     router.post('/:id/tracks', async (req, res) => {
         const { trackId } = req.body;
-        const playlistId = req.params.id;
+        const playlistId = parseInt(req.params.id);
         try {
-            const db = await openDb();
-            const maxPos = await db.get('SELECT MAX(position) as maxPos FROM playlist_tracks WHERE playlist_id = ?', [playlistId]);
-            const pos = (maxPos?.maxPos || 0) + 1;
-            await db.run('INSERT INTO playlist_tracks (playlist_id, track_id, position) VALUES (?, ?, ?)', [playlistId, trackId, pos]);
+            const maxTrack = await prisma.playlistTrack.findFirst({
+                where: { playlistId },
+                orderBy: { position: 'desc' }
+            });
+            
+            const pos = (maxTrack?.position || 0) + 1;
+            
+            await prisma.playlistTrack.create({
+                data: {
+                    playlistId,
+                    trackId: parseInt(trackId),
+                    position: pos
+                }
+            });
             res.json({ status: 'success' });
         } catch (e: any) {
             res.status(500).json({ error: e.message });
@@ -51,16 +73,19 @@ export default function playlistsRoutes() {
     });
 
     router.get('/:id/tracks', async (req, res) => {
-        const playlistId = req.params.id;
+        const playlistId = parseInt(req.params.id);
         try {
-            const db = await openDb();
-            const tracks = await db.all(`
-                SELECT t.*, pt.position 
-                FROM tracks t
-                JOIN playlist_tracks pt ON t.id = pt.track_id
-                WHERE pt.playlist_id = ?
-                ORDER BY pt.position ASC
-            `, [playlistId]);
+            const playlistTracks = await prisma.playlistTrack.findMany({
+                where: { playlistId },
+                orderBy: { position: 'asc' },
+                include: { track: true }
+            });
+            
+            const tracks = playlistTracks.map(pt => ({
+                ...pt.track,
+                position: pt.position
+            }));
+            
             res.json(tracks);
         } catch (e: any) {
             res.status(500).json({ error: e.message });
@@ -68,11 +93,17 @@ export default function playlistsRoutes() {
     });
 
     router.delete('/:id/tracks/:trackId', async (req, res) => {
-        const playlistId = req.params.id;
-        const trackId = req.params.trackId;
+        const playlistId = parseInt(req.params.id);
+        const trackId = parseInt(req.params.trackId);
         try {
-            const db = await openDb();
-            await db.run('DELETE FROM playlist_tracks WHERE playlist_id = ? AND track_id = ?', [playlistId, trackId]);
+            await prisma.playlistTrack.delete({
+                where: {
+                    playlistId_trackId: {
+                        playlistId,
+                        trackId
+                    }
+                }
+            });
             res.json({ status: 'success' });
         } catch (e: any) {
             res.status(500).json({ error: e.message });
@@ -81,22 +112,17 @@ export default function playlistsRoutes() {
 
     router.put('/:id', async (req, res) => {
         const { name, icon } = req.body;
-        const playlistId = req.params.id;
+        const playlistId = parseInt(req.params.id);
         try {
-            const db = await openDb();
-            const updates = [];
-            const values = [];
-            if (name !== undefined) {
-                updates.push('name = ?');
-                values.push(name);
-            }
-            if (icon !== undefined) {
-                updates.push('icon = ?');
-                values.push(icon);
-            }
-            if (updates.length > 0) {
-                values.push(playlistId);
-                await db.run(`UPDATE playlists SET ${updates.join(', ')} WHERE id = ?`, values);
+            const dataToUpdate: any = {};
+            if (name !== undefined) dataToUpdate.name = name;
+            if (icon !== undefined) dataToUpdate.icon = icon;
+            
+            if (Object.keys(dataToUpdate).length > 0) {
+                await prisma.playlist.update({
+                    where: { id: playlistId },
+                    data: dataToUpdate
+                });
             }
             res.json({ status: 'success' });
         } catch (e: any) {
@@ -106,23 +132,31 @@ export default function playlistsRoutes() {
 
     router.delete('/:id', async (req, res) => {
         const { deleteTracks } = req.query;
-        const playlistId = req.params.id;
+        const playlistId = parseInt(req.params.id);
         try {
-            const db = await openDb();
-            
             if (deleteTracks === 'true') {
-                const tracks = await db.all('SELECT t.* FROM tracks t JOIN playlist_tracks pt ON t.id = pt.track_id WHERE pt.playlist_id = ?', [playlistId]);
-                for (const track of tracks) {
-                    if (track.type === 'local') {
-                        const filePath = path.join(__dirname, '../..', 'sounds', track.query);
+                const playlistTracks = await prisma.playlistTrack.findMany({
+                    where: { playlistId },
+                    include: { track: true }
+                });
+                
+                for (const pt of playlistTracks) {
+                    if (pt.track.type === 'local') {
+                        const filePath = path.join(__dirname, '../..', 'sounds', pt.track.query);
                         if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
                     }
-                    await db.run('DELETE FROM tracks WHERE id = ?', [track.id]);
+                    await prisma.track.delete({
+                        where: { id: pt.track.id }
+                    });
                 }
             }
             
-            await db.run('DELETE FROM playlist_tracks WHERE playlist_id = ?', [playlistId]);
-            await db.run('DELETE FROM playlists WHERE id = ?', [playlistId]);
+            // Note: playlist_tracks will be automatically deleted if they are set to CASCADE in DB,
+            // but Prisma will handle it automatically.
+            await prisma.playlist.delete({
+                where: { id: playlistId }
+            });
+            
             res.json({ status: 'success' });
         } catch (e: any) {
             res.status(500).json({ error: e.message });

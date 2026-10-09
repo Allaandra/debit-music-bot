@@ -43,29 +43,46 @@ client.once('clientReady', () => {
     console.log(`Бот в сети. Авторизован как ${client.user?.tag}`);
 });
 
-import { openDb } from './database';
+import { prisma } from './database';
 
 client.on('voiceStateUpdate', async (oldState, newState) => {
     const userId = newState.id;
     const guildId = newState.guild.id;
 
     try {
-        const db = await openDb();
-        
         // Если зашел в канал или перешел в другой
         if (newState.channelId) {
-            await db.run(
-                `INSERT INTO active_sessions (userId, guildId, channelId) 
-                 VALUES (?, ?, ?)
-                 ON CONFLICT(userId) DO UPDATE SET 
-                 guildId = excluded.guildId, 
-                 channelId = excluded.channelId`,
-                [userId, guildId, newState.channelId]
-            );
+            await prisma.activeSession.upsert({
+                where: { userId },
+                update: {
+                    guildId,
+                    channelId: newState.channelId
+                },
+                create: {
+                    userId,
+                    guildId,
+                    channelId: newState.channelId
+                }
+            });
         }
         // Если вышел из канала
         else if (!newState.channelId && oldState.channelId) {
-            await db.run('DELETE FROM active_sessions WHERE userId = ?', [userId]);
+            await prisma.activeSession.deleteMany({
+                where: { userId }
+            });
+            
+            // Если бот вышел из канала
+            if (userId === client.user?.id) {
+                const playerManager = (await import('./api/PlayerManager')).PlayerManager;
+                const guildPlayer = playerManager.getPlayer(guildId);
+                guildPlayer.stopCurrentProcesses();
+                guildPlayer.player.stop();
+                guildPlayer.queue = [];
+                guildPlayer.originalQueue = [];
+                guildPlayer.currentTrack = null;
+                guildPlayer.isPlaying = false;
+                guildPlayer.isPaused = false;
+            }
         }
     } catch (e) {
         console.error('Ошибка при обновлении голосовой сессии:', e);

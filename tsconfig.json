@@ -8,5 +8,5 @@
     "skipLibCheck": true,
     "outDir": "./dist"
   },
-  "exclude": ["frontend"]
+  "exclude": ["frontend", "Agent Workspace"]
 }
