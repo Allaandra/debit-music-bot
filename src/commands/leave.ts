@@ -18,15 +18,9 @@ export const command: Command = {
             });
 
             // Останавливаем плеер и очищаем очередь через PlayerManager
-            const playerManager = (await import('../api/PlayerManager')).PlayerManager;
+            const playerManager = (await import('../services/PlayerService')).PlayerManager;
             const guildPlayer = playerManager.getPlayer(message.guildId!);
-            guildPlayer.stopCurrentProcesses();
-            guildPlayer.player.stop();
-            guildPlayer.queue = [];
-            guildPlayer.originalQueue = [];
-            guildPlayer.currentTrack = null;
-            guildPlayer.isPlaying = false;
-            guildPlayer.isPaused = false;
+            guildPlayer.stop();
 
             message.reply('🛑 Бот отключился. Очередь и сессия веб-панели очищены.');
             

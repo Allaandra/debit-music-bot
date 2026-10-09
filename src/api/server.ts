@@ -11,6 +11,10 @@ import filesRoutes from './routes/files';
 import authRoutes from './routes/auth';
 import { requireAuth } from './middlewares/authMiddleware';
 
+import http from 'http';
+import { Server } from 'socket.io';
+import { PlayerManager } from '../services/PlayerService';
+
 export function startApi(client: Client) {
     const app = express();
     app.use(cors({ origin: true, credentials: true })); // Allow cookies for cross-origin if needed
@@ -35,7 +39,44 @@ export function startApi(client: Client) {
     });
 
     const PORT = 3001;
-    app.listen(PORT, () => {
+    const server = http.createServer(app);
+    const io = new Server(server, {
+        cors: {
+            origin: true,
+            credentials: true
+        }
+    });
+
+    io.on('connection', (socket) => {
+        console.log(`Socket connected: ${socket.id}`);
+        // Подписка на гильдию
+        socket.on('subscribe', (guildId) => {
+            socket.join(`guild_${guildId}`);
+            
+            // Если игрок уже есть, отправляем текущее состояние
+            if (PlayerManager.players.has(guildId)) {
+                const player = PlayerManager.getPlayer(guildId);
+                socket.emit('stateUpdate', player.getStatus());
+            }
+        });
+    });
+
+    // Настраиваем отправку обновлений при создании плееров
+    const originalGetPlayer = PlayerManager.getPlayer.bind(PlayerManager);
+    PlayerManager.getPlayer = (guildId: string) => {
+        const isNew = !PlayerManager.players.has(guildId);
+        const player = originalGetPlayer(guildId);
+        
+        if (isNew) {
+            player.on('stateUpdate', (state) => {
+                io.to(`guild_${guildId}`).emit('stateUpdate', state);
+            });
+        }
+        
+        return player;
+    };
+
+    server.listen(PORT, () => {
         console.log(`Express-сервер слушает порт ${PORT}`);
     });
 }

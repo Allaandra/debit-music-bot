@@ -1,4 +1,6 @@
-﻿import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { io, Socket } from 'socket.io-client';
 import { api, BASE_URL } from '../services/api';
 
 export const PlayerContext = createContext<any>(null);
@@ -287,8 +289,8 @@ export const PlayerProvider = ({ children }: { children: React.ReactNode }) => {
     } else {
       const isLocal = track.type === 'local';
       const msg = isLocal 
-        ? 'Р’С‹ СѓРІРµСЂРµРЅС‹, С‡С‚Рѕ С…РѕС‚РёС‚Рµ СѓРґР°Р»РёС‚СЊ СЌС‚РѕС‚ Р»РѕРєР°Р»СЊРЅС‹Р№ С„Р°Р№Р»? (РћРЅ Р±СѓРґРµС‚ РЅР°РІСЃРµРіРґР° СѓРґР°Р»РµРЅ СЃ Р¶РµСЃС‚РєРѕРіРѕ РґРёСЃРєР°!)' 
-        : 'Р’С‹ СѓРІРµСЂРµРЅС‹, С‡С‚Рѕ С…РѕС‚РёС‚Рµ СѓРґР°Р»РёС‚СЊ СЌС‚РѕС‚ С‚СЂРµРє РёР· Р±РёР±Р»РёРѕС‚РµРєРё?';
+        ? 'Вы уверены, что хотите удалить этот локальный файл? (Он будет навсегда удален с жесткого диска!)' 
+        : 'Вы уверены, что хотите удалить этот трек из библиотеки?';
         
       if (!window.confirm(msg)) return;
       deleteTrackCompletely(track);

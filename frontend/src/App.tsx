@@ -50,10 +50,16 @@ function AppLayout() {
   );
 }
 
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+
+const queryClient = new QueryClient();
+
 export default function App() {
   return (
-    <PlayerProvider>
-      <AppLayout />
-    </PlayerProvider>
+    <QueryClientProvider client={queryClient}>
+      <PlayerProvider>
+        <AppLayout />
+      </PlayerProvider>
+    </QueryClientProvider>
   );
 }

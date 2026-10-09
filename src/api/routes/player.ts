@@ -29,7 +29,7 @@ export default function playerRoutes(client: Client) {
                 return res.status(404).json({ error: 'Сервер не найден' });
             }
 
-            const playerManager = (await import('../PlayerManager')).PlayerManager;
+            const playerManager = (await import('../../services/PlayerService')).PlayerManager;
             const guildPlayer = playerManager.getPlayer(guildId);
 
             // Подключаемся или переходим в нужный канал
@@ -39,7 +39,6 @@ export default function playerRoutes(client: Client) {
                     guildId: guildId,
                     adapterCreator: client.guilds.cache.get(guildId)!.voiceAdapterCreator,
                 });
-                guildPlayer.connection.subscribe(guildPlayer.player);
             }
 
             const track = await guildPlayer.resolveTrack(type, query);
@@ -114,15 +113,7 @@ export default function playerRoutes(client: Client) {
                     thumbnail: t.thumbnail || undefined
                 }));
 
-                guildPlayer.queue = queueTracks;
-                guildPlayer.activePlaylistName = playlistName || 'Main Library';
-                if (guildPlayer.shuffle) {
-                    guildPlayer.originalQueue = [...guildPlayer.queue];
-                    for (let i = guildPlayer.queue.length - 1; i > 0; i--) {
-                        const j = Math.floor(Math.random() * (i + 1));
-                        [guildPlayer.queue[i], guildPlayer.queue[j]] = [guildPlayer.queue[j], guildPlayer.queue[i]];
-                    }
-                }
+                guildPlayer.queueManager.setQueue(queueTracks, playlistName || 'Main Library');
             }
 
             res.json({ status: 'success', message: `Воспроизведение начато: ${track.title}` });
@@ -143,9 +134,9 @@ export default function playerRoutes(client: Client) {
             });
             if (!session) return res.status(404).json({ error: 'Сессия не найдена' });
 
-            const playerManager = (await import('../PlayerManager')).PlayerManager;
+            const playerManager = (await import('../../services/PlayerService')).PlayerManager;
             const guildPlayer = playerManager.getPlayer(session.guildId);
-            res.json(guildPlayer.getStatus());
+            res.json({ ...guildPlayer.getStatus(), guildId: session.guildId });
         } catch (e: any) {
             res.status(500).json({ error: e.message });
         }
@@ -162,7 +153,7 @@ export default function playerRoutes(client: Client) {
             });
             if (!session) return res.status(404).json({ error: 'Сессия не найдена' });
 
-            const playerManager = (await import('../PlayerManager')).PlayerManager;
+            const playerManager = (await import('../../services/PlayerService')).PlayerManager;
             const guildPlayer = playerManager.getPlayer(session.guildId);
 
             if (action === 'pause') guildPlayer.pause();

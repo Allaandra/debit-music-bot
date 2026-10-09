@@ -73,15 +73,9 @@ client.on('voiceStateUpdate', async (oldState, newState) => {
             
             // Если бот вышел из канала
             if (userId === client.user?.id) {
-                const playerManager = (await import('./api/PlayerManager')).PlayerManager;
+                const playerManager = (await import('./services/PlayerService')).PlayerManager;
                 const guildPlayer = playerManager.getPlayer(guildId);
-                guildPlayer.stopCurrentProcesses();
-                guildPlayer.player.stop();
-                guildPlayer.queue = [];
-                guildPlayer.originalQueue = [];
-                guildPlayer.currentTrack = null;
-                guildPlayer.isPlaying = false;
-                guildPlayer.isPaused = false;
+                guildPlayer.stop();
             }
         }
     } catch (e) {

@@ -47,7 +47,7 @@ export default function tracksRoutes() {
                 }
             }
 
-            const playerManager = (await import('../PlayerManager')).PlayerManager;
+            const playerManager = (await import('../../services/PlayerService')).PlayerManager;
             const guildPlayer = playerManager.getPlayer('default'); // Just for resolve
             const track = await guildPlayer.resolveTrack(type, query);
             
