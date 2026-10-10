@@ -119,7 +119,10 @@ export const LeftSidebar = () => {
             <div className="user-section">
               <img src={user?.avatar || ""} className="user-avatar" style={{ backgroundColor: user?.avatar ? "transparent" : "#5865F2" }} alt="" />
               <span className="user-name">{user?.username || "Guest"}</span>
-              <LogOut size={20} className="text-icon" onClick={() => window.location.href = `${BASE_URL}/auth/logout`} />
+              <LogOut size={20} className="text-icon" onClick={async () => {
+                await fetch(`${BASE_URL}/auth/logout`, { method: 'POST' });
+                window.location.href = '/';
+              }} style={{ cursor: 'pointer' }} />
               <Palette size={20} className="text-icon palette-btn"  onClick={toggleTheme} />
               <Settings size={20} className="text-icon"  />
             </div>

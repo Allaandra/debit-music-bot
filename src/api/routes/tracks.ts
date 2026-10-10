@@ -214,7 +214,7 @@ export default function tracksRoutes() {
             if (!track) return res.status(404).json({ error: 'Трек не найден' });
             
             if (track.type === 'local') {
-                const filePath = path.join(__dirname, '../..', 'sounds', track.query);
+                const filePath = path.join(__dirname, '../../..', 'sounds', track.query);
                 if (fs.existsSync(filePath)) {
                     fs.unlinkSync(filePath);
                 }

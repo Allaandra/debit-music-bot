@@ -142,7 +142,7 @@ export default function playlistsRoutes() {
                 
                 for (const pt of playlistTracks) {
                     if (pt.track.type === 'local') {
-                        const filePath = path.join(__dirname, '../..', 'sounds', pt.track.query);
+                        const filePath = path.join(__dirname, '../../..', 'sounds', pt.track.query);
                         if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
                     }
                     await prisma.track.delete({

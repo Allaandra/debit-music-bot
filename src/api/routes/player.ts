@@ -46,7 +46,7 @@ export default function playerRoutes(client: Client) {
 
             // Сохраняем в историю/библиотеку треков, если его еще там нет
             const existing = await prisma.track.findFirst({
-                where: { query: track.query }
+                where: { query: track.query, ownerId: userId }
             });
             
             if (!existing) {
@@ -57,7 +57,8 @@ export default function playerRoutes(client: Client) {
                         type: track.type,
                         query: track.query,
                         duration: track.duration,
-                        thumbnail: track.thumbnail
+                        thumbnail: track.thumbnail,
+                        ownerId: userId
                     }
                 });
             } else if (track.thumbnail && existing.thumbnail !== track.thumbnail) {
@@ -84,6 +85,7 @@ export default function playerRoutes(client: Client) {
                 }
             } else {
                 allTracks = await prisma.track.findMany({
+                    where: { ownerId: userId },
                     orderBy: [
                         { addedAt: 'desc' },
                         { id: 'desc' }
