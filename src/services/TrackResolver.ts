@@ -14,7 +14,10 @@ export class TrackResolver {
         let streamUrl = query;
         let thumbnail = undefined;
 
+        let platform = undefined;
+
         if (type === 'local') {
+            platform = 'Local';
             title = path.basename(query, path.extname(query));
             try {
                 const mm = await import('music-metadata');
@@ -62,8 +65,10 @@ export class TrackResolver {
                 streamUrl = (info as any).url || watchUrl;
                 if (!duration) duration = (info as any).duration || 0;
                 if (!thumbnail) thumbnail = (info as any).thumbnail;
+                platform = watchUrl.startsWith('scsearch') || (info as any).extractor_key === 'SoundCloud' ? 'SoundCloud' : 'YouTube';
             } catch (youtubeErr: any) {
-                console.warn(`[YouTube] Error for ${watchUrl}. Attempting SoundCloud fallback...`);
+                console.error(`[YouTube] Error for ${watchUrl}:`, youtubeErr.message || youtubeErr);
+                console.warn(`Attempting SoundCloud fallback...`);
                 
                 let scQueryStr = '';
                 if (isDirectQuery) {
@@ -93,6 +98,7 @@ export class TrackResolver {
                         streamUrl = (scInfo as any).url;
                         if (!duration) duration = (scInfo as any).duration || 0;
                         if (!thumbnail) thumbnail = (scInfo as any).thumbnail;
+                        platform = 'SoundCloud';
                         console.log(`[SoundCloud] Fallback success: ${title}`);
                     } catch (scErr: any) {
                         throw new Error(`Failed to resolve track on both YouTube and SoundCloud. YouTube Error: ${youtubeErr.message.split('\n')[0]}`);
@@ -103,6 +109,6 @@ export class TrackResolver {
             }
         }
 
-        return { type, query, title, artist, duration, url: streamUrl, thumbnail };
+        return { type, query, title, artist, duration, url: streamUrl, thumbnail, platform };
     }
 }

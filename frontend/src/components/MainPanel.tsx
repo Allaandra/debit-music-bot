@@ -1,4 +1,4 @@
-import React from 'react';
+﻿import React from 'react';
 import { usePlayer } from '../context/PlayerContext';
 import { Play, Pause, SkipBack, SkipForward, Shuffle, Repeat, Volume2, ListMusic, Info, Search, Filter, Trash2, MoreVertical, Music, BarChart2, Home, Plus, Upload, Settings, LogOut, Palette, ChevronLeft, ChevronRight } from 'lucide-react';
 
@@ -97,7 +97,7 @@ export const MainPanel = () => {
               <span className="track-count">
                 {(() => {
                   if (!activePlaylistId) return "Home";
-                  const p = playlists.find((pl: any) => pl.id === activePlaylistId);
+                  const p = (Array.isArray(playlists) ? playlists : []).find((pl: any) => pl.id === activePlaylistId);
                   if (p && p.createdAt) {
                     const d = new Date(p.createdAt);
                     return "Created " + d.toLocaleString("en-US", { month: "short", year: "numeric" });
@@ -163,10 +163,10 @@ export const MainPanel = () => {
               
               <div className="track-list">
                 <div className="track-row track-header">
-                  <div className="track-num" style={{textAlign: 'center'}}>№</div>
-                  <div className="track-title-col">Title</div>
-                  <div className="track-author-col">Author</div>
-                  <div className="track-duration-col">Duration</div>
+                  <div className="track-num" style={{textAlign: 'center'}}>#</div>
+                  <div className="track-title-col" style={{ cursor: 'pointer' }} onClick={() => setSortMethod(sortMethod === 'name' ? 'default' : 'name')}><span style={{ padding: '4px 8px', borderRadius: '6px', background: sortMethod === 'name' ? 'rgba(0,0,0,0.3)' : 'transparent', color: sortMethod === 'name' ? 'var(--accent)' : 'inherit', transition: 'all 0.2s' }}>Title</span></div>
+                  <div className="track-author-col" style={{ cursor: 'pointer' }} onClick={() => setSortMethod(sortMethod === 'author' ? 'default' : 'author')}><span style={{ padding: '4px 8px', borderRadius: '6px', background: sortMethod === 'author' ? 'rgba(0,0,0,0.3)' : 'transparent', color: sortMethod === 'author' ? 'var(--accent)' : 'inherit', transition: 'all 0.2s' }}>Author</span></div>
+                  <div className="track-duration-col" style={{ cursor: 'pointer', justifyContent: 'flex-end' }} onClick={() => setSortMethod(sortMethod === 'duration' ? 'default' : 'duration')}><span style={{ padding: '4px 8px', borderRadius: '6px', background: sortMethod === 'duration' ? 'rgba(0,0,0,0.3)' : 'transparent', color: sortMethod === 'duration' ? 'var(--accent)' : 'inherit', transition: 'all 0.2s' }}>Duration</span></div>
                 </div>
                 
                 {filteredTracks.map((track: any, index: number) => {
@@ -250,7 +250,7 @@ export const MainPanel = () => {
                                   style={{ justifyContent: 'space-between' }}
                                 >
                                   <span>Add to playlist</span>
-                                  <span style={{ fontSize: '10px', marginTop: '4px' }}>▶</span>
+                                  <span style={{ fontSize: '10px', marginTop: '4px' }}>в–¶</span>
                                 </div>
                                 <div style={{ height: '1px', background: 'var(--border-light)', margin: '4px 0' }}></div>
                                 <div 
@@ -269,7 +269,7 @@ export const MainPanel = () => {
                                   onClick={(e) => { e.stopPropagation(); setMenuView('main'); }}
                                   style={{ color: 'var(--text-muted)' }}
                                 >
-                                  <span>← Back</span>
+                                  <span>в†ђ Back</span>
                                 </div>
                                 <div style={{ height: '1px', background: 'var(--border-light)', margin: '4px 0' }}></div>
                                 <div style={{ maxHeight: '200px', overflowY: 'auto' }}>
@@ -300,6 +300,12 @@ export const MainPanel = () => {
     </>
   );
 };
+
+
+
+
+
+
 
 
 

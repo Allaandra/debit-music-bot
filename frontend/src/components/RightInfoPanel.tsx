@@ -35,10 +35,11 @@ export const RightInfoPanel = () => {
               })()}</div>
               {selectedTrack.type === 'url' && (
                 <div className="ti-detail-item">Streaming: {(() => {
+                  if (selectedTrack.platform) return selectedTrack.platform;
                   const u = selectedTrack.url || '';
-                  if (u.includes('youtube.com') || u.includes('youtu.be')) return 'YouTube';
-                  if (u.includes('soundcloud.com')) return 'SoundCloud';
-                  return 'YouTube';
+                  if (u.includes('youtube.com') || u.includes('youtu.be') || u.includes('googlevideo.com')) return 'YouTube';
+                  if (u.includes('soundcloud.com') || u.includes('sndcdn.com') || u.includes('scsearch')) return 'SoundCloud';
+                  return 'Resolving...';
                 })()}</div>
               )}
               {selectedTrack.type === 'url' && selectedTrack.query && (

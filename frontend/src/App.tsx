@@ -5,6 +5,7 @@ import { MainPanel } from './components/MainPanel';
 import { RightSidebar } from './components/RightSidebar';
 import { PlayerBar } from './components/PlayerBar';
 import { Modals } from './components/Modals';
+import { LoginScreen } from './components/LoginScreen';
 
 import './assets/css/Themes.css';
 import './assets/css/Globals.css';
@@ -23,18 +24,7 @@ function AppLayout() {
   if (loadingUser) return <div style={{ color: 'white', padding: 50 }}>Loading...</div>;
 
   if (!user) {
-    return (
-      <div style={{ display: 'flex', height: '100vh', alignItems: 'center', justifyContent: 'center', backgroundColor: '#121212', color: 'white', flexDirection: 'column', gap: 20 }}>
-        <h2>D&D Music Bot</h2>
-        <p>Для управления музыкой необходимо авторизоваться</p>
-        <button 
-          onClick={() => window.location.href = `${BASE_URL}/auth/login`}
-          style={{ padding: '12px 24px', fontSize: 16, backgroundColor: '#5865F2', color: 'white', border: 'none', borderRadius: 8, cursor: 'pointer' }}
-        >
-          Войти через Discord
-        </button>
-      </div>
-    );
+    return <LoginScreen />;
   }
 
   return (
@@ -54,12 +44,35 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 const queryClient = new QueryClient();
 
+class ErrorBoundary extends React.Component<{children: React.ReactNode}, {hasError: boolean, error: any}> {
+  constructor(props: any) { super(props); this.state = { hasError: false, error: null }; }
+  static getDerivedStateFromError(error: any) { return { hasError: true, error }; }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div style={{ color: 'white', backgroundColor: '#8b0000', padding: 50, height: '100vh' }}>
+          <h2>Something went wrong in the UI.</h2>
+          <pre>{this.state.error?.toString()}</pre>
+          <button onClick={() => { localStorage.clear(); window.location.href = '/'; }}>Clear Data & Reload</button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 export default function App() {
   return (
-    <QueryClientProvider client={queryClient}>
-      <PlayerProvider>
-        <AppLayout />
-      </PlayerProvider>
-    </QueryClientProvider>
+    <ErrorBoundary>
+      <QueryClientProvider client={queryClient}>
+        <PlayerProvider>
+          <AppLayout />
+        </PlayerProvider>
+      </QueryClientProvider>
+    </ErrorBoundary>
   );
 }
+
+
+
+

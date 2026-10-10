@@ -269,3 +269,8 @@
 }
 
 
+
+.track-header .track-author-col, .track-header .track-duration-col {
+  color: inherit;
+  font-size: inherit;
+}

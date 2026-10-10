@@ -22,6 +22,9 @@ export const PlayerProvider = ({ children }: { children: React.ReactNode }) => {
     api.fetchMe().then(data => {
       if (data && !data.error) setUser(data);
       setLoadingUser(false);
+    }).catch(e => {
+      console.error(e);
+      setLoadingUser(false);
     });
   }, []);
 
@@ -108,10 +111,15 @@ export const PlayerProvider = ({ children }: { children: React.ReactNode }) => {
   const fetchPlaylists = async () => {
     try {
       const res = await fetch(`${BASE_URL}/playlists`, { credentials: "include" });
-      const data = await res.json();
-      setPlaylists(data);
+      if (res.ok) {
+        const data = await res.json();
+        setPlaylists(data);
+      } else {
+        setPlaylists([]);
+      }
     } catch (e) {
       console.error('Failed to fetch playlists', e);
+      setPlaylists([]);
     }
   };
 
@@ -137,7 +145,7 @@ export const PlayerProvider = ({ children }: { children: React.ReactNode }) => {
 
   useEffect(() => {
     if (status.currentTrack) {
-      const matchingTrack = tracks.find((t: any) => t.query === status.currentTrack.query);
+      const matchingTrack = (Array.isArray(tracks) ? tracks : []).find((t: any) => t.query === status.currentTrack.query);
       if (matchingTrack) {
         setSelectedTrack({ ...matchingTrack, ...status.currentTrack });
       } else {
@@ -149,7 +157,7 @@ export const PlayerProvider = ({ children }: { children: React.ReactNode }) => {
   useEffect(() => {
     if (!selectedTrack || playlists.length === 0) { setTrackPlaylists([]); return; }
     Promise.all(
-      playlists.map(pl =>
+      (Array.isArray(playlists) ? playlists : []).map(pl =>
         fetch(`${BASE_URL}/playlists/${pl.id}/tracks`, { credentials: "include" })
           .then(r => r.json())
           .then((tracks: any[]) => tracks.some((t: any) => t.id === selectedTrack.id) ? pl.name : null)
@@ -289,8 +297,8 @@ export const PlayerProvider = ({ children }: { children: React.ReactNode }) => {
     } else {
       const isLocal = track.type === 'local';
       const msg = isLocal 
-        ? 'Вы уверены, что хотите удалить этот локальный файл? (Он будет навсегда удален с жесткого диска!)' 
-        : 'Вы уверены, что хотите удалить этот трек из библиотеки?';
+        ? 'Р’С‹ СѓРІРµСЂРµРЅС‹, С‡С‚Рѕ С…РѕС‚РёС‚Рµ СѓРґР°Р»РёС‚СЊ СЌС‚РѕС‚ Р»РѕРєР°Р»СЊРЅС‹Р№ С„Р°Р№Р»? (РћРЅ Р±СѓРґРµС‚ РЅР°РІСЃРµРіРґР° СѓРґР°Р»РµРЅ СЃ Р¶РµСЃС‚РєРѕРіРѕ РґРёСЃРєР°!)' 
+        : 'Р’С‹ СѓРІРµСЂРµРЅС‹, С‡С‚Рѕ С…РѕС‚РёС‚Рµ СѓРґР°Р»РёС‚СЊ СЌС‚РѕС‚ С‚СЂРµРє РёР· Р±РёР±Р»РёРѕС‚РµРєРё?';
         
       if (!window.confirm(msg)) return;
       deleteTrackCompletely(track);
@@ -307,7 +315,7 @@ export const PlayerProvider = ({ children }: { children: React.ReactNode }) => {
           query: track.query,
           type: track.type,
           playlistId: activePlaylistId,
-          playlistName: activePlaylistId ? playlists.find(p => p.id === activePlaylistId)?.name : 'Main Library'
+          playlistName: activePlaylistId ? (Array.isArray(playlists) ? playlists : []).find(p => p.id === activePlaylistId)?.name : 'Main Library'
         })
       });
     } catch (e) {
@@ -373,7 +381,7 @@ export const PlayerProvider = ({ children }: { children: React.ReactNode }) => {
   const duration = status.currentTrack?.duration || status.duration || 0;
   const elapsed = seekValue !== null ? seekValue : (status.elapsed || 0);
 
-  const filteredTracks = tracks.filter(track => {
+  const filteredTracks = (Array.isArray(tracks) ? tracks : []).filter(track => {
     const titleMatch = (track.title || track.name || track.query || '').toLowerCase().includes(searchQuery.toLowerCase());
     const artistMatch = (track.artist || '').toLowerCase().includes(searchQuery.toLowerCase());
     return titleMatch || artistMatch;
@@ -396,7 +404,7 @@ export const PlayerProvider = ({ children }: { children: React.ReactNode }) => {
     return 0;
   });
 
-  const activePlaylist = playlists.find(p => p.id === activePlaylistId);
+  const activePlaylist = (Array.isArray(playlists) ? playlists : []).find(p => p.id === activePlaylistId);
   const playlistName = activePlaylist ? activePlaylist.name : 'All Tracks';
 
 
@@ -439,6 +447,8 @@ export const PlayerProvider = ({ children }: { children: React.ReactNode }) => {
     </PlayerContext.Provider>
   );
 };
+
+
 
 
 
