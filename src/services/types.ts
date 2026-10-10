@@ -6,4 +6,5 @@ export interface Track {
     duration: number; // in seconds
     url?: string; // Resolved youtube url
     thumbnail?: string; // URL обложки
+    platform?: string; // Streaming platform (e.g. YouTube, SoundCloud)
 }
