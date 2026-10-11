@@ -54,3 +54,31 @@ model PlaylistTrack {
   @@id([playlistId, trackId])
   @@map("playlist_tracks")
 }
+
+model SfxPlaylist {
+  id        Int        @id @default(autoincrement())
+  ownerId   String     @map("owner_id")
+  name      String
+  icon      String?    @default("⚔️")
+  order     Int        @default(0)
+  createdAt DateTime?  @default(now())
+
+  sounds    SfxSound[]
+
+  @@map("sfx_playlists")
+}
+
+model SfxSound {
+  id         Int         @id @default(autoincrement())
+  ownerId    String      @map("owner_id")
+  playlistId Int         @map("playlist_id")
+  title      String
+  filename   String
+  duration   Float?
+  isGlobal   Boolean     @default(false) @map("is_global")
+  createdAt  DateTime?   @default(now())
+
+  playlist   SfxPlaylist @relation(fields: [playlistId], references: [id], onDelete: Cascade)
+
+  @@map("sfx_sounds")
+}

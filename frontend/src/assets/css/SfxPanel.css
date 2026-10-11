@@ -1,0 +1,447 @@
+/* SFX SOUNDBOARD PANEL */
+
+.sfx-panel-view {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  padding: 24px 24px 24px 48px; /* Точно такой же отступ слева (48px), как в панели очереди */
+  gap: 16px;
+  overflow-y: auto;
+  box-sizing: border-box;
+}
+
+.sfx-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-bottom: 4px;
+}
+
+.sfx-title-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.sfx-icon-title {
+  color: var(--accent);
+}
+
+.sfx-title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-main);
+  letter-spacing: 0.3px;
+}
+
+.sfx-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.sfx-btn-primary {
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  padding: 6px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  transition: opacity 0.2s, transform 0.1s;
+}
+
+.sfx-btn-primary:hover {
+  opacity: 0.9;
+  transform: translateY(-1px);
+}
+
+.sfx-btn-secondary {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-main);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 6px;
+  padding: 6px 8px;
+  font-size: 12px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.2s;
+}
+
+.sfx-btn-secondary:hover {
+  background: rgba(255, 255, 255, 0.16);
+}
+
+/* PLAYLISTS SQUARES ROW (3-6 items) */
+.sfx-playlists-container {
+  overflow-x: auto;
+  padding-bottom: 4px;
+}
+
+.sfx-playlists-container::-webkit-scrollbar {
+  height: 4px;
+}
+
+.sfx-playlists-container::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 4px;
+}
+
+.sfx-playlists-grid {
+  display: flex;
+  gap: 8px;
+  flex-wrap: nowrap;
+}
+
+.sfx-playlist-square {
+  width: 52px;
+  height: 52px;
+  min-width: 52px;
+  min-height: 52px;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  position: relative;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  padding: 4px;
+  box-sizing: border-box;
+}
+
+.sfx-playlist-square:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.2);
+  transform: translateY(-1px);
+}
+
+.sfx-playlist-square.active {
+  background: rgba(46, 204, 113, 0.18);
+  border-color: var(--accent);
+  box-shadow: 0 0 12px rgba(46, 204, 113, 0.25);
+}
+
+.sfx-square-icon {
+  font-size: 18px;
+  line-height: 1;
+  margin-bottom: 2px;
+}
+
+.sfx-square-name {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-main);
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: center;
+}
+
+.sfx-square-count {
+  position: absolute;
+  bottom: 2px;
+  right: 4px;
+  font-size: 9px;
+  color: var(--text-muted);
+}
+
+.sfx-square-del {
+  position: absolute;
+  top: 1px;
+  right: 3px;
+  font-size: 13px;
+  color: var(--text-muted);
+  cursor: pointer;
+  display: none;
+  line-height: 1;
+}
+
+.sfx-square-del:hover {
+  color: #ff5555;
+}
+
+.sfx-playlist-square:hover .sfx-square-del {
+  display: block;
+}
+
+.sfx-square-add {
+  border-style: dashed;
+  opacity: 0.7;
+}
+
+.sfx-square-add:hover {
+  opacity: 1;
+  border-style: solid;
+}
+
+/* CURRENT BAR */
+.sfx-current-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 4px 2px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.sfx-current-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-main);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.sfx-current-count {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+/* SOUNDS GRID IN 2 COLUMNS */
+.sfx-sounds-grid-wrapper {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding-right: 2px;
+}
+
+.sfx-sounds-2col-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.sfx-sound-card {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  padding: 8px 10px;
+  min-height: 54px;
+  cursor: pointer;
+  transition: all 0.15s ease-in-out;
+  position: relative;
+  user-select: none;
+  box-sizing: border-box;
+}
+
+.sfx-sound-card:hover {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.22);
+  transform: translateY(-1px);
+}
+
+.sfx-sound-card.playing {
+  border-color: var(--accent);
+  background: rgba(46, 204, 113, 0.22);
+  box-shadow: 0 0 14px rgba(46, 204, 113, 0.4);
+  animation: sfxPulse 1s infinite alternate;
+}
+
+@keyframes sfxPulse {
+  0% { transform: scale(1); }
+  100% { transform: scale(1.02); }
+}
+
+.sfx-sound-main {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
+  min-width: 0;
+}
+
+.sfx-play-icon {
+  color: var(--accent);
+  flex-shrink: 0;
+}
+
+.sfx-sound-title {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-main);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sfx-sound-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4px;
+  margin-top: 4px;
+}
+
+.sfx-sound-mini-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 3px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.15s, background 0.15s;
+}
+
+.sfx-sound-mini-btn:hover {
+  color: var(--text-main);
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.sfx-sound-mini-btn.sfx-del-btn:hover {
+  color: #ff5555;
+}
+
+/* EMPTY STATE */
+.sfx-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 32px 16px;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 13px;
+  gap: 10px;
+}
+
+/* SFX INLINE MODALS */
+.sfx-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.65);
+  backdrop-filter: blur(4px);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.sfx-modal-card {
+  background: var(--app-bg);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 12px;
+  width: 340px;
+  padding: 20px;
+  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.5);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.sfx-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.sfx-modal-title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-main);
+}
+
+.sfx-modal-close {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.sfx-modal-close:hover {
+  color: var(--text-main);
+}
+
+.sfx-modal-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.sfx-modal-label {
+  font-size: 12px;
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+.sfx-modal-input, .sfx-modal-select {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 6px;
+  padding: 8px 10px;
+  font-size: 13px;
+  color: var(--text-main);
+  outline: none;
+}
+
+.sfx-modal-input:focus, .sfx-modal-select:focus {
+  border-color: var(--accent);
+}
+
+.sfx-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+/* SOUND CARD CONTEXT DROPDOWN */
+.sfx-sound-dropdown {
+  position: absolute;
+  right: 6px;
+  bottom: 30px;
+  background: var(--panel-bg, #243527);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 8px;
+  padding: 4px;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.6);
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 155px;
+  backdrop-filter: blur(8px);
+}
+
+.sfx-dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-main);
+  background: transparent;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.15s, color 0.15s;
+  white-space: nowrap;
+}
+
+.sfx-dropdown-item:hover {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.sfx-dropdown-item.danger:hover {
+  color: #ff5555;
+  background: rgba(255, 85, 85, 0.18);
+}

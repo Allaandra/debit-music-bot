@@ -53,6 +53,10 @@ export class PlayerService extends EventEmitter {
         await this.streamer.play(track, offsetSeconds);
     }
 
+    async playSfx(sfxFilePath: string, volume: number = 1.0) {
+        await this.streamer.playSfx(sfxFilePath, volume);
+    }
+
     async playNext() {
         const nextTrackDB = this.queueManager.getNext(this.streamer.currentTrack);
         

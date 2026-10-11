@@ -107,5 +107,61 @@ export const api = {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ trackId })
         });
+    },
+
+    async fetchSfxPlaylists() {
+        const res = await fetchAuth(`${BASE_URL}/sfx/playlists`);
+        return res.ok ? await res.json() : [];
+    },
+
+    async createSfxPlaylist(name: string, icon?: string) {
+        const res = await fetchAuth(`${BASE_URL}/sfx/playlists`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name, icon })
+        });
+        return await res.json();
+    },
+
+    async deleteSfxPlaylist(id: number) {
+        await fetchAuth(`${BASE_URL}/sfx/playlists/${id}`, { method: 'DELETE' });
+    },
+
+    async uploadSfx(file: File, playlistId: number, title?: string, isGlobal: boolean = false) {
+        const formData = new FormData();
+        formData.append('sound', file);
+        formData.append('playlistId', playlistId.toString());
+        if (title) formData.append('title', title);
+        if (isGlobal) formData.append('isGlobal', 'true');
+        const res = await fetchAuth(`${BASE_URL}/sfx/upload`, {
+            method: 'POST',
+            body: formData
+        });
+        return await res.json();
+    },
+
+    async toggleSfxGlobal(id: number) {
+        const res = await fetchAuth(`${BASE_URL}/sfx/sounds/${id}/toggle-global`, {
+            method: 'PATCH'
+        });
+        return await res.json();
+    },
+
+    async deleteSfxSound(id: number) {
+        await fetchAuth(`${BASE_URL}/sfx/sounds/${id}`, { method: 'DELETE' });
+    },
+
+    async playSfx(soundId: number, volume: number = 1.0) {
+        const res = await fetchAuth(`${BASE_URL}/sfx/play`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ soundId, volume })
+        });
+        return await res.json();
+    },
+
+    getSfxAudioUrl(soundId: number) {
+        return `${BASE_URL}/sfx/audio/${soundId}`;
     }
 };
+

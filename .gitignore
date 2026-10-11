@@ -8,6 +8,8 @@ database.sqlite-journal
 
 Agent Workspace/
 
-# Игнорировать все файлы в sounds, кроме .gitkeep
+# Игнорировать все файлы в sounds, кроме .gitkeep и default_sfx
 sounds/*
 !sounds/.gitkeep
+!sounds/default_sfx/
+!sounds/default_sfx/**

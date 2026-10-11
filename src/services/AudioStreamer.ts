@@ -4,6 +4,7 @@ import ffmpegPath from 'ffmpeg-static';
 import path from 'path';
 import { Track } from './types';
 import { EventEmitter } from 'events';
+import { AudioMixer, getSfxPcmBuffer } from './AudioMixer';
 
 export class AudioStreamer extends EventEmitter {
     player: AudioPlayer;
@@ -18,6 +19,9 @@ export class AudioStreamer extends EventEmitter {
     seekOffset: number = 0; 
     
     private currentFfmpegProcess: any = null;
+    private currentEncoderProcess: any = null;
+    private currentSfxProcess: any = null;
+    private mixer: AudioMixer | null = null;
 
     constructor() {
         super();
@@ -78,11 +82,11 @@ export class AudioStreamer extends EventEmitter {
             ffmpegArgs.push('-ss', offsetSeconds.toString());
         }
 
+        // Decode to raw 16-bit 48kHz stereo PCM for the mixer
         ffmpegArgs.push(
-            '-c:a', 'libopus',
-            '-b:a', '128k',
-            '-f', 'ogg',
-            '-af', 'dynaudnorm=f=200:g=5:r=0.9',
+            '-f', 's16le',
+            '-ar', '48000',
+            '-ac', '2',
             'pipe:1'
         );
         
@@ -91,15 +95,70 @@ export class AudioStreamer extends EventEmitter {
         this.currentFfmpegProcess.stderr.on('data', (data: any) => {
             const msg = data.toString();
             if (msg.includes('Error') && !msg.includes('-10054') && !msg.includes('Will reconnect')) {
-                console.error('FFmpeg Error:', msg);
+                console.error('FFmpeg Decoder Error:', msg);
             }
         });
 
-        this.currentFfmpegProcess.on('error', (err: any) => console.error('FFmpeg spawn error:', err.message));
+        this.currentFfmpegProcess.on('error', (err: any) => console.error('FFmpeg Decoder spawn error:', err.message));
+
+        this.mixer = new AudioMixer();
+
+        const encoderArgs = [
+            '-f', 's16le',
+            '-ar', '48000',
+            '-ac', '2',
+            '-i', 'pipe:0',
+            '-c:a', 'libopus',
+            '-b:a', '128k',
+            '-f', 'ogg',
+            '-af', 'dynaudnorm=f=200:g=5:r=0.9',
+            'pipe:1'
+        ];
+
+        this.currentEncoderProcess = spawn(ffmpegPath as string, encoderArgs, { stdio: ['pipe', 'pipe', 'pipe'] });
+
+        this.currentEncoderProcess.stderr.on('data', (data: any) => {
+            const msg = data.toString();
+            if (msg.includes('Error') && !msg.includes('-10054')) {
+                console.error('FFmpeg Encoder Error:', msg);
+            }
+        });
+
+        this.currentEncoderProcess.on('error', (err: any) => console.error('FFmpeg Encoder spawn error:', err.message));
+
+        this.currentFfmpegProcess.stdout.pipe(this.mixer).pipe(this.currentEncoderProcess.stdin);
         
-        const resource = createAudioResource(this.currentFfmpegProcess.stdout, { inputType: StreamType.OggOpus });
+        const resource = createAudioResource(this.currentEncoderProcess.stdout, { inputType: StreamType.OggOpus });
         this.player.play(resource);
         this.emit('play', track);
+    }
+
+    async playSfx(sfxFilePath: string, volume: number = 1.0) {
+        try {
+            const pcmBuf = await getSfxPcmBuffer(sfxFilePath);
+            if (this.isPlaying && !this.isPaused && this.mixer) {
+                // Overlay on top of playing music!
+                this.mixer.addSfx(pcmBuf, volume);
+            } else {
+                // No music playing: play SFX directly
+                if (this.currentSfxProcess) {
+                    this.currentSfxProcess.kill();
+                    this.currentSfxProcess = null;
+                }
+                const sfxArgs = [
+                    '-i', sfxFilePath,
+                    '-c:a', 'libopus',
+                    '-b:a', '128k',
+                    '-f', 'ogg',
+                    'pipe:1'
+                ];
+                this.currentSfxProcess = spawn(ffmpegPath as string, sfxArgs, { stdio: ['ignore', 'pipe', 'pipe'] });
+                const resource = createAudioResource(this.currentSfxProcess.stdout, { inputType: StreamType.OggOpus });
+                this.player.play(resource);
+            }
+        } catch (e: any) {
+            console.error('Failed to play SFX:', e.message);
+        }
     }
 
     stopCurrentProcesses() {
@@ -107,6 +166,15 @@ export class AudioStreamer extends EventEmitter {
             this.currentFfmpegProcess.kill();
             this.currentFfmpegProcess = null;
         }
+        if (this.currentEncoderProcess) {
+            this.currentEncoderProcess.kill();
+            this.currentEncoderProcess = null;
+        }
+        if (this.currentSfxProcess) {
+            this.currentSfxProcess.kill();
+            this.currentSfxProcess = null;
+        }
+        this.mixer = null;
     }
 
     pause() {
@@ -138,3 +206,4 @@ export class AudioStreamer extends EventEmitter {
         return elapsed;
     }
 }
+

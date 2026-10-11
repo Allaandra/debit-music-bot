@@ -46,8 +46,8 @@ export const PlayerProvider = ({ children }: { children: React.ReactNode }) => {
   const [trackPlaylists, setTrackPlaylists] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [showSearch, setShowSearch] = useState(false);
-  const [rightPanelMode, setRightPanelMode] = useState<'queue' | 'info'>(() => {
-    return (localStorage.getItem('rightPanelMode') as 'queue' | 'info') || 'queue';
+  const [rightPanelMode, setRightPanelMode] = useState<'queue' | 'info' | 'sfx'>(() => {
+    return (localStorage.getItem('rightPanelMode') as 'queue' | 'info' | 'sfx') || 'queue';
   });
   const [importPlaylistModal, setImportPlaylistModal] = useState<any>(null);
   const [importing, setImporting] = useState(false);
@@ -83,7 +83,7 @@ export const PlayerProvider = ({ children }: { children: React.ReactNode }) => {
     setTheme(prev => prev === 'forest' ? 'dark' : prev === 'dark' ? 'light' : 'forest');
   };
 
-  const handleRightToggle = (view: 'queue' | 'info') => {
+  const handleRightToggle = (view: 'queue' | 'info' | 'sfx') => {
     if (rightPanelMode === view && !rightCollapsed) {
       setRightCollapsed(true);
     } else {

@@ -9,6 +9,7 @@ import tracksRoutes from './routes/tracks';
 import playlistsRoutes from './routes/playlists';
 import filesRoutes from './routes/files';
 import authRoutes from './routes/auth';
+import sfxRoutes from './routes/sfx';
 import { requireAuth } from './middlewares/authMiddleware';
 
 import http from 'http';
@@ -30,6 +31,7 @@ export function startApi(client: Client) {
     app.use('/api/tracks', tracksRoutes());
     app.use('/api/playlists', playlistsRoutes());
     app.use('/api', filesRoutes());
+    app.use('/api/sfx', sfxRoutes(client));
 
     // Раздача статики React-приложения
     app.use(express.static(path.join(__dirname, '..', '..', 'frontend', 'dist')));

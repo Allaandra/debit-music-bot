@@ -1,6 +1,6 @@
 import React from 'react';
 import { usePlayer } from '../context/PlayerContext';
-import { Play, Pause, SkipBack, SkipForward, Shuffle, Repeat, Volume2, ListMusic, Info, Search, Filter, Trash2, MoreVertical, Music, BarChart2, Home, Plus, Upload, Settings, LogOut, Palette, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Play, Pause, SkipBack, SkipForward, Shuffle, Repeat, Volume2, ListMusic, Info, Swords, Search, Filter, Trash2, MoreVertical, Music, BarChart2, Home, Plus, Upload, Settings, LogOut, Palette, ChevronLeft, ChevronRight } from 'lucide-react';
 
 export const PlayerBar = () => {
   const player = usePlayer();
@@ -81,8 +81,9 @@ export const PlayerBar = () => {
         </div>
         
         <div className="right-controls">
-          <button style={{background: 'none', border: 'none', padding: 0}} className={rightPanelMode === 'queue' && !rightCollapsed ? 'active-icon' : ''} onClick={() => handleRightToggle('queue')}><ListMusic size={18} /></button>
-          <button style={{background: 'none', border: 'none', padding: 0}} className={rightPanelMode === 'info' && !rightCollapsed ? 'active-icon' : ''} onClick={() => handleRightToggle('info')}><Info size={18} /></button>
+          <button style={{background: 'none', border: 'none', padding: 0}} title="Очередь" className={rightPanelMode === 'queue' && !rightCollapsed ? 'active-icon' : ''} onClick={() => handleRightToggle('queue')}><ListMusic size={18} /></button>
+          <button style={{background: 'none', border: 'none', padding: 0}} title="Звуковые эффекты (SFX)" className={rightPanelMode === 'sfx' && !rightCollapsed ? 'active-icon' : ''} onClick={() => handleRightToggle('sfx')}><Swords size={18} /></button>
+          <button style={{background: 'none', border: 'none', padding: 0}} title="Информация о треке" className={rightPanelMode === 'info' && !rightCollapsed ? 'active-icon' : ''} onClick={() => handleRightToggle('info')}><Info size={18} /></button>
           <Volume2 size={18} />
           <div className="volume-bar" style={{position: 'relative'}}>
             <input id="volume-bar" name="volumeBar" type="range" min="0" max="100" defaultValue="50" style={{position: 'absolute', width: '100%', opacity: 0, cursor: 'pointer', zIndex: 2}} />
