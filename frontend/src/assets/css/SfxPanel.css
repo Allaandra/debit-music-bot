@@ -79,6 +79,64 @@
   background: rgba(255, 255, 255, 0.16);
 }
 
+/* SFX VOLUME BAR */
+.sfx-panel-volume-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(0, 0, 0, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 8px;
+  padding: 6px 10px;
+}
+
+.sfx-panel-vol-left {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.sfx-panel-vol-slider-wrap {
+  flex: 1;
+  position: relative;
+  height: 4px;
+  background-color: rgba(255, 255, 255, 0.15);
+  border-radius: 2px;
+}
+
+.sfx-panel-vol-input {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: pointer;
+  z-index: 2;
+  margin: 0;
+}
+
+.sfx-panel-vol-fill {
+  position: absolute;
+  left: 0;
+  top: 0;
+  height: 100%;
+  background-color: var(--accent);
+  border-radius: 2px;
+}
+
+.sfx-panel-vol-text {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-main);
+  min-width: 28px;
+  text-align: right;
+}
+
 /* PLAYLISTS SQUARES ROW (3-6 items) */
 .sfx-playlists-container {
   overflow-x: auto;

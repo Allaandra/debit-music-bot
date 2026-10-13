@@ -67,6 +67,7 @@ export async function getSfxPcmBuffer(filePath: string): Promise<Buffer> {
     return new Promise((resolve, reject) => {
         const proc = spawn(ffmpegPath as string, [
             '-i', filePath,
+            '-af', 'loudnorm=I=-16:TP=-1.5:LRA=11',
             '-f', 's16le',
             '-ar', '48000',
             '-ac', '2',

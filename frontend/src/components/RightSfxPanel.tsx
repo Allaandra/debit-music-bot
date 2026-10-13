@@ -1,13 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../services/api';
-import { Swords, Plus, Play, Headphones, Trash2, Upload, Sparkles, X, MoreVertical, Globe, Lock } from 'lucide-react';
+import { usePlayer } from '../context/PlayerContext';
+import { Swords, Plus, Play, Headphones, Trash2, Upload, Sparkles, X, MoreVertical, Globe, Lock, Volume2 } from 'lucide-react';
 
 export const RightSfxPanel: React.FC = () => {
   const { data: playlists = [], refetch } = useQuery({
     queryKey: ['sfxPlaylists'],
     queryFn: api.fetchSfxPlaylists
   });
+
+  const { sfxVolume = 0.8, setSfxVolume } = usePlayer();
 
   const [selectedPlaylistId, setSelectedPlaylistId] = useState<number | null>(null);
   const [playingSoundId, setPlayingSoundId] = useState<number | null>(null);
@@ -51,7 +54,7 @@ export const RightSfxPanel: React.FC = () => {
   const handlePlayInDiscord = async (soundId: number) => {
     try {
       setPlayingSoundId(soundId);
-      await api.playSfx(soundId);
+      await api.playSfx(soundId, sfxVolume);
       setTimeout(() => setPlayingSoundId(null), 2500);
     } catch (err) {
       console.error('Failed to play SFX in Discord:', err);
@@ -65,7 +68,7 @@ export const RightSfxPanel: React.FC = () => {
       previewAudio.pause();
     }
     const audio = new Audio(api.getSfxAudioUrl(soundId));
-    audio.volume = 0.7;
+    audio.volume = sfxVolume;
     audio.play().catch(e => console.error('Preview error:', e));
     setPreviewAudio(audio);
   };
@@ -182,6 +185,26 @@ export const RightSfxPanel: React.FC = () => {
             <Plus size={14} />
           </button>
         </div>
+      </div>
+
+      {/* SFX Volume Bar inside Panel */}
+      <div className="sfx-panel-volume-bar">
+        <div className="sfx-panel-vol-left">
+          <Volume2 size={13} style={{ color: 'var(--accent)' }} />
+          <span>Громкость:</span>
+        </div>
+        <div className="sfx-panel-vol-slider-wrap">
+          <input
+            type="range"
+            min="0"
+            max="100"
+            value={Math.round(sfxVolume * 100)}
+            onChange={(e) => setSfxVolume(Number(e.target.value) / 100)}
+            className="sfx-panel-vol-input"
+          />
+          <div className="sfx-panel-vol-fill" style={{ width: `${Math.round(sfxVolume * 100)}%` }}></div>
+        </div>
+        <span className="sfx-panel-vol-text">{Math.round(sfxVolume * 100)}%</span>
       </div>
 
       {/* Mini-playlists row (3-6 squares) */}

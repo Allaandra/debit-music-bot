@@ -72,12 +72,18 @@ export const PlayerProvider = ({ children }: { children: React.ReactNode }) => {
     return (localStorage.getItem('sortMethod') as 'default'|'name'|'duration'|'author') || 'default';
   });
 
+  const [sfxVolume, setSfxVolume] = useState<number>(() => {
+    const saved = localStorage.getItem('sfxVolume');
+    return saved !== null && !isNaN(Number(saved)) ? Number(saved) : 0.8;
+  });
+
   useEffect(() => { localStorage.setItem('activePlaylistId', JSON.stringify(activePlaylistId)); }, [activePlaylistId]);
   useEffect(() => { localStorage.setItem('rightPanelMode', rightPanelMode); }, [rightPanelMode]);
   useEffect(() => { localStorage.setItem('rightCollapsed', JSON.stringify(rightCollapsed)); }, [rightCollapsed]);
   useEffect(() => { localStorage.setItem('theme', theme); }, [theme]);
   useEffect(() => { localStorage.setItem('leftCollapsed', JSON.stringify(leftCollapsed)); }, [leftCollapsed]);
   useEffect(() => { localStorage.setItem('sortMethod', sortMethod); }, [sortMethod]);
+  useEffect(() => { localStorage.setItem('sfxVolume', sfxVolume.toString()); }, [sfxVolume]);
 
   const toggleTheme = () => {
     setTheme(prev => prev === 'forest' ? 'dark' : prev === 'dark' ? 'light' : 'forest');
@@ -441,7 +447,8 @@ export const PlayerProvider = ({ children }: { children: React.ReactNode }) => {
       handleDeleteTrack, handlePlayTrack, handleFileUpload,
       handleCreatePlaylist, handleAddToPlaylist, formatTime,
       toggleTheme, handleRightToggle,
-      duration, elapsed, filteredTracks, playlistName
+      duration, elapsed, filteredTracks, playlistName,
+      sfxVolume, setSfxVolume
     }}>
       {children}
     </PlayerContext.Provider>

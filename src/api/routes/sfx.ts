@@ -42,42 +42,69 @@ export default function sfxRoutes(client: Client) {
         return userPath;
     }
 
-    // Seed default playlists and built-in sounds if user has none
+    // Seed default playlists and built-in sounds if user has none or if default sounds are missing
     async function ensureDefaultPlaylists(userId: string) {
-        const count = await prisma.sfxPlaylist.count({
-            where: { ownerId: userId }
-        });
+        const defaults = [
+            {
+                name: 'Бой',
+                icon: '⚔️',
+                order: 0,
+                sounds: [
+                    { title: 'Удар меча', filename: 'sword_hit.mp3', duration: 0.7 },
+                    { title: 'Блок щитом', filename: 'shield_block.mp3', duration: 0.8 },
+                    { title: 'Выстрел из лука', filename: 'arrow_shot.mp3', duration: 0.6 },
+                    { title: 'Критический удар', filename: 'critical_hit.mp3', duration: 1.0 },
+                ]
+            },
+            {
+                name: 'Магия',
+                icon: '✨',
+                order: 1,
+                sounds: [
+                    { title: 'Вспышка магии', filename: 'magic_spell.mp3', duration: 1.4 },
+                    { title: 'Огненный шар', filename: 'fireball.mp3', duration: 1.5 },
+                    { title: 'Исцеление', filename: 'heal_spell.mp3', duration: 1.6 },
+                    { title: 'Удар молнии', filename: 'lightning_bolt.mp3', duration: 1.2 },
+                ]
+            },
+            {
+                name: 'Окружение',
+                icon: '🌲',
+                order: 2,
+                sounds: [
+                    { title: 'Колокол таверны', filename: 'tavern_bell.mp3', duration: 1.8 },
+                    { title: 'Скрип двери', filename: 'door_creak.mp3', duration: 1.5 },
+                    { title: 'Раскат грома', filename: 'thunder_rumble.mp3', duration: 2.5 },
+                    { title: 'Треск костра', filename: 'campfire_crack.mp3', duration: 2.0 },
+                ]
+            },
+            {
+                name: 'Кубики',
+                icon: '🎲',
+                order: 3,
+                sounds: [
+                    { title: 'Бросок кубика', filename: 'dice_roll.mp3', duration: 1.1 },
+                    { title: 'Натуральная 20', filename: 'nat20_fanfare.mp3', duration: 1.5 },
+                    { title: 'Критический провал', filename: 'nat1_fail.mp3', duration: 1.3 },
+                ]
+            },
+            {
+                name: 'Монстры',
+                icon: '💀',
+                order: 4,
+                sounds: [
+                    { title: 'Рык монстра', filename: 'monster_roar.mp3', duration: 1.8 },
+                ]
+            }
+        ];
 
-        if (count === 0) {
-            const defaults = [
-                {
-                    name: 'Бой',
-                    icon: '⚔️',
-                    order: 0,
-                    sound: { title: 'Удар меча', filename: 'sword_hit.mp3', duration: 0.6 }
-                },
-                {
-                    name: 'Магия',
-                    icon: '✨',
-                    order: 1,
-                    sound: { title: 'Заклинание', filename: 'magic_spell.mp3', duration: 1.5 }
-                },
-                {
-                    name: 'Окружение',
-                    icon: '🌲',
-                    order: 2,
-                    sound: { title: 'Колокол таверны', filename: 'tavern_bell.mp3', duration: 1.8 }
-                },
-                {
-                    name: 'Кубики',
-                    icon: '🎲',
-                    order: 3,
-                    sound: { title: 'Бросок кубика', filename: 'dice_roll.mp3', duration: 1.2 }
-                },
-            ];
+        for (const item of defaults) {
+            let pl = await prisma.sfxPlaylist.findFirst({
+                where: { ownerId: userId, name: item.name }
+            });
 
-            for (const item of defaults) {
-                const pl = await prisma.sfxPlaylist.create({
+            if (!pl) {
+                pl = await prisma.sfxPlaylist.create({
                     data: {
                         ownerId: userId,
                         name: item.name,
@@ -85,17 +112,24 @@ export default function sfxRoutes(client: Client) {
                         order: item.order
                     }
                 });
+            }
 
-                // Check if default sound file exists, and seed it
-                const defaultFilePath = path.join(__dirname, '../../..', 'sounds', 'default_sfx', item.sound.filename);
-                if (fs.existsSync(defaultFilePath)) {
+            for (const s of item.sounds) {
+                const defaultFilePath = path.join(__dirname, '../../..', 'sounds', 'default_sfx', s.filename);
+                if (!fs.existsSync(defaultFilePath)) continue;
+
+                const existingSound = await prisma.sfxSound.findFirst({
+                    where: { ownerId: userId, filename: s.filename }
+                });
+
+                if (!existingSound) {
                     await prisma.sfxSound.create({
                         data: {
                             ownerId: userId,
                             playlistId: pl.id,
-                            title: item.sound.title,
-                            filename: item.sound.filename,
-                            duration: item.sound.duration,
+                            title: s.title,
+                            filename: s.filename,
+                            duration: s.duration,
                             isGlobal: true
                         }
                     });

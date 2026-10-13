@@ -147,6 +147,7 @@ export class AudioStreamer extends EventEmitter {
                 }
                 const sfxArgs = [
                     '-i', sfxFilePath,
+                    '-af', `loudnorm=I=-16:TP=-1.5:LRA=11,volume=${volume}`,
                     '-c:a', 'libopus',
                     '-b:a', '128k',
                     '-f', 'ogg',
