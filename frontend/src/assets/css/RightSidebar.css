@@ -43,7 +43,12 @@
 
 .queue-stair-1 {
   background-color: var(--app-bg);
-  padding: 24px 24px 24px 48px;
+  padding: 0 24px 0 48px;
+  height: 72px;
+  min-height: 72px;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
   position: relative;
   z-index: 3;
   box-shadow: 0 12px 24px var(--shadow-color);

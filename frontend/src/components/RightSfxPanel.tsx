@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../services/api';
 import { usePlayer } from '../context/PlayerContext';
-import { Swords, Plus, Play, Headphones, Trash2, Upload, Sparkles, X, MoreVertical, Globe, Lock, Volume2 } from 'lucide-react';
+import { Swords, Plus, Play, Headphones, Trash2, Upload, Sparkles, X, MoreVertical, Globe, Lock } from 'lucide-react';
 
 export const RightSfxPanel: React.FC = () => {
   const { data: playlists = [], refetch } = useQuery({
@@ -10,12 +11,16 @@ export const RightSfxPanel: React.FC = () => {
     queryFn: api.fetchSfxPlaylists
   });
 
-  const { sfxVolume = 0.8, setSfxVolume } = usePlayer();
+  const { sfxVolume = 0.8 } = usePlayer();
 
   const [selectedPlaylistId, setSelectedPlaylistId] = useState<number | null>(null);
   const [playingSoundId, setPlayingSoundId] = useState<number | null>(null);
   const [previewAudio, setPreviewAudio] = useState<HTMLAudioElement | null>(null);
   const [activeMenuSoundId, setActiveMenuSoundId] = useState<number | null>(null);
+
+  // Modals state
+  const [deleteCategoryModal, setDeleteCategoryModal] = useState<{ id: number; name: string } | null>(null);
+  const [deleteSoundModal, setDeleteSoundModal] = useState<{ id: number; title: string } | null>(null);
 
   // Upload modal state
   const [isUploadOpen, setIsUploadOpen] = useState(false);
@@ -75,12 +80,6 @@ export const RightSfxPanel: React.FC = () => {
 
   // Toggle isGlobal shared status
   const handleToggleGlobal = async (sound: any) => {
-    const question = sound.isGlobal
-      ? `Сделать звук «${sound.title}» личным? (Другие Мастера больше не будут его видеть)`
-      : `Вы хотите сделать этот звук «${sound.title}» общим для всех? (Его смогут использовать все Мастера)`;
-
-    if (!window.confirm(question)) return;
-
     try {
       await api.toggleSfxGlobal(sound.id);
       refetch();
@@ -90,25 +89,27 @@ export const RightSfxPanel: React.FC = () => {
     }
   };
 
-  // Delete sound
-  const handleDeleteSound = async (soundId: number, title: string) => {
-    if (!window.confirm(`Удалить звук «${title}»?`)) return;
+  // Delete category action
+  const confirmDeleteCategory = async () => {
+    if (!deleteCategoryModal) return;
     try {
-      await api.deleteSfxSound(soundId);
+      await api.deleteSfxPlaylist(deleteCategoryModal.id);
+      setDeleteCategoryModal(null);
       refetch();
     } catch (err) {
-      console.error('Failed to delete SFX:', err);
+      console.error('Failed to delete category:', err);
     }
   };
 
-  // Delete playlist
-  const handleDeletePlaylist = async (playlistId: number, name: string) => {
-    if (!window.confirm(`Удалить категорию «${name}» и все её звуки?`)) return;
+  // Delete sound action
+  const confirmDeleteSound = async () => {
+    if (!deleteSoundModal) return;
     try {
-      await api.deleteSfxPlaylist(playlistId);
+      await api.deleteSfxSound(deleteSoundModal.id);
+      setDeleteSoundModal(null);
       refetch();
     } catch (err) {
-      console.error('Failed to delete playlist:', err);
+      console.error('Failed to delete sound:', err);
     }
   };
 
@@ -149,7 +150,7 @@ export const RightSfxPanel: React.FC = () => {
       if (created?.id) setSelectedPlaylistId(created.id);
     } catch (err) {
       console.error('Failed to create playlist:', err);
-      alert('Ошибка при создании плейлиста');
+      alert('Ошибка при создании категории');
     } finally {
       setIsCreatingPlaylist(false);
     }
@@ -158,110 +159,88 @@ export const RightSfxPanel: React.FC = () => {
   const emojiIcons = ['⚔️', '🛡️', '🏹', '🧙', '💀', '🎲', '🍺', '🌲', '⚡', '🔔', '💥', '🐉'];
 
   return (
-    <div className="sfx-panel-view">
-      {/* Header */}
-      <div className="sfx-header">
-        <div className="sfx-title-wrap">
-          <Swords size={18} className="sfx-icon-title" />
-          <h3 className="sfx-title">Звуковые эффекты</h3>
+    <div className="sfx-view">
+      {/* STAIR 1: HEADER */}
+      <div className="sfx-stair-1">
+        <div className="sfx-stair-1-left">
+          <Swords size={20} className="sfx-title-icon" />
+          <h2 className="sfx-title">SFX</h2>
         </div>
-        <div className="sfx-header-actions">
+        <div className="sfx-stair-1-actions">
           <button
-            className="sfx-btn-primary"
+            className="sfx-icon-btn"
             onClick={() => {
               setUploadPlaylistId(selectedPlaylistId && selectedPlaylistId > 0 ? selectedPlaylistId : playlists[0]?.id);
               setIsUploadOpen(true);
             }}
-            title="Загрузить аудиофайл"
+            title="Загрузить SFX звук"
           >
-            <Upload size={13} />
-            <span>Звук</span>
+            <Upload size={17} />
           </button>
           <button
-            className="sfx-btn-secondary"
+            className="sfx-icon-btn"
             onClick={() => setIsNewPlaylistOpen(true)}
-            title="Создать мини-плейлист"
+            title="Создать категорию"
           >
-            <Plus size={14} />
+            <Plus size={18} />
           </button>
         </div>
       </div>
 
-      {/* SFX Volume Bar inside Panel */}
-      <div className="sfx-panel-volume-bar">
-        <div className="sfx-panel-vol-left">
-          <Volume2 size={13} style={{ color: 'var(--accent)' }} />
-          <span>Громкость:</span>
-        </div>
-        <div className="sfx-panel-vol-slider-wrap">
-          <input
-            type="range"
-            min="0"
-            max="100"
-            value={Math.round(sfxVolume * 100)}
-            onChange={(e) => setSfxVolume(Number(e.target.value) / 100)}
-            className="sfx-panel-vol-input"
-          />
-          <div className="sfx-panel-vol-fill" style={{ width: `${Math.round(sfxVolume * 100)}%` }}></div>
-        </div>
-        <span className="sfx-panel-vol-text">{Math.round(sfxVolume * 100)}%</span>
-      </div>
-
-      {/* Mini-playlists row (3-6 squares) */}
-      <div className="sfx-playlists-container">
-        <div className="sfx-playlists-grid">
+      {/* STAIR 2: CATEGORIES (MINI-PLAYLISTS) */}
+      <div className="sfx-stair-2">
+        <div className="sfx-categories-scroll">
           {playlists.map((pl: any) => (
-            <button
+            <div
               key={pl.id}
-              className={`sfx-playlist-square ${selectedPlaylistId === pl.id ? 'active' : ''}`}
+              className={`sfx-category-card ${selectedPlaylistId === pl.id ? 'active' : ''}`}
               onClick={() => setSelectedPlaylistId(pl.id)}
               title={pl.name}
             >
-              <span className="sfx-square-icon">{pl.icon || '⚔️'}</span>
-              <span className="sfx-square-name">{pl.name}</span>
-              <span className="sfx-square-count">{pl.sounds?.length || 0}</span>
+              <div className="sfx-category-inner">
+                <span className="sfx-category-emoji">{pl.icon || '⚔️'}</span>
+                <span className="sfx-category-name">{pl.name}</span>
+              </div>
               {pl.id > 0 && playlists.filter((p: any) => p.id > 0).length > 1 && (
-                <span
-                  className="sfx-square-del"
+                <button
+                  className="sfx-category-del-btn"
                   onClick={(e) => {
                     e.stopPropagation();
-                    handleDeletePlaylist(pl.id, pl.name);
+                    setDeleteCategoryModal({ id: pl.id, name: pl.name });
                   }}
                   title="Удалить категорию"
                 >
-                  ×
-                </span>
+                  <X size={11} />
+                </button>
               )}
-            </button>
+            </div>
           ))}
-          {playlists.filter((p: any) => p.id > 0).length < 6 && (
+          {playlists.filter((p: any) => p.id > 0).length < 8 && (
             <button
-              className="sfx-playlist-square sfx-square-add"
+              className="sfx-category-card sfx-category-add"
               onClick={() => setIsNewPlaylistOpen(true)}
               title="Добавить категорию"
             >
-              <Plus size={18} />
-              <span className="sfx-square-name">Новый</span>
+              <Plus size={20} />
             </button>
           )}
         </div>
       </div>
 
-      {/* Current Category Bar */}
-      <div className="sfx-current-bar">
-        <span className="sfx-current-name">
-          {currentPlaylist?.icon} {currentPlaylist?.name || 'SFX'}
-        </span>
-        <span className="sfx-current-count">
-          {sounds.length} {sounds.length === 1 ? 'звук' : sounds.length >= 2 && sounds.length <= 4 ? 'звука' : 'звуков'}
-        </span>
-      </div>
+      {/* STAIR 3: SOUNDS GRID */}
+      <div className="sfx-stair-3">
+        <div className="sfx-stair-3-header">
+          <span className="sfx-category-heading">
+            {currentPlaylist?.name || 'SFX'}
+          </span>
+          <span className="sfx-sounds-count">
+            {sounds.length} {sounds.length === 1 ? 'звук' : sounds.length >= 2 && sounds.length <= 4 ? 'звука' : 'звуков'}
+          </span>
+        </div>
 
-      {/* Sounds Grid in 2 Columns */}
-      <div className="sfx-sounds-grid-wrapper">
         {sounds.length === 0 ? (
           <div className="sfx-empty">
-            <Sparkles size={24} style={{ opacity: 0.5, marginBottom: 4 }} />
+            <Sparkles size={28} style={{ opacity: 0.5, marginBottom: 4 }} />
             <p>В этой категории пока нет звуков</p>
             <button
               className="sfx-btn-primary"
@@ -270,54 +249,49 @@ export const RightSfxPanel: React.FC = () => {
                 setIsUploadOpen(true);
               }}
             >
-              <Upload size={13} /> Загрузить звук
+              <Upload size={14} /> Загрузить звук
             </button>
           </div>
         ) : (
-          <div className="sfx-sounds-2col-grid">
+          <div className="sfx-sounds-grid">
             {sounds.map((sound: any) => (
               <div
                 key={sound.id}
                 className={`sfx-sound-card ${playingSoundId === sound.id ? 'playing' : ''}`}
                 onClick={() => handlePlayInDiscord(sound.id)}
-                title={`Клик: сыграть в Discord поверх музыки\n${sound.title}`}
+                title={`Клик: сыграть в Discord\n${sound.title}`}
               >
-                <div className="sfx-sound-main">
-                  <Play size={12} className="sfx-play-icon" />
+                <div className="sfx-sound-left">
+                  <Play size={11} className={`sfx-play-icon ${playingSoundId === sound.id ? 'playing' : ''}`} />
                   <span className="sfx-sound-title">{sound.title}</span>
                   {sound.isGlobal && (
-                    <span title="Общий звук для всех Мастеров" style={{ display: 'inline-flex', alignItems: 'center', marginLeft: 3 }}>
-                      <Globe size={11} style={{ color: 'var(--accent)', flexShrink: 0 }} />
+                    <span title="Общий звук для всех Мастеров" style={{ display: 'inline-flex', alignItems: 'center' }}>
+                      <Globe size={10} className="sfx-globe-icon" />
                     </span>
                   )}
                 </div>
 
-                <div className="sfx-sound-actions">
+                <div className="sfx-sound-right" onClick={e => e.stopPropagation()}>
                   <button
-                    className="sfx-sound-mini-btn"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handlePreviewBrowser(sound.id);
-                    }}
-                    title="Превью в наушниках (только для вас)"
+                    className="sfx-sound-menu-trigger"
+                    onClick={() => setActiveMenuSoundId(activeMenuSoundId === sound.id ? null : sound.id)}
+                    title="Действия"
                   >
-                    <Headphones size={12} />
-                  </button>
-
-                  <button
-                    className="sfx-sound-mini-btn"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setActiveMenuSoundId(activeMenuSoundId === sound.id ? null : sound.id);
-                    }}
-                    title="Действия со звуком"
-                  >
-                    <MoreVertical size={12} />
+                    <MoreVertical size={11} />
                   </button>
 
                   {/* Context menu for sound */}
                   {activeMenuSoundId === sound.id && (
-                    <div className="sfx-sound-dropdown" onClick={(e) => e.stopPropagation()}>
+                    <div className="sfx-sound-dropdown">
+                      <button
+                        className="sfx-dropdown-item"
+                        onClick={() => {
+                          setActiveMenuSoundId(null);
+                          handlePreviewBrowser(sound.id);
+                        }}
+                      >
+                        <Headphones size={13} /> В наушниках (DM)
+                      </button>
                       {sound.canEdit && (
                         <button
                           className="sfx-dropdown-item"
@@ -328,11 +302,11 @@ export const RightSfxPanel: React.FC = () => {
                         >
                           {sound.isGlobal ? (
                             <>
-                              <Lock size={12} /> Сделать личным
+                              <Lock size={13} /> Сделать личным
                             </>
                           ) : (
                             <>
-                              <Globe size={12} /> Сделать общим для всех
+                              <Globe size={13} /> Сделать общим
                             </>
                           )}
                         </button>
@@ -342,10 +316,10 @@ export const RightSfxPanel: React.FC = () => {
                           className="sfx-dropdown-item danger"
                           onClick={() => {
                             setActiveMenuSoundId(null);
-                            handleDeleteSound(sound.id, sound.title);
+                            setDeleteSoundModal({ id: sound.id, title: sound.title });
                           }}
                         >
-                          <Trash2 size={12} /> Удалить звук
+                          <Trash2 size={13} /> Удалить звук
                         </button>
                       )}
                     </div>
@@ -357,19 +331,84 @@ export const RightSfxPanel: React.FC = () => {
         )}
       </div>
 
-      {/* Upload Modal */}
-      {isUploadOpen && (
-        <div className="sfx-modal-backdrop" onClick={() => setIsUploadOpen(false)}>
-          <div className="sfx-modal-card" onClick={e => e.stopPropagation()}>
-            <div className="sfx-modal-header">
-              <h4 className="sfx-modal-title">Загрузить SFX звук</h4>
-              <button className="sfx-modal-close" onClick={() => setIsUploadOpen(false)}>
+      {/* CONFIRM DELETE CATEGORY MODAL */}
+      {deleteCategoryModal && createPortal(
+        <div className="modal-overlay" onClick={() => setDeleteCategoryModal(null)}>
+          <div className="modal-content" onClick={e => e.stopPropagation()}>
+            <h3 style={{ margin: '0 0 8px 0' }}>Удалить категорию</h3>
+            <p style={{ margin: '0 0 16px 0' }}><strong>{deleteCategoryModal.name}</strong></p>
+            <p style={{ margin: '0 0 24px 0', fontSize: '14px', color: 'var(--text-muted)' }}>
+              Вы уверены, что хотите удалить эту категорию и все звуковые эффекты в ней?
+            </p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <button
+                onClick={confirmDeleteCategory}
+                className="delete-option-btn danger"
+                style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid rgba(255, 60, 60, 0.5)', background: 'rgba(255, 60, 60, 0.2)', color: '#ff5555', cursor: 'pointer' }}
+              >
+                Да, удалить категорию
+              </button>
+              <button
+                className="delete-option-btn"
+                onClick={() => setDeleteCategoryModal(null)}
+                style={{ width: '100%', padding: '12px', borderRadius: '8px', border: 'none', background: 'transparent', color: 'white', cursor: 'pointer', marginTop: '8px' }}
+              >
+                Отмена
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* CONFIRM DELETE SOUND MODAL */}
+      {deleteSoundModal && createPortal(
+        <div className="modal-overlay" onClick={() => setDeleteSoundModal(null)}>
+          <div className="modal-content" onClick={e => e.stopPropagation()}>
+            <h3 style={{ margin: '0 0 8px 0' }}>Удалить звук</h3>
+            <p style={{ margin: '0 0 16px 0' }}><strong>{deleteSoundModal.title}</strong></p>
+            <p style={{ margin: '0 0 24px 0', fontSize: '14px', color: 'var(--text-muted)' }}>
+              Вы уверены, что хотите навсегда удалить этот звуковой эффект?
+            </p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <button
+                onClick={confirmDeleteSound}
+                className="delete-option-btn danger"
+                style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid rgba(255, 60, 60, 0.5)', background: 'rgba(255, 60, 60, 0.2)', color: '#ff5555', cursor: 'pointer' }}
+              >
+                Да, удалить звук
+              </button>
+              <button
+                className="delete-option-btn"
+                onClick={() => setDeleteSoundModal(null)}
+                style={{ width: '100%', padding: '12px', borderRadius: '8px', border: 'none', background: 'transparent', color: 'white', cursor: 'pointer', marginTop: '8px' }}
+              >
+                Отмена
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* UPLOAD MODAL */}
+      {isUploadOpen && createPortal(
+        <div className="modal-overlay" onClick={() => setIsUploadOpen(false)}>
+          <div className="modal-content" onClick={e => e.stopPropagation()}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+              <h3 style={{ margin: 0 }}>Загрузить SFX звук</h3>
+              <button
+                onClick={() => setIsUploadOpen(false)}
+                style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}
+              >
                 <X size={18} />
               </button>
             </div>
-            <form onSubmit={handleUploadSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-              <div className="sfx-modal-field">
-                <label className="sfx-modal-label">Аудиофайл (.mp3, .wav, .ogg):</label>
+            <form onSubmit={handleUploadSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <label style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 500 }}>
+                  Аудиофайл (.mp3, .wav, .ogg):
+                </label>
                 <input
                   type="file"
                   accept=".mp3,.wav,.ogg,.m4a"
@@ -381,27 +420,31 @@ export const RightSfxPanel: React.FC = () => {
                       setUploadTitle(f.name.replace(/\.[^/.]+$/, '').replace(/^[0-9]+_/, '').replace(/_/g, ' '));
                     }
                   }}
-                  className="sfx-modal-input"
+                  style={{ padding: '8px', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.15)', background: 'rgba(0,0,0,0.2)', color: 'white' }}
                 />
               </div>
 
-              <div className="sfx-modal-field">
-                <label className="sfx-modal-label">Название звука:</label>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <label style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 500 }}>
+                  Название звука:
+                </label>
                 <input
                   type="text"
                   placeholder="Например: Удар меча, Фаербол..."
                   value={uploadTitle}
                   onChange={e => setUploadTitle(e.target.value)}
-                  className="sfx-modal-input"
+                  style={{ padding: '10px', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.15)', background: 'rgba(0,0,0,0.2)', color: 'white' }}
                 />
               </div>
 
-              <div className="sfx-modal-field">
-                <label className="sfx-modal-label">Мини-плейлист:</label>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <label style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 500 }}>
+                  Категория:
+                </label>
                 <select
                   value={uploadPlaylistId || selectedPlaylistId || ''}
                   onChange={e => setUploadPlaylistId(Number(e.target.value))}
-                  className="sfx-modal-select"
+                  style={{ padding: '10px', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.15)', background: 'var(--panel-bg)', color: 'white' }}
                 >
                   {playlists.filter((p: any) => p.id > 0).map((pl: any) => (
                     <option key={pl.id} value={pl.id}>
@@ -420,56 +463,65 @@ export const RightSfxPanel: React.FC = () => {
                   style={{ cursor: 'pointer', accentColor: 'var(--accent)' }}
                 />
                 <label htmlFor="sfx-global-check" style={{ fontSize: '12px', color: 'var(--text-main)', cursor: 'pointer' }}>
-                  Сделать звук общим (будет доступен всем Мастерам) 🌐
+                  Сделать звук общим для всех Мастеров 🌐
                 </label>
               </div>
 
-              <div className="sfx-modal-actions">
+              <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 8 }}>
                 <button
                   type="button"
-                  className="sfx-btn-secondary"
                   onClick={() => setIsUploadOpen(false)}
+                  style={{ padding: '8px 16px', borderRadius: '6px', border: 'none', background: 'transparent', color: 'white', cursor: 'pointer' }}
                 >
                   Отмена
                 </button>
                 <button
                   type="submit"
-                  className="sfx-btn-primary"
                   disabled={!uploadFile || isUploading}
+                  style={{ padding: '8px 16px', borderRadius: '6px', border: 'none', background: 'var(--accent)', color: 'var(--bottom-bar-bg, #0b110d)', fontWeight: 600, cursor: 'pointer' }}
                 >
                   {isUploading ? 'Загрузка...' : 'Загрузить'}
                 </button>
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
-      {/* New Playlist Modal */}
-      {isNewPlaylistOpen && (
-        <div className="sfx-modal-backdrop" onClick={() => setIsNewPlaylistOpen(false)}>
-          <div className="sfx-modal-card" onClick={e => e.stopPropagation()}>
-            <div className="sfx-modal-header">
-              <h4 className="sfx-modal-title">Новая категория SFX</h4>
-              <button className="sfx-modal-close" onClick={() => setIsNewPlaylistOpen(false)}>
+      {/* NEW CATEGORY MODAL */}
+      {isNewPlaylistOpen && createPortal(
+        <div className="modal-overlay" onClick={() => setIsNewPlaylistOpen(false)}>
+          <div className="modal-content" onClick={e => e.stopPropagation()}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+              <h3 style={{ margin: 0 }}>Новая категория SFX</h3>
+              <button
+                onClick={() => setIsNewPlaylistOpen(false)}
+                style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}
+              >
                 <X size={18} />
               </button>
             </div>
-            <form onSubmit={handleCreatePlaylistSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-              <div className="sfx-modal-field">
-                <label className="sfx-modal-label">Название категории:</label>
+            <form onSubmit={handleCreatePlaylistSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <label style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 500 }}>
+                  Название категории:
+                </label>
                 <input
                   type="text"
                   placeholder="Например: Монстры, Ловушки..."
                   value={newPlaylistName}
                   required
+                  autoFocus
                   onChange={e => setNewPlaylistName(e.target.value)}
-                  className="sfx-modal-input"
+                  style={{ padding: '10px', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.15)', background: 'rgba(0,0,0,0.2)', color: 'white' }}
                 />
               </div>
 
-              <div className="sfx-modal-field">
-                <label className="sfx-modal-label">Иконка / Эмодзи:</label>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <label style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 500 }}>
+                  Иконка / Эмодзи:
+                </label>
                 <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 4 }}>
                   {emojiIcons.map(icon => (
                     <button
@@ -478,7 +530,7 @@ export const RightSfxPanel: React.FC = () => {
                       onClick={() => setNewPlaylistIcon(icon)}
                       style={{
                         fontSize: 18,
-                        padding: '4px 8px',
+                        padding: '6px 10px',
                         borderRadius: 6,
                         border: newPlaylistIcon === icon ? '2px solid var(--accent)' : '1px solid rgba(255,255,255,0.1)',
                         background: newPlaylistIcon === icon ? 'rgba(46,204,113,0.2)' : 'rgba(255,255,255,0.05)',
@@ -491,25 +543,26 @@ export const RightSfxPanel: React.FC = () => {
                 </div>
               </div>
 
-              <div className="sfx-modal-actions">
+              <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 8 }}>
                 <button
                   type="button"
-                  className="sfx-btn-secondary"
                   onClick={() => setIsNewPlaylistOpen(false)}
+                  style={{ padding: '8px 16px', borderRadius: '6px', border: 'none', background: 'transparent', color: 'white', cursor: 'pointer' }}
                 >
                   Отмена
                 </button>
                 <button
                   type="submit"
-                  className="sfx-btn-primary"
                   disabled={!newPlaylistName.trim() || isCreatingPlaylist}
+                  style={{ padding: '8px 16px', borderRadius: '6px', border: 'none', background: 'var(--accent)', color: 'var(--bottom-bar-bg, #0b110d)', fontWeight: 600, cursor: 'pointer' }}
                 >
                   {isCreatingPlaylist ? 'Создание...' : 'Создать'}
                 </button>
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

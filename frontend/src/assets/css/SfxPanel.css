@@ -1,171 +1,120 @@
-/* SFX SOUNDBOARD PANEL */
+/* SFX SOUNDBOARD PANEL - 3-STAIR ARCHITECTURE */
 
-.sfx-panel-view {
+.sfx-view {
   display: flex;
   flex-direction: column;
   flex: 1;
-  padding: 24px 24px 24px 48px; /* Точно такой же отступ слева (48px), как в панели очереди */
-  gap: 16px;
-  overflow-y: auto;
+  height: 100%;
+  overflow-x: hidden;
   box-sizing: border-box;
 }
 
-.sfx-header {
+/* STAIR 1: HEADER (Strictly 72px to match queue-stair-1) */
+.sfx-stair-1 {
+  background-color: var(--app-bg);
+  padding: 0 24px 0 48px;
+  height: 72px;
+  min-height: 72px;
+  box-sizing: border-box;
+  position: relative;
+  z-index: 3;
+  box-shadow: 0 12px 24px var(--shadow-color);
   display: flex;
+  align-items: center;
   justify-content: space-between;
-  align-items: center;
-  padding-bottom: 4px;
 }
 
-.sfx-title-wrap {
+.sfx-stair-1-left {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
 }
 
-.sfx-icon-title {
+.sfx-title-icon {
   color: var(--accent);
 }
 
 .sfx-title {
   margin: 0;
-  font-size: 16px;
-  font-weight: 600;
+  font-size: 20px;
+  font-weight: 500;
   color: var(--text-main);
-  letter-spacing: 0.3px;
+  letter-spacing: 0.5px;
 }
 
-.sfx-header-actions {
+.sfx-stair-1-actions {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
 }
 
-.sfx-btn-primary {
-  background: var(--accent);
-  color: #fff;
+.sfx-icon-btn {
+  background: rgba(0, 0, 0, 0.2);
   border: none;
-  border-radius: 6px;
-  padding: 6px 10px;
-  font-size: 12px;
-  font-weight: 600;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  transition: opacity 0.2s, transform 0.1s;
-}
-
-.sfx-btn-primary:hover {
-  opacity: 0.9;
-  transform: translateY(-1px);
-}
-
-.sfx-btn-secondary {
-  background: rgba(255, 255, 255, 0.08);
-  color: var(--text-main);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 6px;
-  padding: 6px 8px;
-  font-size: 12px;
-  cursor: pointer;
+  border-radius: 50%;
+  width: 32px;
+  height: 32px;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: background 0.2s;
-}
-
-.sfx-btn-secondary:hover {
-  background: rgba(255, 255, 255, 0.16);
-}
-
-/* SFX VOLUME BAR */
-.sfx-panel-volume-bar {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  background: rgba(0, 0, 0, 0.2);
-  border: 1px solid rgba(255, 255, 255, 0.07);
-  border-radius: 8px;
-  padding: 6px 10px;
-}
-
-.sfx-panel-vol-left {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  font-size: 11px;
-  font-weight: 500;
-  color: var(--text-muted);
-  white-space: nowrap;
-}
-
-.sfx-panel-vol-slider-wrap {
-  flex: 1;
-  position: relative;
-  height: 4px;
-  background-color: rgba(255, 255, 255, 0.15);
-  border-radius: 2px;
-}
-
-.sfx-panel-vol-input {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  opacity: 0;
-  cursor: pointer;
-  z-index: 2;
-  margin: 0;
-}
-
-.sfx-panel-vol-fill {
-  position: absolute;
-  left: 0;
-  top: 0;
-  height: 100%;
-  background-color: var(--accent);
-  border-radius: 2px;
-}
-
-.sfx-panel-vol-text {
-  font-size: 11px;
-  font-weight: 600;
   color: var(--text-main);
-  min-width: 28px;
-  text-align: right;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  flex-shrink: 0;
 }
 
-/* PLAYLISTS SQUARES ROW (3-6 items) */
-.sfx-playlists-container {
+.sfx-icon-btn:hover {
+  background: rgba(255, 255, 255, 0.15);
+  color: var(--accent);
+  transform: translateY(-1px);
+}
+
+/* STAIR 2: CATEGORIES (MINI-PLAYLISTS) */
+.sfx-stair-2 {
+  background-color: rgba(0, 0, 0, 0.15);
+  padding: 18px 24px 18px 48px;
+  position: relative;
+  z-index: 2;
+  box-shadow: 0 12px 24px var(--shadow-color);
+  box-sizing: border-box;
+}
+
+.sfx-categories-scroll {
+  display: flex;
+  gap: 12px;
   overflow-x: auto;
-  padding-bottom: 4px;
+  padding-bottom: 6px;
+  align-items: center;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.25) rgba(0, 0, 0, 0.15);
 }
 
-.sfx-playlists-container::-webkit-scrollbar {
+.sfx-categories-scroll::-webkit-scrollbar {
   height: 4px;
 }
 
-.sfx-playlists-container::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.15);
-  border-radius: 4px;
+.sfx-categories-scroll::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 2px;
 }
 
-.sfx-playlists-grid {
-  display: flex;
-  gap: 8px;
-  flex-wrap: nowrap;
+.sfx-categories-scroll::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.25);
+  border-radius: 2px;
 }
 
-.sfx-playlist-square {
-  width: 52px;
-  height: 52px;
-  min-width: 52px;
-  min-height: 52px;
-  border-radius: 8px;
-  background: rgba(0, 0, 0, 0.25);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+.sfx-categories-scroll::-webkit-scrollbar-thumb:hover {
+  background: var(--accent);
+}
+
+.sfx-category-card {
+  width: 56px;
+  height: 56px;
+  min-width: 56px;
+  min-height: 56px;
+  border-radius: 12px;
+  background: var(--placeholder-bg, #d1ddd1);
+  color: var(--dark-text, #0b110d);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -173,298 +122,253 @@
   cursor: pointer;
   position: relative;
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  box-sizing: border-box;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15);
+  user-select: none;
+  border: 2px solid transparent;
+  opacity: 0.85;
+}
+
+.sfx-category-card:hover {
+  opacity: 1;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.25);
+}
+
+/* Soft, elegant active state without harsh neon glow */
+.sfx-category-card.active {
+  opacity: 1;
+  border: 2px solid rgba(255, 255, 255, 0.5);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+  transform: translateY(-1px);
+}
+
+.sfx-category-inner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  width: 100%;
   padding: 4px;
   box-sizing: border-box;
 }
 
-.sfx-playlist-square:hover {
-  background: rgba(255, 255, 255, 0.1);
-  border-color: rgba(255, 255, 255, 0.2);
-  transform: translateY(-1px);
-}
-
-.sfx-playlist-square.active {
-  background: rgba(46, 204, 113, 0.18);
-  border-color: var(--accent);
-  box-shadow: 0 0 12px rgba(46, 204, 113, 0.25);
-}
-
-.sfx-square-icon {
-  font-size: 18px;
+.sfx-category-emoji {
+  font-size: 20px;
   line-height: 1;
-  margin-bottom: 2px;
 }
 
-.sfx-square-name {
+.sfx-category-name {
   font-size: 10px;
-  font-weight: 600;
-  color: var(--text-main);
-  max-width: 100%;
+  font-weight: 700;
+  color: var(--dark-text, #0b110d);
+  max-width: 48px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   text-align: center;
 }
 
-.sfx-square-count {
+.sfx-category-del-btn {
   position: absolute;
-  bottom: 2px;
-  right: 4px;
-  font-size: 9px;
-  color: var(--text-muted);
-}
-
-.sfx-square-del {
-  position: absolute;
-  top: 1px;
-  right: 3px;
-  font-size: 13px;
-  color: var(--text-muted);
+  top: -4px;
+  right: -4px;
+  background: #ff4757;
+  border: none;
+  border-radius: 50%;
+  width: 18px;
+  height: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
   cursor: pointer;
-  display: none;
-  line-height: 1;
+  opacity: 0;
+  transition: opacity 0.2s, transform 0.15s, background 0.15s;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+  z-index: 5;
 }
 
-.sfx-square-del:hover {
-  color: #ff5555;
+.sfx-category-card:hover .sfx-category-del-btn {
+  opacity: 1;
 }
 
-.sfx-playlist-square:hover .sfx-square-del {
-  display: block;
+.sfx-category-del-btn:hover {
+  background: #ff1f34;
+  transform: scale(1.15);
 }
 
-.sfx-square-add {
-  border-style: dashed;
+.sfx-category-add {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px dashed rgba(255, 255, 255, 0.25);
+  color: var(--text-muted);
+  box-shadow: none;
   opacity: 0.7;
 }
 
-.sfx-square-add:hover {
+.sfx-category-add:hover {
   opacity: 1;
+  background: rgba(255, 255, 255, 0.15);
   border-style: solid;
+  border-color: var(--accent);
+  color: var(--accent);
 }
 
-/* CURRENT BAR */
-.sfx-current-bar {
+/* STAIR 3: SOUNDS GRID (Strictly fit 2 columns without horizontal scroll) */
+.sfx-stair-3 {
+  background-color: rgba(0, 0, 0, 0.25);
+  padding: 20px 16px 24px 38px;
+  position: relative;
+  z-index: 1;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  overflow-x: hidden;
+  min-height: 0;
+  box-sizing: border-box;
+  width: 100%;
+}
+
+.sfx-stair-3-header {
   display: flex;
   justify-content: space-between;
-  align-items: center;
-  padding: 4px 2px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  align-items: baseline;
+  padding-bottom: 8px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+  margin-bottom: 14px;
+  width: 100%;
+  box-sizing: border-box;
 }
 
-.sfx-current-name {
-  font-size: 13px;
-  font-weight: 600;
+.sfx-category-heading {
+  font-size: 14px;
+  font-weight: 500;
   color: var(--text-main);
-  display: flex;
-  align-items: center;
-  gap: 6px;
+  letter-spacing: 0.2px;
 }
 
-.sfx-current-count {
+.sfx-sounds-count {
   font-size: 11px;
   color: var(--text-muted);
 }
 
-/* SOUNDS GRID IN 2 COLUMNS */
-.sfx-sounds-grid-wrapper {
-  flex: 1;
-  min-height: 0;
-  overflow-y: auto;
-  padding-right: 2px;
-}
-
-.sfx-sounds-2col-grid {
+.sfx-sounds-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 8px;
-}
-
-.sfx-sound-card {
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 8px;
-  padding: 8px 10px;
-  min-height: 54px;
-  cursor: pointer;
-  transition: all 0.15s ease-in-out;
-  position: relative;
-  user-select: none;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+  width: 100%;
   box-sizing: border-box;
 }
 
+/* COMPACT SOUND CARD */
+.sfx-sound-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: rgba(255, 255, 255, 0.07);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 6px;
+  padding: 0 4px 0 8px;
+  height: 34px;
+  min-height: 34px;
+  cursor: pointer;
+  transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  user-select: none;
+  box-sizing: border-box;
+  min-width: 0;
+  overflow: hidden;
+}
+
 .sfx-sound-card:hover {
-  background: rgba(255, 255, 255, 0.12);
-  border-color: rgba(255, 255, 255, 0.22);
+  background: rgba(255, 255, 255, 0.14);
+  border-color: rgba(134, 229, 156, 0.3);
   transform: translateY(-1px);
 }
 
 .sfx-sound-card.playing {
+  background: rgba(134, 229, 156, 0.15);
   border-color: var(--accent);
-  background: rgba(46, 204, 113, 0.22);
-  box-shadow: 0 0 14px rgba(46, 204, 113, 0.4);
-  animation: sfxPulse 1s infinite alternate;
+  box-shadow: 0 0 10px rgba(134, 229, 156, 0.35);
+  animation: sfxPlayBounce 1s infinite alternate ease-in-out;
 }
 
-@keyframes sfxPulse {
+@keyframes sfxPlayBounce {
   0% { transform: scale(1); }
-  100% { transform: scale(1.02); }
+  100% { transform: scale(1.015); }
 }
 
-.sfx-sound-main {
+.sfx-sound-left {
   display: flex;
   align-items: center;
   gap: 6px;
   flex: 1;
   min-width: 0;
+  overflow: hidden;
 }
 
 .sfx-play-icon {
   color: var(--accent);
   flex-shrink: 0;
+  transition: transform 0.15s;
+}
+
+.sfx-sound-card:hover .sfx-play-icon {
+  transform: scale(1.15);
 }
 
 .sfx-sound-title {
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 500;
   color: var(--text-main);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  min-width: 0;
+  flex: 1;
 }
 
-.sfx-sound-actions {
+.sfx-globe-icon {
+  color: var(--accent);
+  flex-shrink: 0;
+  margin-left: 1px;
+}
+
+.sfx-sound-right {
   display: flex;
   align-items: center;
-  justify-content: flex-end;
-  gap: 4px;
-  margin-top: 4px;
+  position: relative;
+  flex-shrink: 0;
 }
 
-.sfx-sound-mini-btn {
+.sfx-sound-menu-trigger {
   background: transparent;
   border: none;
   color: var(--text-muted);
   cursor: pointer;
-  padding: 3px;
-  border-radius: 4px;
+  padding: 2px;
+  width: 18px;
+  height: 18px;
+  border-radius: 3px;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: color 0.15s, background 0.15s;
+  transition: all 0.15s;
+  flex-shrink: 0;
 }
 
-.sfx-sound-mini-btn:hover {
+.sfx-sound-menu-trigger:hover {
   color: var(--text-main);
-  background: rgba(255, 255, 255, 0.1);
-}
-
-.sfx-sound-mini-btn.sfx-del-btn:hover {
-  color: #ff5555;
-}
-
-/* EMPTY STATE */
-.sfx-empty {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 32px 16px;
-  text-align: center;
-  color: var(--text-muted);
-  font-size: 13px;
-  gap: 10px;
-}
-
-/* SFX INLINE MODALS */
-.sfx-modal-backdrop {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.65);
-  backdrop-filter: blur(4px);
-  z-index: 1000;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.sfx-modal-card {
-  background: var(--app-bg);
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  border-radius: 12px;
-  width: 340px;
-  padding: 20px;
-  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.5);
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-}
-
-.sfx-modal-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.sfx-modal-title {
-  margin: 0;
-  font-size: 16px;
-  font-weight: 600;
-  color: var(--text-main);
-}
-
-.sfx-modal-close {
-  background: transparent;
-  border: none;
-  color: var(--text-muted);
-  cursor: pointer;
-}
-
-.sfx-modal-close:hover {
-  color: var(--text-main);
-}
-
-.sfx-modal-field {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.sfx-modal-label {
-  font-size: 12px;
-  color: var(--text-muted);
-  font-weight: 500;
-}
-
-.sfx-modal-input, .sfx-modal-select {
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  border-radius: 6px;
-  padding: 8px 10px;
-  font-size: 13px;
-  color: var(--text-main);
-  outline: none;
-}
-
-.sfx-modal-input:focus, .sfx-modal-select:focus {
-  border-color: var(--accent);
-}
-
-.sfx-modal-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 8px;
-  margin-top: 6px;
+  background: rgba(255, 255, 255, 0.15);
 }
 
 /* SOUND CARD CONTEXT DROPDOWN */
 .sfx-sound-dropdown {
   position: absolute;
-  right: 6px;
-  bottom: 30px;
+  right: 0;
+  bottom: 24px;
   background: var(--panel-bg, #243527);
   border: 1px solid rgba(255, 255, 255, 0.18);
   border-radius: 8px;
@@ -474,16 +378,16 @@
   display: flex;
   flex-direction: column;
   gap: 2px;
-  min-width: 155px;
+  min-width: 165px;
   backdrop-filter: blur(8px);
 }
 
 .sfx-dropdown-item {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 6px 10px;
-  font-size: 11px;
+  gap: 8px;
+  padding: 7px 10px;
+  font-size: 12px;
   font-weight: 500;
   color: var(--text-main);
   background: transparent;
@@ -493,6 +397,7 @@
   text-align: left;
   transition: background 0.15s, color 0.15s;
   white-space: nowrap;
+  width: 100%;
 }
 
 .sfx-dropdown-item:hover {
@@ -502,4 +407,37 @@
 .sfx-dropdown-item.danger:hover {
   color: #ff5555;
   background: rgba(255, 85, 85, 0.18);
+}
+
+/* EMPTY STATE */
+.sfx-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 16px;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 13px;
+  gap: 12px;
+}
+
+.sfx-btn-primary {
+  background: var(--accent);
+  color: var(--bottom-bar-bg, #0b110d);
+  border: none;
+  border-radius: 6px;
+  padding: 8px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: opacity 0.2s, transform 0.1s;
+}
+
+.sfx-btn-primary:hover {
+  opacity: 0.9;
+  transform: translateY(-1px);
 }
