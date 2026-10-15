@@ -1,17 +1,74 @@
 import React from 'react';
 import { BASE_URL } from '../services/api';
+import '../assets/css/LoginScreen.css';
 
-export const LoginScreen = () => {
+export const LoginScreen: React.FC = () => {
   return (
-    <div style={{ display: 'flex', height: '100vh', alignItems: 'center', justifyContent: 'center', backgroundColor: '#121212', color: 'white', flexDirection: 'column', gap: 20 }}>
-      <h2>D&D Music Bot</h2>
-      <p>Please log in with Discord to access your audio files and settings.</p>
-      <button 
-        onClick={() => window.location.href = `${BASE_URL}/auth/login`}
-        style={{ padding: '12px 24px', fontSize: 16, backgroundColor: '#5865F2', color: 'white', border: 'none', borderRadius: 8, cursor: 'pointer' }}
-      >
-        Login with Discord
-      </button>
+    <div className="login-viewport">
+      {/* Дальний план: туманная долина */}
+      <div className="login-layer">
+        <div className="login-bg-image" />
+        <div className="login-bg-vignette" />
+      </div>
+
+      {/* Передний план: силуэты скал и деревьев по бокам */}
+      <div className="login-layer-foreground">
+        <img
+          src="/debit_minimal_fore.png"
+          alt="Cliffs & Forest"
+          className="login-fg-image"
+          loading="eager"
+        />
+      </div>
+
+      {/* Центральная статичная плашка логина */}
+      <div className="login-layer-ui">
+        <div className="login-card-static">
+          {/* Заголовок De-Bit */}
+          <div className="login-brand-header">
+            <span className="login-brand-badge">D&amp;D MUSIC BOT</span>
+            <h1 className="login-bot-title">DE-BIT</h1>
+            <div className="login-title-underline" />
+          </div>
+
+          {/* Истинная D20 аватарка бота */}
+          <div className="login-avatar-wrapper">
+            <div className="login-avatar-pulse-ring" />
+            <div className="login-avatar-frame">
+              <img
+                src="/debit_avatar_d20.svg"
+                alt="De-Bit D20 Avatar"
+                className="login-avatar-img"
+              />
+            </div>
+          </div>
+
+          {/* Подзаголовок */}
+          <div className="login-bot-subtitle-group">
+            <h2 className="login-bot-subtitle">Discord Music Bot</h2>
+            <span className="login-bot-tag">D&amp;D AUDIO COMPANION</span>
+          </div>
+
+          {/* Инструкция */}
+          <p className="login-instruction">
+            Please log in with Discord to access your library (files)
+          </p>
+
+          {/* Кнопка логина */}
+          <button
+            type="button"
+            className="login-btn-discord"
+            onClick={() => {
+              window.location.href = `${BASE_URL}/auth/login`;
+            }}
+          >
+            <svg className="login-discord-icon" viewBox="0 0 127.14 96.36">
+              <path d="M107.7,8.07A105.15,105.15,0,0,0,81.47,0a72.06,72.06,0,0,0-3.36,6.83A97.68,97.68,0,0,0,49,6.83,72.37,72.37,0,0,0,45.64,0,105.89,105.89,0,0,0,19.39,8.09C2.79,32.65-1.71,56.6.54,80.21h0A105.73,105.73,0,0,0,32.71,96.36,77.7,77.7,0,0,0,39.6,85.25a68.42,68.42,0,0,1-10.85-5.18c.91-.66,1.8-1.34,2.66-2a75.57,75.57,0,0,0,64.32,0c.87.71,1.76,1.39,2.66,2a68.68,68.68,0,0,1-10.87,5.19,77,77,0,0,0,6.89,11.1A105.25,105.25,0,0,0,126.6,80.22h0C129.24,52.84,122.09,29.11,107.7,8.07ZM42.45,65.69C36.18,65.69,31,60,31,53s5-12.74,11.43-12.74S54,45.91,53.89,53,48.84,65.69,42.45,65.69Zm42.24,0C78.41,65.69,73.25,60,73.25,53s5-12.74,11.44-12.74S96.23,45.91,96.12,53,91.08,65.69,84.69,65.69Z" />
+            </svg>
+            <span>Log in with Discord</span>
+          </button>
+        </div>
+      </div>
     </div>
   );
 };

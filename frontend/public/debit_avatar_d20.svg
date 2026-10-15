@@ -1,0 +1,157 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="100%" height="100%">
+  <defs>
+    <!-- Изумрудные градиенты истинного икосаэдра d20 (Emerald in the Dark Forest) -->
+    <!-- Центральная грань (прямо к зрителю): чистый сияющий изумруд -->
+    <linearGradient id="gemFront" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#a7f3d0"/>
+      <stop offset="35%" stop-color="#10b981"/>
+      <stop offset="100%" stop-color="#047857"/>
+    </linearGradient>
+
+    <!-- Верхние грани (падающий свет) -->
+    <linearGradient id="gemTopL" x1="0%" y1="100%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#34d399"/>
+      <stop offset="100%" stop-color="#d1fae5"/>
+    </linearGradient>
+
+    <linearGradient id="gemTopR" x1="100%" y1="100%" x2="0%" y2="0%">
+      <stop offset="0%" stop-color="#10b981"/>
+      <stop offset="100%" stop-color="#a7f3d0"/>
+    </linearGradient>
+
+    <!-- Боковые верхние грани -->
+    <linearGradient id="gemUpperL" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#6ee7b7"/>
+      <stop offset="100%" stop-color="#059669"/>
+    </linearGradient>
+
+    <linearGradient id="gemUpperR" x1="100%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#34d399"/>
+      <stop offset="100%" stop-color="#047857"/>
+    </linearGradient>
+
+    <!-- Нижняя перевернутая грань под центром -->
+    <linearGradient id="gemBottom" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#059669"/>
+      <stop offset="60%" stop-color="#047857"/>
+      <stop offset="100%" stop-color="#064e3b"/>
+    </linearGradient>
+
+    <!-- Боковые средние грани -->
+    <linearGradient id="gemSideL" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#059669"/>
+      <stop offset="100%" stop-color="#022c22"/>
+    </linearGradient>
+
+    <linearGradient id="gemSideR" x1="100%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#047857"/>
+      <stop offset="100%" stop-color="#022c22"/>
+    </linearGradient>
+
+    <!-- Нижние боковые грани -->
+    <linearGradient id="gemBotL" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#047857"/>
+      <stop offset="100%" stop-color="#021d17"/>
+    </linearGradient>
+
+    <linearGradient id="gemBotR" x1="100%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#064e3b"/>
+      <stop offset="100%" stop-color="#021d17"/>
+    </linearGradient>
+
+    <!-- Неоновое свечение изумруда -->
+    <filter id="emeraldGlow" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="22" result="blur" />
+      <feMerge>
+        <feMergeNode in="blur" />
+        <feMergeNode in="SourceGraphic" />
+      </feMerge>
+    </filter>
+
+    <radialGradient id="bgGlow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#10b981" stop-opacity="0.36"/>
+      <stop offset="60%" stop-color="#064e3b" stop-opacity="0.12"/>
+      <stop offset="100%" stop-color="#06120b" stop-opacity="0"/>
+    </radialGradient>
+
+    <style>
+      @keyframes wavePulse {
+        0% { transform: scaleY(0.45); opacity: 0.6; }
+        100% { transform: scaleY(1.3); opacity: 1; }
+      }
+      .wave-bar {
+        animation: wavePulse 1.4s ease-in-out infinite alternate;
+        transform-origin: center;
+        transform-box: fill-box;
+      }
+      .bar-1 { animation-delay: 0.1s; }
+      .bar-2 { animation-delay: 0.35s; }
+      .bar-3 { animation-delay: 0.6s; }
+      .bar-4 { animation-delay: 0.25s; }
+      .bar-5 { animation-delay: 0.5s; }
+    </style>
+  </defs>
+
+  <!-- Темный фон #07130c со скруглением для максимального контраста -->
+  <rect width="512" height="512" rx="128" fill="#07130c"/>
+  <rect width="512" height="512" rx="128" fill="url(#bgGlow)"/>
+  <rect x="10" y="10" width="492" height="492" rx="118" fill="none" stroke="#10b981" stroke-width="2.5" stroke-opacity="0.5"/>
+
+  <!-- Внешний сияющий ореол кристалла -->
+  <polygon points="256,66 422,160 422,352 256,446 90,352 90,160" 
+           fill="#10b981" opacity="0.35" filter="url(#emeraldGlow)"/>
+
+  <!-- 10 видимых треугольных граней истинного икосаэдра (d20) -->
+  <!-- 1. Верхние угловые грани -->
+  <polygon points="256,71 95.8,163.5 256,141.7" fill="url(#gemTopL)"/>
+  <polygon points="256,71 256,141.7 416.2,163.5" fill="url(#gemTopR)"/>
+
+  <!-- 2. Боковые верхние грани -->
+  <polygon points="256,141.7 157,313.2 95.8,163.5" fill="url(#gemUpperL)"/>
+  <polygon points="256,141.7 355,313.2 416.2,163.5" fill="url(#gemUpperR)"/>
+
+  <!-- 3. Крайние боковые грани -->
+  <polygon points="95.8,163.5 157,313.2 95.8,348.5" fill="url(#gemSideL)"/>
+  <polygon points="416.2,163.5 416.2,348.5 355,313.2" fill="url(#gemSideR)"/>
+
+  <!-- 4. Нижние боковые грани -->
+  <polygon points="157,313.2 256,441 95.8,348.5" fill="url(#gemBotL)"/>
+  <polygon points="355,313.2 256,441 416.2,348.5" fill="url(#gemBotR)"/>
+
+  <!-- 5. Нижняя центральная перевернутая грань -->
+  <polygon points="157,313.2 355,313.2 256,441" fill="url(#gemBottom)"/>
+
+  <!-- 6. ГЛАВНАЯ ФРОНТАЛЬНАЯ ГРАНЬ (с правильным направлением вверх) -->
+  <polygon points="256,141.7 355,313.2 157,313.2" fill="url(#gemFront)" opacity="0.96"/>
+
+  <!-- Светящиеся внутренние и внешние ребра икосаэдра -->
+  <!-- Внешний контур d20 -->
+  <polygon points="256,71 416.2,163.5 416.2,348.5 256,441 95.8,348.5 95.8,163.5" 
+           fill="none" stroke="#a7f3d0" stroke-width="4" stroke-linejoin="round" stroke-opacity="0.9"/>
+
+  <!-- Ребра центрального треугольника (наиболее яркие) -->
+  <polygon points="256,141.7 355,313.2 157,313.2" 
+           fill="none" stroke="#ffffff" stroke-width="3.5" stroke-linejoin="round" stroke-opacity="0.95"/>
+
+  <!-- Радиальные ребра от вершин центрального треугольника -->
+  <line x1="256" y1="71" x2="256" y2="141.7" stroke="#ffffff" stroke-width="3" stroke-linecap="round" stroke-opacity="0.85"/>
+  <line x1="256" y1="141.7" x2="95.8" y2="163.5" stroke="#a7f3d0" stroke-width="3" stroke-linecap="round" stroke-opacity="0.8"/>
+  <line x1="256" y1="141.7" x2="416.2" y2="163.5" stroke="#a7f3d0" stroke-width="3" stroke-linecap="round" stroke-opacity="0.8"/>
+
+  <line x1="157" y1="313.2" x2="95.8" y2="163.5" stroke="#6ee7b7" stroke-width="3" stroke-linecap="round" stroke-opacity="0.75"/>
+  <line x1="157" y1="313.2" x2="95.8" y2="348.5" stroke="#6ee7b7" stroke-width="3" stroke-linecap="round" stroke-opacity="0.75"/>
+  <line x1="157" y1="313.2" x2="256" y2="441" stroke="#34d399" stroke-width="3" stroke-linecap="round" stroke-opacity="0.8"/>
+
+  <line x1="355" y1="313.2" x2="416.2" y2="163.5" stroke="#6ee7b7" stroke-width="3" stroke-linecap="round" stroke-opacity="0.75"/>
+  <line x1="355" y1="313.2" x2="416.2" y2="348.5" stroke="#6ee7b7" stroke-width="3" stroke-linecap="round" stroke-opacity="0.75"/>
+  <line x1="355" y1="313.2" x2="256" y2="441" stroke="#34d399" stroke-width="3" stroke-linecap="round" stroke-opacity="0.8"/>
+
+  <!-- Белые звуковые волны музыки внутри центральной грани d20 -->
+  <g stroke="#ffffff" stroke-width="11" stroke-linecap="round">
+    <line x1="216" y1="252" x2="216" y2="282" class="wave-bar bar-1"/>
+    <line x1="236" y1="234" x2="236" y2="294" class="wave-bar bar-2"/>
+    <line x1="256" y1="214" x2="256" y2="302" stroke="#ffffff" stroke-width="13" class="wave-bar bar-3"/>
+    <line x1="276" y1="234" x2="276" y2="294" class="wave-bar bar-4"/>
+    <line x1="296" y1="252" x2="296" y2="282" class="wave-bar bar-5"/>
+  </g>
+</svg>
