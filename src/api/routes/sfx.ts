@@ -44,56 +44,101 @@ export default function sfxRoutes(client: Client) {
 
     // Seed default playlists and built-in sounds if user has none or if default sounds are missing
     async function ensureDefaultPlaylists(userId: string) {
+        // Auto-migrate previously created Russian categories/sounds to English
+        const ruToEnPlaylists: Record<string, string> = {
+            'Бой': 'Combat',
+            'Магия': 'Magic',
+            'Окружение': 'Ambience',
+            'Кубики': 'Dice',
+            'Монстры': 'Monsters',
+        };
+        for (const [ruName, enName] of Object.entries(ruToEnPlaylists)) {
+            const oldPl = await prisma.sfxPlaylist.findFirst({
+                where: { ownerId: userId, name: ruName }
+            });
+            if (oldPl) {
+                await prisma.sfxPlaylist.update({
+                    where: { id: oldPl.id },
+                    data: { name: enName }
+                });
+            }
+        }
+
+        const ruToEnSounds: Record<string, string> = {
+            'sword_hit.mp3': 'Sword Hit',
+            'shield_block.mp3': 'Shield Block',
+            'arrow_shot.mp3': 'Arrow Shot',
+            'critical_hit.mp3': 'Critical Hit',
+            'magic_spell.mp3': 'Magic Spell',
+            'fireball.mp3': 'Fireball',
+            'heal_spell.mp3': 'Heal',
+            'lightning_bolt.mp3': 'Lightning Bolt',
+            'tavern_bell.mp3': 'Tavern Bell',
+            'door_creak.mp3': 'Door Creak',
+            'thunder_rumble.mp3': 'Thunder',
+            'campfire_crack.mp3': 'Campfire',
+            'dice_roll.mp3': 'Dice Roll',
+            'nat20_fanfare.mp3': 'Natural 20',
+            'nat1_fail.mp3': 'Critical Fail',
+            'monster_roar.mp3': 'Monster Roar',
+        };
+        for (const [filename, enTitle] of Object.entries(ruToEnSounds)) {
+            await prisma.sfxSound.updateMany({
+                where: { ownerId: userId, filename },
+                data: { title: enTitle }
+            });
+        }
+
         const defaults = [
             {
-                name: 'Бой',
+                name: 'Combat',
                 icon: 'swords',
                 order: 0,
                 sounds: [
-                    { title: 'Удар меча', filename: 'sword_hit.mp3', duration: 0.7 },
-                    { title: 'Блок щитом', filename: 'shield_block.mp3', duration: 0.8 },
-                    { title: 'Выстрел из лука', filename: 'arrow_shot.mp3', duration: 0.6 },
-                    { title: 'Критический удар', filename: 'critical_hit.mp3', duration: 1.0 },
+                    { title: 'Sword Hit', filename: 'sword_hit.mp3', duration: 0.7 },
+                    { title: 'Shield Block', filename: 'shield_block.mp3', duration: 0.8 },
+                    { title: 'Arrow Shot', filename: 'arrow_shot.mp3', duration: 0.6 },
+                    { title: 'Critical Hit', filename: 'critical_hit.mp3', duration: 1.0 },
                 ]
             },
             {
-                name: 'Магия',
+                name: 'Magic',
                 icon: 'sparkles',
                 order: 1,
                 sounds: [
-                    { title: 'Вспышка магии', filename: 'magic_spell.mp3', duration: 1.4 },
-                    { title: 'Огненный шар', filename: 'fireball.mp3', duration: 1.5 },
-                    { title: 'Исцеление', filename: 'heal_spell.mp3', duration: 1.6 },
-                    { title: 'Удар молнии', filename: 'lightning_bolt.mp3', duration: 1.2 },
+                    { title: 'Magic Spell', filename: 'magic_spell.mp3', duration: 1.4 },
+                    { title: 'Fireball', filename: 'fireball.mp3', duration: 1.5 },
+                    { title: 'Heal', filename: 'heal_spell.mp3', duration: 1.6 },
+                    { title: 'Lightning Bolt', filename: 'lightning_bolt.mp3', duration: 1.2 },
                 ]
             },
             {
-                name: 'Окружение',
+                name: 'Ambience',
                 icon: 'trees',
                 order: 2,
                 sounds: [
-                    { title: 'Колокол таверны', filename: 'tavern_bell.mp3', duration: 1.8 },
-                    { title: 'Скрип двери', filename: 'door_creak.mp3', duration: 1.5 },
-                    { title: 'Раскат грома', filename: 'thunder_rumble.mp3', duration: 2.5 },
-                    { title: 'Треск костра', filename: 'campfire_crack.mp3', duration: 2.0 },
+                    { title: 'Tavern Bell', filename: 'tavern_bell.mp3', duration: 1.8 },
+                    { title: 'Door Creak', filename: 'door_creak.mp3', duration: 1.5 },
+                    { title: 'Thunder', filename: 'thunder_rumble.mp3', duration: 2.5 },
+                    { title: 'Campfire', filename: 'campfire_crack.mp3', duration: 2.0 },
                 ]
             },
             {
-                name: 'Кубики',
+                name: 'Dice',
                 icon: 'dices',
                 order: 3,
                 sounds: [
-                    { title: 'Бросок кубика', filename: 'dice_roll.mp3', duration: 1.1 },
-                    { title: 'Натуральная 20', filename: 'nat20_fanfare.mp3', duration: 1.5 },
-                    { title: 'Критический провал', filename: 'nat1_fail.mp3', duration: 1.3 },
+                    { title: 'Dice Roll', filename: 'dice_roll.mp3', duration: 1.1 },
+                    { title: 'Natural 20', filename: 'nat20_fanfare.mp3', duration: 1.5 },
+                    { title: 'Critical Fail', filename: 'nat1_fail.mp3', duration: 1.3 },
                 ]
             },
             {
-                name: 'Монстры',
+                name: 'Monsters',
                 icon: 'skull',
                 order: 4,
                 sounds: [
-                    { title: 'Рык монстра', filename: 'monster_roar.mp3', duration: 1.8 },
+                    { title: 'Monster Roar', filename: 'monster_roar.mp3', duration: 1.8 },
                 ]
             }
         ];
@@ -226,12 +271,12 @@ export default function sfxRoutes(client: Client) {
                 orderBy: { id: 'asc' }
             });
 
-            // If there are other global sounds, add a virtual "Общие" playlist
+            // If there are other global sounds, add a virtual "Shared" playlist
             if (otherGlobalSounds.length > 0) {
                 playlists.push({
                     id: -1, // Virtual ID for global category
                     ownerId: userId,
-                    name: 'Общие',
+                    name: 'Shared',
                     icon: 'globe',
                     order: 999,
                     createdAt: new Date(),
@@ -442,13 +487,13 @@ export default function sfxRoutes(client: Client) {
             });
 
             if (!session) {
-                return res.status(400).json({ error: 'Бот не подключен к голосовому каналу (сессия не найдена)' });
+                return res.status(400).json({ error: 'Bot is not connected to a voice channel' });
             }
 
             const { guildId, channelId } = session;
             const guild = client.guilds.cache.get(guildId);
             if (!guild) {
-                return res.status(404).json({ error: 'Сервер Discord не найден' });
+                return res.status(404).json({ error: 'Discord server not found' });
             }
 
             const { PlayerManager } = await import('../../services/PlayerService');
@@ -464,7 +509,7 @@ export default function sfxRoutes(client: Client) {
 
             const sfxPath = getSoundFilePath(sound);
             if (!fs.existsSync(sfxPath)) {
-                return res.status(404).json({ error: 'Аудиофайл не найден на сервере' });
+                return res.status(404).json({ error: 'Audio file not found on server' });
             }
 
             await guildPlayer.playSfx(sfxPath, volume);

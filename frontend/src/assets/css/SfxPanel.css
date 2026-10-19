@@ -322,6 +322,15 @@
   transform: scale(1.15);
 }
 
+.sfx-marquee-wrap {
+  display: flex;
+  align-items: center;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  position: relative;
+}
+
 .sfx-sound-title {
   font-size: 11px;
   font-weight: 500;
@@ -329,8 +338,34 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  display: inline-block;
   min-width: 0;
-  flex: 1;
+  width: 100%;
+  transition: transform 0.25s ease-out;
+}
+
+/* Hover marquee: smoothly scrolls when title is truncated */
+.sfx-sound-card:hover .sfx-sound-title.can-scroll {
+  overflow: visible;
+  text-overflow: clip;
+  width: auto;
+  animation: sfxMarquee var(--scroll-dur, 3s) cubic-bezier(0.4, 0, 0.2, 1) infinite alternate;
+  animation-delay: 0.35s;
+}
+
+@keyframes sfxMarquee {
+  0%, 20% {
+    transform: translateX(0);
+  }
+  80%, 100% {
+    transform: translateX(var(--scroll-dist, 0px));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sfx-sound-card:hover .sfx-sound-title.can-scroll {
+    animation: none;
+  }
 }
 
 .sfx-globe-icon {

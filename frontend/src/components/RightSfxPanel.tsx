@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../services/api';
@@ -35,23 +35,23 @@ export const SFX_CATEGORY_ICONS: Record<
   string, 
   { label: string; icon: React.ComponentType<{ size?: number; className?: string; strokeWidth?: number }> }
 > = {
-  swords: { label: 'Бой', icon: Swords },
-  shield: { label: 'Защита', icon: Shield },
-  sparkles: { label: 'Магия', icon: Sparkles },
-  wand: { label: 'Чары', icon: Wand2 },
-  trees: { label: 'Природа', icon: Trees },
-  dices: { label: 'Кубики', icon: Dices },
-  skull: { label: 'Монстры', icon: Skull },
-  ghost: { label: 'Нежить', icon: Ghost },
-  beer: { label: 'Таверна', icon: Beer },
-  bell: { label: 'Колокол', icon: Bell },
-  flame: { label: 'Огонь', icon: Flame },
-  zap: { label: 'Молния', icon: Zap },
-  target: { label: 'Стрельба', icon: Target },
-  bomb: { label: 'Ловушка', icon: Bomb },
-  compass: { label: 'Поход', icon: Compass },
-  footprints: { label: 'Скрытность', icon: Footprints },
-  globe: { label: 'Общие', icon: Globe },
+  swords: { label: 'Combat', icon: Swords },
+  shield: { label: 'Defense', icon: Shield },
+  sparkles: { label: 'Magic', icon: Sparkles },
+  wand: { label: 'Spells', icon: Wand2 },
+  trees: { label: 'Nature', icon: Trees },
+  dices: { label: 'Dice', icon: Dices },
+  skull: { label: 'Monsters', icon: Skull },
+  ghost: { label: 'Undead', icon: Ghost },
+  beer: { label: 'Tavern', icon: Beer },
+  bell: { label: 'Bell', icon: Bell },
+  flame: { label: 'Fire', icon: Flame },
+  zap: { label: 'Lightning', icon: Zap },
+  target: { label: 'Archery', icon: Target },
+  bomb: { label: 'Traps', icon: Bomb },
+  compass: { label: 'Adventure', icon: Compass },
+  footprints: { label: 'Stealth', icon: Footprints },
+  globe: { label: 'Shared', icon: Globe },
 };
 
 const EMOJI_TO_ICON_ID: Record<string, string> = {
@@ -76,6 +76,61 @@ const renderCategoryIcon = (iconKey?: string, size = 18) => {
   const iconId = (iconKey && EMOJI_TO_ICON_ID[iconKey]) || iconKey || 'swords';
   const IconComponent = SFX_CATEGORY_ICONS[iconId]?.icon || Swords;
   return <IconComponent size={size} className="sfx-category-icon-svg" />;
+};
+
+interface MarqueeTitleProps {
+  title: string;
+}
+
+const MarqueeTitle: React.FC<MarqueeTitleProps> = ({ title }) => {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const textRef = useRef<HTMLSpanElement>(null);
+  const [scrollData, setScrollData] = useState<{ canScroll: boolean; dist: number; duration: number }>({
+    canScroll: false,
+    dist: 0,
+    duration: 3
+  });
+
+  const measure = useCallback(() => {
+    if (containerRef.current && textRef.current) {
+      const containerWidth = containerRef.current.clientWidth;
+      const textWidth = textRef.current.scrollWidth;
+      const diff = textWidth - containerWidth;
+      if (diff > 2) {
+        const dist = diff + 6;
+        // Comfortable reading speed: ~28px per second, clamped between 2.5s and 7s
+        const duration = Math.min(7, Math.max(2.5, dist / 28));
+        setScrollData({ canScroll: true, dist, duration });
+      } else {
+        setScrollData({ canScroll: false, dist: 0, duration: 3 });
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    measure();
+    window.addEventListener('resize', measure);
+    return () => window.removeEventListener('resize', measure);
+  }, [measure, title]);
+
+  return (
+    <div 
+      ref={containerRef} 
+      className="sfx-marquee-wrap"
+      onMouseEnter={measure}
+    >
+      <span
+        ref={textRef}
+        className={`sfx-sound-title ${scrollData.canScroll ? 'can-scroll' : ''}`}
+        style={scrollData.canScroll ? {
+          '--scroll-dist': `-${scrollData.dist}px`,
+          '--scroll-dur': `${scrollData.duration}s`
+        } as React.CSSProperties : undefined}
+      >
+        {title}
+      </span>
+    </div>
+  );
 };
 
 export const RightSfxPanel: React.FC = () => {
@@ -204,7 +259,7 @@ export const RightSfxPanel: React.FC = () => {
       refetch();
     } catch (err) {
       console.error('Failed to toggle global SFX:', err);
-      alert('Ошибка при изменении доступа к звуку');
+      alert('Failed to update sound access');
     }
   };
 
@@ -249,7 +304,7 @@ export const RightSfxPanel: React.FC = () => {
       refetch();
     } catch (err) {
       console.error('Failed to upload SFX:', err);
-      alert('Ошибка при загрузке звука');
+      alert('Failed to upload SFX sound');
     } finally {
       setIsUploading(false);
     }
@@ -269,7 +324,7 @@ export const RightSfxPanel: React.FC = () => {
       if (created?.id) setSelectedPlaylistId(created.id);
     } catch (err) {
       console.error('Failed to create playlist:', err);
-      alert('Ошибка при создании категории');
+      alert('Failed to create category');
     } finally {
       setIsCreatingPlaylist(false);
     }
@@ -290,14 +345,14 @@ export const RightSfxPanel: React.FC = () => {
               setUploadPlaylistId(selectedPlaylistId && selectedPlaylistId > 0 ? selectedPlaylistId : playlists[0]?.id);
               setIsUploadOpen(true);
             }}
-            title="Загрузить SFX звук"
+            title="Upload SFX sound"
           >
             <Upload size={17} />
           </button>
           <button
             className="sfx-icon-btn"
             onClick={() => setIsNewPlaylistOpen(true)}
-            title="Создать категорию"
+            title="Create category"
           >
             <Plus size={18} />
           </button>
@@ -325,7 +380,7 @@ export const RightSfxPanel: React.FC = () => {
                     e.stopPropagation();
                     setDeleteCategoryModal({ id: pl.id, name: pl.name });
                   }}
-                  title="Удалить категорию"
+                  title="Delete category"
                 >
                   <X size={9} strokeWidth={2.5} />
                 </button>
@@ -342,14 +397,14 @@ export const RightSfxPanel: React.FC = () => {
             {currentPlaylist?.name || 'SFX'}
           </span>
           <span className="sfx-sounds-count">
-            {sounds.length} {sounds.length === 1 ? 'звук' : sounds.length >= 2 && sounds.length <= 4 ? 'звука' : 'звуков'}
+            {sounds.length} {sounds.length === 1 ? 'sound' : 'sounds'}
           </span>
         </div>
 
         {sounds.length === 0 ? (
           <div className="sfx-empty">
             <Sparkles size={28} style={{ opacity: 0.5, marginBottom: 4 }} />
-            <p>В этой категории пока нет звуков</p>
+            <p>No sounds in this category yet</p>
             <button
               className="sfx-btn-primary"
               onClick={() => {
@@ -357,7 +412,7 @@ export const RightSfxPanel: React.FC = () => {
                 setIsUploadOpen(true);
               }}
             >
-              <Upload size={14} /> Загрузить звук
+              <Upload size={14} /> Upload Sound
             </button>
           </div>
         ) : (
@@ -367,13 +422,13 @@ export const RightSfxPanel: React.FC = () => {
                 key={sound.id}
                 className={`sfx-sound-card ${playingSoundId === sound.id ? 'playing' : ''}`}
                 onClick={() => handlePlayInDiscord(sound.id)}
-                title={`Клик: сыграть в Discord\n${sound.title}`}
+                title={`Click to play in Discord\n${sound.title}`}
               >
                 <div className="sfx-sound-left">
                   <Play size={11} className={`sfx-play-icon ${playingSoundId === sound.id ? 'playing' : ''}`} />
-                  <span className="sfx-sound-title">{sound.title}</span>
+                  <MarqueeTitle title={sound.title} />
                   {sound.isGlobal && (
-                    <span title="Общий звук для всех Мастеров" style={{ display: 'inline-flex', alignItems: 'center' }}>
+                    <span title="Shared sound for all DMs" style={{ display: 'inline-flex', alignItems: 'center', flexShrink: 0 }}>
                       <Globe size={10} className="sfx-globe-icon" />
                     </span>
                   )}
@@ -383,7 +438,7 @@ export const RightSfxPanel: React.FC = () => {
                   <button
                     className={`sfx-sound-menu-trigger ${activeMenu?.sound?.id === sound.id ? 'active' : ''}`}
                     onClick={(e) => handleToggleMenu(e, sound)}
-                    title="Действия"
+                    title="Actions"
                   >
                     <MoreVertical size={11} />
                   </button>
@@ -398,10 +453,10 @@ export const RightSfxPanel: React.FC = () => {
       {deleteCategoryModal && createPortal(
         <div className="modal-overlay" onClick={() => setDeleteCategoryModal(null)}>
           <div className="modal-content" onClick={e => e.stopPropagation()}>
-            <h3 style={{ margin: '0 0 8px 0' }}>Удалить категорию</h3>
+            <h3 style={{ margin: '0 0 8px 0' }}>Delete Category</h3>
             <p style={{ margin: '0 0 16px 0' }}><strong>{deleteCategoryModal.name}</strong></p>
             <p style={{ margin: '0 0 24px 0', fontSize: '14px', color: 'var(--text-muted)' }}>
-              Вы уверены, что хотите удалить эту категорию и все звуковые эффекты в ней?
+              Are you sure you want to delete this category and all sound effects in it?
             </p>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
               <button
@@ -409,14 +464,14 @@ export const RightSfxPanel: React.FC = () => {
                 className="delete-option-btn danger"
                 style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid rgba(255, 60, 60, 0.5)', background: 'rgba(255, 60, 60, 0.2)', color: '#ff5555', cursor: 'pointer' }}
               >
-                Да, удалить категорию
+                Yes, delete category
               </button>
               <button
                 className="delete-option-btn"
                 onClick={() => setDeleteCategoryModal(null)}
                 style={{ width: '100%', padding: '12px', borderRadius: '8px', border: 'none', background: 'transparent', color: 'white', cursor: 'pointer', marginTop: '8px' }}
               >
-                Отмена
+                Cancel
               </button>
             </div>
           </div>
@@ -428,10 +483,10 @@ export const RightSfxPanel: React.FC = () => {
       {deleteSoundModal && createPortal(
         <div className="modal-overlay" onClick={() => setDeleteSoundModal(null)}>
           <div className="modal-content" onClick={e => e.stopPropagation()}>
-            <h3 style={{ margin: '0 0 8px 0' }}>Удалить звук</h3>
+            <h3 style={{ margin: '0 0 8px 0' }}>Delete Sound</h3>
             <p style={{ margin: '0 0 16px 0' }}><strong>{deleteSoundModal.title}</strong></p>
             <p style={{ margin: '0 0 24px 0', fontSize: '14px', color: 'var(--text-muted)' }}>
-              Вы уверены, что хотите навсегда удалить этот звуковой эффект?
+              Are you sure you want to permanently delete this sound effect?
             </p>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
               <button
@@ -439,14 +494,14 @@ export const RightSfxPanel: React.FC = () => {
                 className="delete-option-btn danger"
                 style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid rgba(255, 60, 60, 0.5)', background: 'rgba(255, 60, 60, 0.2)', color: '#ff5555', cursor: 'pointer' }}
               >
-                Да, удалить звук
+                Yes, delete sound
               </button>
               <button
                 className="delete-option-btn"
                 onClick={() => setDeleteSoundModal(null)}
                 style={{ width: '100%', padding: '12px', borderRadius: '8px', border: 'none', background: 'transparent', color: 'white', cursor: 'pointer', marginTop: '8px' }}
               >
-                Отмена
+                Cancel
               </button>
             </div>
           </div>
@@ -459,7 +514,7 @@ export const RightSfxPanel: React.FC = () => {
         <div className="modal-overlay" onClick={() => setIsUploadOpen(false)}>
           <div className="modal-content" onClick={e => e.stopPropagation()}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-              <h3 style={{ margin: 0 }}>Загрузить SFX звук</h3>
+              <h3 style={{ margin: 0 }}>Upload SFX Sound</h3>
               <button
                 onClick={() => setIsUploadOpen(false)}
                 style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}
@@ -470,7 +525,7 @@ export const RightSfxPanel: React.FC = () => {
             <form onSubmit={handleUploadSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                 <label style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 500 }}>
-                  Аудиофайл (.mp3, .wav, .ogg):
+                  Audio file (.mp3, .wav, .ogg, .m4a):
                 </label>
                 <input
                   type="file"
@@ -489,11 +544,11 @@ export const RightSfxPanel: React.FC = () => {
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                 <label style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 500 }}>
-                  Название звука:
+                  Sound title:
                 </label>
                 <input
                   type="text"
-                  placeholder="Например: Удар меча, Фаербол..."
+                  placeholder="e.g. Sword Slash, Fireball..."
                   value={uploadTitle}
                   onChange={e => setUploadTitle(e.target.value)}
                   style={{ padding: '10px', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.15)', background: 'rgba(0,0,0,0.2)', color: 'white' }}
@@ -502,7 +557,7 @@ export const RightSfxPanel: React.FC = () => {
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                 <label style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 500 }}>
-                  Категория:
+                  Category:
                 </label>
                 <select
                   value={uploadPlaylistId || selectedPlaylistId || ''}
@@ -526,7 +581,7 @@ export const RightSfxPanel: React.FC = () => {
                   style={{ cursor: 'pointer', accentColor: 'var(--accent)' }}
                 />
                 <label htmlFor="sfx-global-check" style={{ fontSize: '12px', color: 'var(--text-main)', cursor: 'pointer' }}>
-                  Сделать звук общим для всех Мастеров 🌐
+                  Make sound shared for all DMs 🌐
                 </label>
               </div>
 
@@ -536,14 +591,14 @@ export const RightSfxPanel: React.FC = () => {
                   onClick={() => setIsUploadOpen(false)}
                   style={{ padding: '8px 16px', borderRadius: '6px', border: 'none', background: 'transparent', color: 'white', cursor: 'pointer' }}
                 >
-                  Отмена
+                  Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={!uploadFile || isUploading}
                   style={{ padding: '8px 16px', borderRadius: '6px', border: 'none', background: 'var(--accent)', color: 'var(--bottom-bar-bg, #0b110d)', fontWeight: 600, cursor: 'pointer' }}
                 >
-                  {isUploading ? 'Загрузка...' : 'Загрузить'}
+                  {isUploading ? 'Uploading...' : 'Upload'}
                 </button>
               </div>
             </form>
@@ -557,7 +612,7 @@ export const RightSfxPanel: React.FC = () => {
         <div className="modal-overlay" onClick={() => setIsNewPlaylistOpen(false)}>
           <div className="modal-content" onClick={e => e.stopPropagation()}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-              <h3 style={{ margin: 0 }}>Новая категория SFX</h3>
+              <h3 style={{ margin: 0 }}>New SFX Category</h3>
               <button
                 onClick={() => setIsNewPlaylistOpen(false)}
                 style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}
@@ -568,11 +623,11 @@ export const RightSfxPanel: React.FC = () => {
             <form onSubmit={handleCreatePlaylistSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                 <label style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 500 }}>
-                  Название категории:
+                  Category name:
                 </label>
                 <input
                   type="text"
-                  placeholder="Например: Монстры, Ловушки..."
+                  placeholder="e.g. Monsters, Traps..."
                   value={newPlaylistName}
                   required
                   autoFocus
@@ -583,7 +638,7 @@ export const RightSfxPanel: React.FC = () => {
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                 <label style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 500 }}>
-                  Иконка категории:
+                  Category icon:
                 </label>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(8, 1fr)', gap: 6, marginTop: 4 }}>
                   {Object.entries(SFX_CATEGORY_ICONS)
@@ -623,14 +678,14 @@ export const RightSfxPanel: React.FC = () => {
                   onClick={() => setIsNewPlaylistOpen(false)}
                   style={{ padding: '8px 16px', borderRadius: '6px', border: 'none', background: 'transparent', color: 'white', cursor: 'pointer' }}
                 >
-                  Отмена
+                  Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={!newPlaylistName.trim() || isCreatingPlaylist}
                   style={{ padding: '8px 16px', borderRadius: '6px', border: 'none', background: 'var(--accent)', color: 'var(--bottom-bar-bg, #0b110d)', fontWeight: 600, cursor: 'pointer' }}
                 >
-                  {isCreatingPlaylist ? 'Создание...' : 'Создать'}
+                  {isCreatingPlaylist ? 'Creating...' : 'Create'}
                 </button>
               </div>
             </form>
@@ -657,7 +712,7 @@ export const RightSfxPanel: React.FC = () => {
               handlePreviewBrowser(soundId);
             }}
           >
-            <Headphones size={13} /> В наушниках (DM)
+            <Headphones size={13} /> Preview (DM only)
           </button>
           {activeMenu.sound.canEdit && (
             <button
@@ -670,11 +725,11 @@ export const RightSfxPanel: React.FC = () => {
             >
               {activeMenu.sound.isGlobal ? (
                 <>
-                  <Lock size={13} /> Сделать личным
+                  <Lock size={13} /> Make Private
                 </>
               ) : (
                 <>
-                  <Globe size={13} /> Сделать общим
+                  <Globe size={13} /> Make Shared
                 </>
               )}
             </button>
@@ -688,7 +743,7 @@ export const RightSfxPanel: React.FC = () => {
                 setDeleteSoundModal({ id: sound.id, title: sound.title });
               }}
             >
-              <Trash2 size={13} /> Удалить звук
+              <Trash2 size={13} /> Delete Sound
             </button>
           )}
         </div>,

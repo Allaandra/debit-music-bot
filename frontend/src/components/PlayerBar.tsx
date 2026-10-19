@@ -81,12 +81,12 @@ export const PlayerBar = () => {
         </div>
         
         <div className="right-controls">
-          <button style={{background: 'none', border: 'none', padding: 0}} title="Звуковые эффекты (SFX)" className={rightPanelMode === 'sfx' && !rightCollapsed ? 'active-icon' : ''} onClick={() => handleRightToggle('sfx')}><Swords size={18} /></button>
-          <button style={{background: 'none', border: 'none', padding: 0}} title="Очередь" className={rightPanelMode === 'queue' && !rightCollapsed ? 'active-icon' : ''} onClick={() => handleRightToggle('queue')}><ListMusic size={18} /></button>
-          <button style={{background: 'none', border: 'none', padding: 0}} title="Информация о треке" className={rightPanelMode === 'info' && !rightCollapsed ? 'active-icon' : ''} onClick={() => handleRightToggle('info')}><Info size={18} /></button>
+          <button style={{background: 'none', border: 'none', padding: 0}} title="Sound Effects (SFX)" className={rightPanelMode === 'sfx' && !rightCollapsed ? 'active-icon' : ''} onClick={() => handleRightToggle('sfx')}><Swords size={18} /></button>
+          <button style={{background: 'none', border: 'none', padding: 0}} title="Queue" className={rightPanelMode === 'queue' && !rightCollapsed ? 'active-icon' : ''} onClick={() => handleRightToggle('queue')}><ListMusic size={18} /></button>
+          <button style={{background: 'none', border: 'none', padding: 0}} title="Track Info" className={rightPanelMode === 'info' && !rightCollapsed ? 'active-icon' : ''} onClick={() => handleRightToggle('info')}><Info size={18} /></button>
           
           {/* SFX Volume slider */}
-          <div className="volume-control-group" title={`Громкость SFX: ${Math.round((player.sfxVolume ?? 0.8) * 100)}%`}>
+          <div className="volume-control-group" title={`SFX Volume: ${Math.round((player.sfxVolume ?? 0.8) * 100)}%`}>
             <span style={{ fontSize: '10px', fontWeight: 700, color: 'var(--accent)', cursor: 'default' }}>SFX</span>
             <div className="volume-bar" style={{ position: 'relative', width: '60px' }}>
               <input
@@ -104,7 +104,7 @@ export const PlayerBar = () => {
           </div>
 
           {/* Music Volume slider */}
-          <div className="volume-control-group" title="Громкость музыки">
+          <div className="volume-control-group" title="Music Volume">
             <Volume2 size={18} />
             <div className="volume-bar" style={{position: 'relative', width: '70px'}}>
               <input id="volume-bar" name="volumeBar" type="range" min="0" max="100" defaultValue="50" style={{position: 'absolute', width: '100%', opacity: 0, cursor: 'pointer', zIndex: 2}} />
