@@ -261,15 +261,6 @@ export const RightSfxPanel: React.FC = () => {
               )}
             </div>
           ))}
-          {playlists.filter((p: any) => p.id > 0).length < 8 && (
-            <button
-              className="sfx-category-card sfx-category-add"
-              onClick={() => setIsNewPlaylistOpen(true)}
-              title="Добавить категорию"
-            >
-              <Plus size={20} />
-            </button>
-          )}
         </div>
       </div>
 
