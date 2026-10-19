@@ -279,13 +279,16 @@
   user-select: none;
   box-sizing: border-box;
   min-width: 0;
-  overflow: hidden;
 }
 
 .sfx-sound-card:hover {
   background: rgba(255, 255, 255, 0.14);
   border-color: rgba(134, 229, 156, 0.3);
   transform: translateY(-1px);
+}
+
+.sfx-sound-card.menu-open {
+  z-index: 20;
 }
 
 .sfx-sound-card.playing {
@@ -359,27 +362,38 @@
   flex-shrink: 0;
 }
 
-.sfx-sound-menu-trigger:hover {
+.sfx-sound-menu-trigger:hover,
+.sfx-sound-menu-trigger.active {
   color: var(--text-main);
   background: rgba(255, 255, 255, 0.15);
 }
 
-/* SOUND CARD CONTEXT DROPDOWN */
+/* SOUND CARD CONTEXT DROPDOWN (PORTAL POPOVER) */
 .sfx-sound-dropdown {
-  position: absolute;
-  right: 0;
-  bottom: 24px;
+  position: fixed;
   background: var(--panel-bg, #243527);
   border: 1px solid rgba(255, 255, 255, 0.18);
   border-radius: 8px;
   padding: 4px;
-  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.6);
-  z-index: 100;
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.75);
+  z-index: 9999;
   display: flex;
   flex-direction: column;
   gap: 2px;
-  min-width: 165px;
-  backdrop-filter: blur(8px);
+  min-width: 170px;
+  backdrop-filter: blur(12px);
+  animation: sfxMenuFadeIn 0.12s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes sfxMenuFadeIn {
+  from {
+    opacity: 0;
+    transform: scale(0.96) translateY(-2px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
 }
 
 .sfx-dropdown-item {

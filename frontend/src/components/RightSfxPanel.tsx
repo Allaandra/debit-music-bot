@@ -16,7 +16,10 @@ export const RightSfxPanel: React.FC = () => {
   const [selectedPlaylistId, setSelectedPlaylistId] = useState<number | null>(null);
   const [playingSoundId, setPlayingSoundId] = useState<number | null>(null);
   const [previewAudio, setPreviewAudio] = useState<HTMLAudioElement | null>(null);
-  const [activeMenuSoundId, setActiveMenuSoundId] = useState<number | null>(null);
+  const [activeMenu, setActiveMenu] = useState<{
+    sound: any;
+    position: { top: number; left: number };
+  } | null>(null);
 
   // Modals state
   const [deleteCategoryModal, setDeleteCategoryModal] = useState<{ id: number; name: string } | null>(null);
@@ -36,12 +39,21 @@ export const RightSfxPanel: React.FC = () => {
   const [newPlaylistIcon, setNewPlaylistIcon] = useState('⚔️');
   const [isCreatingPlaylist, setIsCreatingPlaylist] = useState(false);
 
-  // Close context menu on outside click
+  // Close context menu on outside click, window resize or scrolling inside sounds list
   useEffect(() => {
-    const handleOutsideClick = () => setActiveMenuSoundId(null);
-    window.addEventListener('click', handleOutsideClick);
-    return () => window.removeEventListener('click', handleOutsideClick);
-  }, []);
+    const handleClose = () => setActiveMenu(null);
+    window.addEventListener('click', handleClose);
+    window.addEventListener('resize', handleClose);
+
+    const stair3 = document.querySelector('.sfx-stair-3');
+    stair3?.addEventListener('scroll', handleClose);
+
+    return () => {
+      window.removeEventListener('click', handleClose);
+      window.removeEventListener('resize', handleClose);
+      stair3?.removeEventListener('scroll', handleClose);
+    };
+  }, [activeMenu]);
 
   // Auto-select first playlist when loaded
   useEffect(() => {
@@ -76,6 +88,40 @@ export const RightSfxPanel: React.FC = () => {
     audio.volume = sfxVolume;
     audio.play().catch(e => console.error('Preview error:', e));
     setPreviewAudio(audio);
+  };
+
+  // Toggle context menu and compute floating coordinates
+  const handleToggleMenu = (e: React.MouseEvent<HTMLButtonElement>, sound: any) => {
+    e.stopPropagation();
+    if (activeMenu?.sound?.id === sound.id) {
+      setActiveMenu(null);
+      return;
+    }
+
+    const rect = e.currentTarget.getBoundingClientRect();
+    const menuWidth = 170;
+    const menuHeight = sound.canEdit ? 105 : 42;
+
+    let left = rect.right - menuWidth;
+    if (left < 10) left = 10;
+    if (left + menuWidth > window.innerWidth - 10) {
+      left = window.innerWidth - menuWidth - 10;
+    }
+
+    const spaceBelow = window.innerHeight - rect.bottom;
+    let top: number;
+    if (spaceBelow < menuHeight + 10 && rect.top > menuHeight + 10) {
+      // Open upwards if near the bottom of viewport
+      top = rect.top - menuHeight - 4;
+    } else {
+      // Open downwards
+      top = rect.bottom + 4;
+    }
+
+    setActiveMenu({
+      sound,
+      position: { top, left }
+    });
   };
 
   // Toggle isGlobal shared status
@@ -273,57 +319,12 @@ export const RightSfxPanel: React.FC = () => {
 
                 <div className="sfx-sound-right" onClick={e => e.stopPropagation()}>
                   <button
-                    className="sfx-sound-menu-trigger"
-                    onClick={() => setActiveMenuSoundId(activeMenuSoundId === sound.id ? null : sound.id)}
+                    className={`sfx-sound-menu-trigger ${activeMenu?.sound?.id === sound.id ? 'active' : ''}`}
+                    onClick={(e) => handleToggleMenu(e, sound)}
                     title="Действия"
                   >
                     <MoreVertical size={11} />
                   </button>
-
-                  {/* Context menu for sound */}
-                  {activeMenuSoundId === sound.id && (
-                    <div className="sfx-sound-dropdown">
-                      <button
-                        className="sfx-dropdown-item"
-                        onClick={() => {
-                          setActiveMenuSoundId(null);
-                          handlePreviewBrowser(sound.id);
-                        }}
-                      >
-                        <Headphones size={13} /> В наушниках (DM)
-                      </button>
-                      {sound.canEdit && (
-                        <button
-                          className="sfx-dropdown-item"
-                          onClick={() => {
-                            setActiveMenuSoundId(null);
-                            handleToggleGlobal(sound);
-                          }}
-                        >
-                          {sound.isGlobal ? (
-                            <>
-                              <Lock size={13} /> Сделать личным
-                            </>
-                          ) : (
-                            <>
-                              <Globe size={13} /> Сделать общим
-                            </>
-                          )}
-                        </button>
-                      )}
-                      {sound.canEdit && (
-                        <button
-                          className="sfx-dropdown-item danger"
-                          onClick={() => {
-                            setActiveMenuSoundId(null);
-                            setDeleteSoundModal({ id: sound.id, title: sound.title });
-                          }}
-                        >
-                          <Trash2 size={13} /> Удалить звук
-                        </button>
-                      )}
-                    </div>
-                  )}
                 </div>
               </div>
             ))}
@@ -561,6 +562,62 @@ export const RightSfxPanel: React.FC = () => {
               </div>
             </form>
           </div>
+        </div>,
+        document.body
+      )}
+
+      {/* Floating Action Menu for sound cards (Portal guarantees it is never trapped under stairs or clipped) */}
+      {activeMenu && createPortal(
+        <div
+          className="sfx-sound-dropdown"
+          style={{
+            top: `${activeMenu.position.top}px`,
+            left: `${activeMenu.position.left}px`
+          }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <button
+            className="sfx-dropdown-item"
+            onClick={() => {
+              const soundId = activeMenu.sound.id;
+              setActiveMenu(null);
+              handlePreviewBrowser(soundId);
+            }}
+          >
+            <Headphones size={13} /> В наушниках (DM)
+          </button>
+          {activeMenu.sound.canEdit && (
+            <button
+              className="sfx-dropdown-item"
+              onClick={() => {
+                const sound = activeMenu.sound;
+                setActiveMenu(null);
+                handleToggleGlobal(sound);
+              }}
+            >
+              {activeMenu.sound.isGlobal ? (
+                <>
+                  <Lock size={13} /> Сделать личным
+                </>
+              ) : (
+                <>
+                  <Globe size={13} /> Сделать общим
+                </>
+              )}
+            </button>
+          )}
+          {activeMenu.sound.canEdit && (
+            <button
+              className="sfx-dropdown-item danger"
+              onClick={() => {
+                const sound = activeMenu.sound;
+                setActiveMenu(null);
+                setDeleteSoundModal({ id: sound.id, title: sound.title });
+              }}
+            >
+              <Trash2 size={13} /> Удалить звук
+            </button>
+          )}
         </div>,
         document.body
       )}
