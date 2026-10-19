@@ -42,54 +42,64 @@ export default function sfxRoutes(client: Client) {
         return userPath;
     }
 
+    // In-memory set to only seed and migrate once per process per user
+    const initializedUsers = new Set<string>();
+
     // Seed default playlists and built-in sounds if user has none or if default sounds are missing
     async function ensureDefaultPlaylists(userId: string) {
-        // Auto-migrate previously created Russian categories/sounds to English
-        const ruToEnPlaylists: Record<string, string> = {
-            'Бой': 'Combat',
-            'Магия': 'Magic',
-            'Окружение': 'Ambience',
-            'Кубики': 'Dice',
-            'Монстры': 'Monsters',
-        };
-        for (const [ruName, enName] of Object.entries(ruToEnPlaylists)) {
-            const oldPl = await prisma.sfxPlaylist.findFirst({
-                where: { ownerId: userId, name: ruName }
+        if (initializedUsers.has(userId)) return;
+        initializedUsers.add(userId);
+
+        try {
+            // One-time migration of any legacy Russian default playlists
+            const oldPls = await prisma.sfxPlaylist.findMany({
+                where: { ownerId: userId, name: { in: ['Бой', 'Магия', 'Окружение', 'Кубики', 'Монстры'] } }
             });
-            if (oldPl) {
-                await prisma.sfxPlaylist.update({
-                    where: { id: oldPl.id },
-                    data: { name: enName }
-                });
+
+            if (oldPls.length > 0) {
+                const ruToEnPlaylists: Record<string, string> = {
+                    'Бой': 'Combat',
+                    'Магия': 'Magic',
+                    'Окружение': 'Ambience',
+                    'Кубики': 'Dice',
+                    'Монстры': 'Monsters',
+                };
+                for (const oldPl of oldPls) {
+                    if (ruToEnPlaylists[oldPl.name]) {
+                        await prisma.sfxPlaylist.update({
+                            where: { id: oldPl.id },
+                            data: { name: ruToEnPlaylists[oldPl.name] }
+                        });
+                    }
+                }
+
+                const ruToEnSounds: Record<string, string> = {
+                    'sword_hit.mp3': 'Sword Hit',
+                    'shield_block.mp3': 'Shield Block',
+                    'arrow_shot.mp3': 'Arrow Shot',
+                    'critical_hit.mp3': 'Critical Hit',
+                    'magic_spell.mp3': 'Magic Spell',
+                    'fireball.mp3': 'Fireball',
+                    'heal_spell.mp3': 'Heal',
+                    'lightning_bolt.mp3': 'Lightning Bolt',
+                    'tavern_bell.mp3': 'Tavern Bell',
+                    'door_creak.mp3': 'Door Creak',
+                    'thunder_rumble.mp3': 'Thunder',
+                    'campfire_crack.mp3': 'Campfire',
+                    'dice_roll.mp3': 'Dice Roll',
+                    'nat20_fanfare.mp3': 'Natural 20',
+                    'nat1_fail.mp3': 'Critical Fail',
+                    'monster_roar.mp3': 'Monster Roar',
+                };
+                for (const [filename, enTitle] of Object.entries(ruToEnSounds)) {
+                    await prisma.sfxSound.updateMany({
+                        where: { ownerId: userId, filename },
+                        data: { title: enTitle }
+                    });
+                }
             }
-        }
 
-        const ruToEnSounds: Record<string, string> = {
-            'sword_hit.mp3': 'Sword Hit',
-            'shield_block.mp3': 'Shield Block',
-            'arrow_shot.mp3': 'Arrow Shot',
-            'critical_hit.mp3': 'Critical Hit',
-            'magic_spell.mp3': 'Magic Spell',
-            'fireball.mp3': 'Fireball',
-            'heal_spell.mp3': 'Heal',
-            'lightning_bolt.mp3': 'Lightning Bolt',
-            'tavern_bell.mp3': 'Tavern Bell',
-            'door_creak.mp3': 'Door Creak',
-            'thunder_rumble.mp3': 'Thunder',
-            'campfire_crack.mp3': 'Campfire',
-            'dice_roll.mp3': 'Dice Roll',
-            'nat20_fanfare.mp3': 'Natural 20',
-            'nat1_fail.mp3': 'Critical Fail',
-            'monster_roar.mp3': 'Monster Roar',
-        };
-        for (const [filename, enTitle] of Object.entries(ruToEnSounds)) {
-            await prisma.sfxSound.updateMany({
-                where: { ownerId: userId, filename },
-                data: { title: enTitle }
-            });
-        }
-
-        const defaults = [
+            const defaults = [
             {
                 name: 'Combat',
                 icon: 'swords',
@@ -181,7 +191,11 @@ export default function sfxRoutes(client: Client) {
                 }
             }
         }
+    } catch (e) {
+        console.error('Error ensuring default playlists:', e);
+        initializedUsers.delete(userId);
     }
+}
 
     // Auto-sync sound files dropped in sounds/<userId>/sfx/ directly in Windows Explorer
     async function syncSfxSounds(userId: string) {
