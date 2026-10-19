@@ -28,7 +28,9 @@ import {
   Target,
   Bomb,
   Compass,
-  Footprints
+  Footprints,
+  LayoutList,
+  LayoutGrid
 } from 'lucide-react';
 
 export const SFX_CATEGORY_ICONS: Record<
@@ -148,6 +150,16 @@ export const RightSfxPanel: React.FC = () => {
     sound: any;
     position: { top: number; left: number };
   } | null>(null);
+
+  // View mode: 'single' (1 full-width column) or 'double' (2-column compact grid)
+  const [viewMode, setViewMode] = useState<'single' | 'double'>(() => {
+    return (localStorage.getItem('sfx_view_mode') as 'single' | 'double') || 'single';
+  });
+
+  const handleSetViewMode = (mode: 'single' | 'double') => {
+    setViewMode(mode);
+    localStorage.setItem('sfx_view_mode', mode);
+  };
 
   // Modals state
   const [deleteCategoryModal, setDeleteCategoryModal] = useState<{ id: number; name: string } | null>(null);
@@ -396,9 +408,29 @@ export const RightSfxPanel: React.FC = () => {
           <span className="sfx-category-heading">
             {currentPlaylist?.name || 'SFX'}
           </span>
-          <span className="sfx-sounds-count">
-            {sounds.length} {sounds.length === 1 ? 'sound' : 'sounds'}
-          </span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <span className="sfx-sounds-count">
+              {sounds.length} {sounds.length === 1 ? 'sound' : 'sounds'}
+            </span>
+            <div className="sfx-view-toggle">
+              <button
+                type="button"
+                className={`sfx-view-toggle-btn ${viewMode === 'single' ? 'active' : ''}`}
+                onClick={() => handleSetViewMode('single')}
+                title="Single column (List)"
+              >
+                <LayoutList size={13} />
+              </button>
+              <button
+                type="button"
+                className={`sfx-view-toggle-btn ${viewMode === 'double' ? 'active' : ''}`}
+                onClick={() => handleSetViewMode('double')}
+                title="Double column (Grid)"
+              >
+                <LayoutGrid size={13} />
+              </button>
+            </div>
+          </div>
         </div>
 
         {sounds.length === 0 ? (
@@ -416,31 +448,36 @@ export const RightSfxPanel: React.FC = () => {
             </button>
           </div>
         ) : (
-          <div className="sfx-sounds-grid">
+          <div className={`sfx-sounds-grid ${viewMode === 'single' ? 'single-col' : ''}`}>
             {sounds.map((sound: any) => (
               <div
                 key={sound.id}
-                className={`sfx-sound-card ${playingSoundId === sound.id ? 'playing' : ''}`}
+                className={`sfx-sound-card ${viewMode === 'single' ? 'single-col' : ''} ${playingSoundId === sound.id ? 'playing' : ''}`}
                 onClick={() => handlePlayInDiscord(sound.id)}
                 title={`Click to play in Discord\n${sound.title}`}
               >
                 <div className="sfx-sound-left">
-                  <Play size={11} className={`sfx-play-icon ${playingSoundId === sound.id ? 'playing' : ''}`} />
+                  <Play size={viewMode === 'single' ? 13 : 11} className={`sfx-play-icon ${playingSoundId === sound.id ? 'playing' : ''}`} />
                   <MarqueeTitle title={sound.title} />
                   {sound.isGlobal && (
                     <span title="Shared sound for all DMs" style={{ display: 'inline-flex', alignItems: 'center', flexShrink: 0 }}>
-                      <Globe size={10} className="sfx-globe-icon" />
+                      <Globe size={11} className="sfx-globe-icon" />
                     </span>
                   )}
                 </div>
 
                 <div className="sfx-sound-right" onClick={e => e.stopPropagation()}>
+                  {viewMode === 'single' && sound.duration && (
+                    <span className="sfx-sound-duration" title="Duration">
+                      {sound.duration < 10 ? `${sound.duration.toFixed(1)}s` : `${Math.round(sound.duration)}s`}
+                    </span>
+                  )}
                   <button
                     className={`sfx-sound-menu-trigger ${activeMenu?.sound?.id === sound.id ? 'active' : ''}`}
                     onClick={(e) => handleToggleMenu(e, sound)}
                     title="Actions"
                   >
-                    <MoreVertical size={11} />
+                    <MoreVertical size={viewMode === 'single' ? 13 : 11} />
                   </button>
                 </div>
               </div>

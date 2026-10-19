@@ -254,12 +254,55 @@
   color: var(--text-muted);
 }
 
+/* LAYOUT TOGGLE BUTTONS (1-column vs 2-column) */
+.sfx-view-toggle {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 5px;
+  padding: 1px;
+}
+
+.sfx-view-toggle-btn {
+  background: transparent;
+  border: none;
+  border-radius: 4px;
+  width: 22px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 0;
+  transition: all 0.15s ease;
+}
+
+.sfx-view-toggle-btn:hover {
+  color: var(--text-main);
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.sfx-view-toggle-btn.active {
+  color: var(--accent);
+  background: rgba(134, 229, 156, 0.15);
+}
+
 .sfx-sounds-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 6px;
   width: 100%;
   box-sizing: border-box;
+}
+
+/* SINGLE COLUMN LIST LAYOUT */
+.sfx-sounds-grid.single-col {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
 }
 
 /* COMPACT SOUND CARD */
@@ -279,6 +322,22 @@
   user-select: none;
   box-sizing: border-box;
   min-width: 0;
+}
+
+/* SINGLE COLUMN CARD STYLING */
+.sfx-sound-card.single-col {
+  height: 38px;
+  min-height: 38px;
+  padding: 0 10px;
+  border-radius: 7px;
+}
+
+.sfx-sound-card.single-col .sfx-sound-title {
+  font-size: 12px;
+}
+
+.sfx-sound-card.single-col .sfx-play-icon {
+  margin-right: 2px;
 }
 
 .sfx-sound-card:hover {
@@ -379,6 +438,15 @@
   align-items: center;
   position: relative;
   flex-shrink: 0;
+  gap: 6px;
+}
+
+.sfx-sound-duration {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+  opacity: 0.8;
+  user-select: none;
 }
 
 .sfx-sound-menu-trigger {
