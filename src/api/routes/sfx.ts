@@ -47,7 +47,7 @@ export default function sfxRoutes(client: Client) {
         const defaults = [
             {
                 name: 'Бой',
-                icon: '⚔️',
+                icon: 'swords',
                 order: 0,
                 sounds: [
                     { title: 'Удар меча', filename: 'sword_hit.mp3', duration: 0.7 },
@@ -58,7 +58,7 @@ export default function sfxRoutes(client: Client) {
             },
             {
                 name: 'Магия',
-                icon: '✨',
+                icon: 'sparkles',
                 order: 1,
                 sounds: [
                     { title: 'Вспышка магии', filename: 'magic_spell.mp3', duration: 1.4 },
@@ -69,7 +69,7 @@ export default function sfxRoutes(client: Client) {
             },
             {
                 name: 'Окружение',
-                icon: '🌲',
+                icon: 'trees',
                 order: 2,
                 sounds: [
                     { title: 'Колокол таверны', filename: 'tavern_bell.mp3', duration: 1.8 },
@@ -80,7 +80,7 @@ export default function sfxRoutes(client: Client) {
             },
             {
                 name: 'Кубики',
-                icon: '🎲',
+                icon: 'dices',
                 order: 3,
                 sounds: [
                     { title: 'Бросок кубика', filename: 'dice_roll.mp3', duration: 1.1 },
@@ -90,7 +90,7 @@ export default function sfxRoutes(client: Client) {
             },
             {
                 name: 'Монстры',
-                icon: '💀',
+                icon: 'skull',
                 order: 4,
                 sounds: [
                     { title: 'Рык монстра', filename: 'monster_roar.mp3', duration: 1.8 },
@@ -232,7 +232,7 @@ export default function sfxRoutes(client: Client) {
                     id: -1, // Virtual ID for global category
                     ownerId: userId,
                     name: 'Общие',
-                    icon: '🌐',
+                    icon: 'globe',
                     order: 999,
                     createdAt: new Date(),
                     sounds: otherGlobalSounds as any
@@ -270,7 +270,7 @@ export default function sfxRoutes(client: Client) {
                 data: {
                     ownerId: userId,
                     name,
-                    icon: icon || '⚔️',
+                    icon: icon || 'swords',
                     order: count
                 },
                 include: { sounds: true }

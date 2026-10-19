@@ -3,7 +3,80 @@ import { createPortal } from 'react-dom';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../services/api';
 import { usePlayer } from '../context/PlayerContext';
-import { Swords, Plus, Play, Headphones, Trash2, Upload, Sparkles, X, MoreVertical, Globe, Lock } from 'lucide-react';
+import { 
+  Swords, 
+  Plus, 
+  Play, 
+  Headphones, 
+  Trash2, 
+  Upload, 
+  Sparkles, 
+  X, 
+  MoreVertical, 
+  Globe, 
+  Lock,
+  Shield,
+  Wand2,
+  Trees,
+  Dices,
+  Skull,
+  Ghost,
+  Beer,
+  Bell,
+  Flame,
+  Zap,
+  Target,
+  Bomb,
+  Compass,
+  Footprints
+} from 'lucide-react';
+
+export const SFX_CATEGORY_ICONS: Record<
+  string, 
+  { label: string; icon: React.ComponentType<{ size?: number; className?: string; strokeWidth?: number }> }
+> = {
+  swords: { label: 'Бой', icon: Swords },
+  shield: { label: 'Защита', icon: Shield },
+  sparkles: { label: 'Магия', icon: Sparkles },
+  wand: { label: 'Чары', icon: Wand2 },
+  trees: { label: 'Природа', icon: Trees },
+  dices: { label: 'Кубики', icon: Dices },
+  skull: { label: 'Монстры', icon: Skull },
+  ghost: { label: 'Нежить', icon: Ghost },
+  beer: { label: 'Таверна', icon: Beer },
+  bell: { label: 'Колокол', icon: Bell },
+  flame: { label: 'Огонь', icon: Flame },
+  zap: { label: 'Молния', icon: Zap },
+  target: { label: 'Стрельба', icon: Target },
+  bomb: { label: 'Ловушка', icon: Bomb },
+  compass: { label: 'Поход', icon: Compass },
+  footprints: { label: 'Скрытность', icon: Footprints },
+  globe: { label: 'Общие', icon: Globe },
+};
+
+const EMOJI_TO_ICON_ID: Record<string, string> = {
+  '⚔️': 'swords',
+  '🛡️': 'shield',
+  '🏹': 'target',
+  '🧙': 'wand',
+  '✨': 'sparkles',
+  '🌲': 'trees',
+  '🎲': 'dices',
+  '💀': 'skull',
+  '🍺': 'beer',
+  '⚡': 'zap',
+  '🔔': 'bell',
+  '💥': 'bomb',
+  '🔥': 'flame',
+  '🐉': 'skull',
+  '🌐': 'globe',
+};
+
+const renderCategoryIcon = (iconKey?: string, size = 18) => {
+  const iconId = (iconKey && EMOJI_TO_ICON_ID[iconKey]) || iconKey || 'swords';
+  const IconComponent = SFX_CATEGORY_ICONS[iconId]?.icon || Swords;
+  return <IconComponent size={size} className="sfx-category-icon-svg" />;
+};
 
 export const RightSfxPanel: React.FC = () => {
   const { data: playlists = [], refetch } = useQuery({
@@ -36,7 +109,7 @@ export const RightSfxPanel: React.FC = () => {
   // New playlist modal state
   const [isNewPlaylistOpen, setIsNewPlaylistOpen] = useState(false);
   const [newPlaylistName, setNewPlaylistName] = useState('');
-  const [newPlaylistIcon, setNewPlaylistIcon] = useState('⚔️');
+  const [newPlaylistIcon, setNewPlaylistIcon] = useState('swords');
   const [isCreatingPlaylist, setIsCreatingPlaylist] = useState(false);
 
   // Close context menu on outside click, window resize or scrolling inside sounds list
@@ -202,8 +275,6 @@ export const RightSfxPanel: React.FC = () => {
     }
   };
 
-  const emojiIcons = ['⚔️', '🛡️', '🏹', '🧙', '💀', '🎲', '🍺', '🌲', '⚡', '🔔', '💥', '🐉'];
-
   return (
     <div className="sfx-view">
       {/* STAIR 1: HEADER */}
@@ -244,7 +315,7 @@ export const RightSfxPanel: React.FC = () => {
               title={pl.name}
             >
               <div className="sfx-category-inner">
-                <span className="sfx-category-emoji">{pl.icon || '⚔️'}</span>
+                {renderCategoryIcon(pl.icon, 18)}
                 <span className="sfx-category-name">{pl.name}</span>
               </div>
               {pl.id > 0 && playlists.filter((p: any) => p.id > 0).length > 1 && (
@@ -256,7 +327,7 @@ export const RightSfxPanel: React.FC = () => {
                   }}
                   title="Удалить категорию"
                 >
-                  <X size={11} />
+                  <X size={9} strokeWidth={2.5} />
                 </button>
               )}
             </div>
@@ -512,26 +583,37 @@ export const RightSfxPanel: React.FC = () => {
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                 <label style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 500 }}>
-                  Иконка / Эмодзи:
+                  Иконка категории:
                 </label>
-                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 4 }}>
-                  {emojiIcons.map(icon => (
-                    <button
-                      key={icon}
-                      type="button"
-                      onClick={() => setNewPlaylistIcon(icon)}
-                      style={{
-                        fontSize: 18,
-                        padding: '6px 10px',
-                        borderRadius: 6,
-                        border: newPlaylistIcon === icon ? '2px solid var(--accent)' : '1px solid rgba(255,255,255,0.1)',
-                        background: newPlaylistIcon === icon ? 'rgba(46,204,113,0.2)' : 'rgba(255,255,255,0.05)',
-                        cursor: 'pointer'
-                      }}
-                    >
-                      {icon}
-                    </button>
-                  ))}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(8, 1fr)', gap: 6, marginTop: 4 }}>
+                  {Object.entries(SFX_CATEGORY_ICONS)
+                    .filter(([id]) => id !== 'globe')
+                    .map(([id, item]) => {
+                      const IconComp = item.icon;
+                      const isSelected = newPlaylistIcon === id;
+                      return (
+                        <button
+                          key={id}
+                          type="button"
+                          onClick={() => setNewPlaylistIcon(id)}
+                          title={item.label}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            height: 36,
+                            borderRadius: 6,
+                            border: isSelected ? '2px solid var(--accent)' : '1px solid rgba(255,255,255,0.1)',
+                            background: isSelected ? 'rgba(134, 229, 156, 0.15)' : 'rgba(255,255,255,0.05)',
+                            color: isSelected ? 'var(--accent)' : 'var(--text-main)',
+                            cursor: 'pointer',
+                            transition: 'all 0.15s ease'
+                          }}
+                        >
+                          <IconComp size={18} />
+                        </button>
+                      );
+                    })}
                 </div>
               </div>
 

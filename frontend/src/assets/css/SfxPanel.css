@@ -83,7 +83,8 @@
   display: flex;
   gap: 12px;
   overflow-x: auto;
-  padding-bottom: 6px;
+  padding: 4px 2px 6px 2px;
+  margin: -4px -2px -6px -2px;
   align-items: center;
   scrollbar-width: thin;
   scrollbar-color: rgba(255, 255, 255, 0.25) rgba(0, 0, 0, 0.15);
@@ -113,34 +114,32 @@
   min-width: 56px;
   min-height: 56px;
   border-radius: 12px;
-  background: var(--placeholder-bg, #d1ddd1);
-  color: var(--dark-text, #0b110d);
+  background: rgba(255, 255, 255, 0.07);
+  color: var(--text-main);
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   cursor: pointer;
   position: relative;
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: background-color 0.15s ease, border-color 0.15s ease;
   box-sizing: border-box;
-  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15);
   user-select: none;
   border: 2px solid transparent;
-  opacity: 0.85;
 }
 
 .sfx-category-card:hover {
-  opacity: 1;
-  transform: translateY(-2px);
-  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.25);
+  background: rgba(255, 255, 255, 0.16);
 }
 
-/* Soft, elegant active state without harsh neon glow */
+/* Crisp active state with 86E59C border, without harsh glow or jumping */
 .sfx-category-card.active {
-  opacity: 1;
-  border: 2px solid rgba(255, 255, 255, 0.5);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
-  transform: translateY(-1px);
+  background: rgba(255, 255, 255, 0.12);
+  border: 2px solid #86E59C;
+}
+
+.sfx-category-card.active .sfx-category-name {
+  color: #86E59C;
 }
 
 .sfx-category-inner {
@@ -148,55 +147,72 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 2px;
+  gap: 3px;
   width: 100%;
   padding: 4px;
   box-sizing: border-box;
+  z-index: 1;
 }
 
-.sfx-category-emoji {
-  font-size: 20px;
-  line-height: 1;
+.sfx-category-icon-svg {
+  color: var(--text-main);
+  opacity: 0.85;
+  transition: all 0.15s ease;
+  flex-shrink: 0;
+}
+
+.sfx-category-card:hover .sfx-category-icon-svg {
+  opacity: 1;
+  color: #fff;
+}
+
+.sfx-category-card.active .sfx-category-icon-svg {
+  opacity: 1;
+  color: #86E59C;
 }
 
 .sfx-category-name {
   font-size: 10px;
   font-weight: 700;
-  color: var(--dark-text, #0b110d);
+  color: var(--text-main);
   max-width: 48px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   text-align: center;
+  transition: color 0.15s ease;
 }
 
 .sfx-category-del-btn {
   position: absolute;
-  top: -4px;
-  right: -4px;
-  background: #ff4757;
+  top: 3px;
+  right: 3px;
+  background: rgba(235, 77, 75, 0.9);
   border: none;
   border-radius: 50%;
-  width: 18px;
-  height: 18px;
+  width: 14px;
+  height: 14px;
   display: flex;
   align-items: center;
   justify-content: center;
   color: #fff;
   cursor: pointer;
   opacity: 0;
-  transition: opacity 0.2s, transform 0.15s, background 0.15s;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
-  z-index: 5;
+  pointer-events: none;
+  transition: opacity 0.15s ease, background 0.15s ease, transform 0.15s ease;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
+  z-index: 2;
+  padding: 0;
 }
 
 .sfx-category-card:hover .sfx-category-del-btn {
   opacity: 1;
+  pointer-events: auto;
 }
 
 .sfx-category-del-btn:hover {
-  background: #ff1f34;
-  transform: scale(1.15);
+  background: #ff4757;
+  transform: scale(1.1);
 }
 
 /* STAIR 3: SOUNDS GRID (Strictly fit 2 columns without horizontal scroll) */
