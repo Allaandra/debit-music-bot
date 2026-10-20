@@ -44,6 +44,7 @@ client.once('clientReady', () => {
 });
 
 import { prisma } from './database';
+import { PlayerManager } from './services/PlayerService';
 
 client.on('voiceStateUpdate', async (oldState, newState) => {
     const userId = newState.id;
@@ -73,8 +74,7 @@ client.on('voiceStateUpdate', async (oldState, newState) => {
             
             // Если бот вышел из канала
             if (userId === client.user?.id) {
-                const playerManager = (await import('./services/PlayerService')).PlayerManager;
-                const guildPlayer = playerManager.getPlayer(guildId);
+                const guildPlayer = PlayerManager.getPlayer(guildId);
                 guildPlayer.stop();
             }
         }
@@ -86,17 +86,17 @@ client.on('voiceStateUpdate', async (oldState, newState) => {
 client.on('messageCreate', (message) => {
     if (message.author.bot) return;
 
-    if (message.content === '!ping') {
-        message.reply('Pong!');
-    }
+    const args = message.content.trim().split(/\s+/);
+    const commandName = args[0]?.toLowerCase();
+    if (!commandName) return;
 
-    const command = client.commands.get(message.content);
+    const command = client.commands.get(commandName);
     if (!command) return;
 
     try {
         command.execute(message);
     } catch (error) {
-        console.error(error);
+        console.error(`Ошибка при выполнении команды ${commandName}:`, error);
         message.reply('Произошла критическая ошибка при выполнении команды');
     }
 });
