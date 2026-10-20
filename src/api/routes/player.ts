@@ -116,9 +116,15 @@ export default function playerRoutes(client: Client) {
                 }));
 
                 guildPlayer.queueManager.setQueue(queueTracks, playlistName || 'Main Library');
+                guildPlayer.emit('stateUpdate', guildPlayer.getStatus());
             }
 
-            res.json({ status: 'success', message: `Воспроизведение начато: ${track.title}` });
+            res.json({
+                status: 'success',
+                message: `Воспроизведение начато: ${track.title}`,
+                guildId,
+                state: guildPlayer.getStatus()
+            });
         }
         catch (error: any) {
             console.error('Ошибка воспроизведения:', error);
@@ -166,7 +172,7 @@ export default function playerRoutes(client: Client) {
             else if (action === 'shuffle') guildPlayer.toggleShuffle();
             else if (action === 'repeat') guildPlayer.toggleRepeat();
 
-            res.json({ status: 'success', state: guildPlayer.getStatus() });
+            res.json({ status: 'success', state: guildPlayer.getStatus(), guildId: session.guildId });
         } catch (e: any) {
             res.status(500).json({ error: e.message });
         }

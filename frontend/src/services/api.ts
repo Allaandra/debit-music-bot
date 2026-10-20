@@ -1,4 +1,5 @@
 export const BASE_URL = `http://${window.location.hostname}:3001/api`;
+export const SOCKET_URL = `http://${window.location.hostname}:3001`;
 
 // Use a wrapper to automatically include credentials
 const fetchAuth = (url: string, options: RequestInit = {}) => {
@@ -42,11 +43,12 @@ export const api = {
     },
 
     async action(action: string, payload?: any) {
-        await fetchAuth(`${BASE_URL}/action`, {
+        const res = await fetchAuth(`${BASE_URL}/action`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ action, payload })
         });
+        return res.ok ? await res.json() : null;
     },
 
     async addTrack(query: string, type: 'url' | 'local' = 'url') {
@@ -75,7 +77,7 @@ export const api = {
     },
 
     async playTrack(track: any, playlistId: number | null, playlistName: string) {
-        await fetchAuth(`${BASE_URL}/play`, {
+        const res = await fetchAuth(`${BASE_URL}/play`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -85,6 +87,7 @@ export const api = {
                 playlistName
             })
         });
+        return res.ok ? await res.json() : null;
     },
 
     async uploadFile(file: File) {

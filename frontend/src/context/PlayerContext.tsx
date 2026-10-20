@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { io, Socket } from 'socket.io-client';
-import { api } from '../services/api';
+import { api, SOCKET_URL } from '../services/api';
 
 export const PlayerContext = createContext<any>(null);
 
@@ -31,6 +31,13 @@ export const PlayerProvider = ({ children }: { children: React.ReactNode }) => {
   const [tracks, setTracks] = useState<any[]>([]);
   const [newTrackInput, setNewTrackInput] = useState('');
   const [seekValue, setSeekValue] = useState<number | null>(null);
+  const [guildId, setGuildId] = useState<string | null>(null);
+  const socketRef = useRef<Socket | null>(null);
+  const guildIdRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    guildIdRef.current = guildId;
+  }, [guildId]);
 
   const [playlists, setPlaylists] = useState<any[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -117,23 +124,99 @@ export const PlayerProvider = ({ children }: { children: React.ReactNode }) => {
     }
   };
 
-  useEffect(() => {
-    const fetchStatus = async () => {
-      try {
-        const data = await api.fetchStatus();
-        if (data) {
-          setStatus((prev: any) => ({ ...prev, ...data, queue: data.queue || [] }));
+  const fetchStatus = async () => {
+    try {
+      const data = await api.fetchStatus();
+      if (data) {
+        setStatus((prev: any) => ({ ...prev, ...data, queue: data.queue || [] }));
+        if (data.guildId) {
+          setGuildId(data.guildId);
         }
-      } catch (e) {
-        console.error('Failed to fetch status', e);
       }
+    } catch (e) {
+      console.error('Failed to fetch status', e);
+    }
+  };
+
+  // Socket.IO lifecycle: connect once and listen for real-time updates
+  useEffect(() => {
+    const socket = io(SOCKET_URL, {
+      withCredentials: true,
+      transports: ['websocket', 'polling']
+    });
+    socketRef.current = socket;
+
+    socket.on('connect', () => {
+      console.log('[Socket] Connected to server');
+      if (guildIdRef.current) {
+        socket.emit('subscribe', guildIdRef.current);
+      }
+    });
+
+    socket.on('stateUpdate', (newState: any) => {
+      if (!newState) return;
+      setStatus((prev: any) => ({
+        ...prev,
+        ...newState,
+        queue: newState.queue || []
+      }));
+      if (newState.guildId) {
+        setGuildId(newState.guildId);
+      }
+    });
+
+    socket.on('disconnect', (reason) => {
+      console.log('[Socket] Disconnected:', reason);
+    });
+
+    return () => {
+      socket.disconnect();
     };
-    
+  }, []);
+
+  // Subscribe to guild room whenever guildId becomes available
+  useEffect(() => {
+    if (guildId && socketRef.current?.connected) {
+      socketRef.current.emit('subscribe', guildId);
+    }
+  }, [guildId]);
+
+  // Smooth local timer for elapsed playback time (no HTTP polling needed!)
+  useEffect(() => {
+    if (!status.isPlaying || status.isPaused) return;
+
+    const timer = setInterval(() => {
+      setStatus((prev: any) => {
+        if (!prev.isPlaying || prev.isPaused) return prev;
+        const trackDuration = prev.currentTrack?.duration || prev.duration || 0;
+        const currentElapsed = prev.elapsed || 0;
+        if (trackDuration > 0 && currentElapsed >= trackDuration) {
+          return prev;
+        }
+        return {
+          ...prev,
+          elapsed: currentElapsed + 1
+        };
+      });
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [status.isPlaying, status.isPaused]);
+
+  // Initial load and light fallback sync (every 15s or on window focus)
+  useEffect(() => {
     fetchStatus();
     fetchTracks();
     fetchPlaylists();
-    const interval = setInterval(fetchStatus, 1000);
-    return () => clearInterval(interval);
+
+    const interval = setInterval(fetchStatus, 15000);
+    const onFocus = () => fetchStatus();
+    window.addEventListener('focus', onFocus);
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('focus', onFocus);
+    };
   }, []);
 
   useEffect(() => {
@@ -155,7 +238,17 @@ export const PlayerProvider = ({ children }: { children: React.ReactNode }) => {
 
   const handleAction = async (action: string, payload?: any) => {
     try {
-      await api.action(action, payload);
+      const res = await api.action(action, payload);
+      if (res?.state) {
+        setStatus((prev: any) => ({
+          ...prev,
+          ...res.state,
+          queue: res.state.queue || []
+        }));
+      }
+      if (res?.guildId) {
+        setGuildId(res.guildId);
+      }
     } catch (e) {
       console.error(`Failed to execute action ${action}`, e);
     }
@@ -265,7 +358,17 @@ export const PlayerProvider = ({ children }: { children: React.ReactNode }) => {
       const currentPlaylistName = activePlaylistId
         ? (Array.isArray(playlists) ? playlists : []).find(p => p.id === activePlaylistId)?.name || 'Main Library'
         : 'Main Library';
-      await api.playTrack(track, activePlaylistId, currentPlaylistName);
+      const res = await api.playTrack(track, activePlaylistId, currentPlaylistName);
+      if (res?.guildId) {
+        setGuildId(res.guildId);
+      }
+      if (res?.state) {
+        setStatus((prev: any) => ({
+          ...prev,
+          ...res.state,
+          queue: res.state.queue || []
+        }));
+      }
     } catch (e) {
       console.error('Failed to play track', e);
     }
@@ -369,7 +472,8 @@ export const PlayerProvider = ({ children }: { children: React.ReactNode }) => {
       rightCollapsed, setRightCollapsed,
       theme, setTheme, sortMethod, setSortMethod,
       leftCollapsed, setLeftCollapsed,
-      fetchTracks, fetchPlaylists,
+      fetchTracks, fetchPlaylists, fetchStatus,
+      guildId,
       handleAction, handleAddTrack, handleImportPlaylist,
       deleteTrackCompletely, deleteTrackFromPlaylist,
       deletePlaylist, editPlaylist,

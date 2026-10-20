@@ -53,10 +53,18 @@ export function startApi(client: Client) {
         console.log(`Socket connected: ${socket.id}`);
         // Подписка на гильдию
         socket.on('subscribe', (guildId) => {
+            if (!guildId) return;
             socket.join(`guild_${guildId}`);
             
             // Если игрок уже есть, отправляем текущее состояние
             if (PlayerManager.players.has(guildId)) {
+                const player = PlayerManager.getPlayer(guildId);
+                socket.emit('stateUpdate', player.getStatus());
+            }
+        });
+
+        socket.on('getStatus', (guildId) => {
+            if (guildId && PlayerManager.players.has(guildId)) {
                 const player = PlayerManager.getPlayer(guildId);
                 socket.emit('stateUpdate', player.getStatus());
             }
