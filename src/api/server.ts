@@ -71,22 +71,24 @@ export function startApi(client: Client) {
         });
     });
 
-    // Настраиваем отправку обновлений при создании плееров
-    const originalGetPlayer = PlayerManager.getPlayer.bind(PlayerManager);
-    PlayerManager.getPlayer = (guildId: string) => {
-        const isNew = !PlayerManager.players.has(guildId);
-        const player = originalGetPlayer(guildId);
-        
-        if (isNew) {
-            player.on('stateUpdate', (state) => {
-                io.to(`guild_${guildId}`).emit('stateUpdate', state);
-            });
-        }
-        
-        return player;
-    };
+    // Чистая подписка на обновления плееров через EventEmitter (без monkey patching)
+    PlayerManager.on('stateUpdate', ({ guildId, state }) => {
+        io.to(`guild_${guildId}`).emit('stateUpdate', state);
+    });
 
     server.listen(PORT, () => {
         console.log(`Express-сервер слушает порт ${PORT}`);
     });
+
+    return {
+        server,
+        io,
+        close: async () => {
+            return new Promise<void>((resolve) => {
+                io.close(() => {
+                    server.close(() => resolve());
+                });
+            });
+        }
+    };
 }

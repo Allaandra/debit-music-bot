@@ -145,15 +145,42 @@ export class PlayerService extends EventEmitter {
         this.queueManager.setQueue([]);
         this.emit('stateUpdate', this.getStatus());
     }
+
+    destroy() {
+        this.stop();
+        if (this.connection) {
+            try {
+                this.connection.destroy();
+            } catch (e) {}
+            this.connection = null;
+        }
+    }
 }
 
-export class PlayerManager {
-    static players: Map<string, PlayerService> = new Map();
+export class PlayerManagerClass extends EventEmitter {
+    players: Map<string, PlayerService> = new Map();
 
-    static getPlayer(guildId: string): PlayerService {
+    getPlayer(guildId: string): PlayerService {
         if (!this.players.has(guildId)) {
-            this.players.set(guildId, new PlayerService(guildId));
+            const player = new PlayerService(guildId);
+            this.players.set(guildId, player);
+            player.on('stateUpdate', (state) => {
+                this.emit('stateUpdate', { guildId, state });
+            });
         }
         return this.players.get(guildId)!;
     }
+
+    stopAll() {
+        for (const [guildId, player] of this.players.entries()) {
+            try {
+                player.destroy();
+            } catch (e) {
+                console.error(`Error stopping player for guild ${guildId}:`, e);
+            }
+        }
+        this.players.clear();
+    }
 }
+
+export const PlayerManager = new PlayerManagerClass();

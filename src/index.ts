@@ -101,6 +101,39 @@ client.on('messageCreate', (message) => {
     }
 });
 
-startApi(client);
+const apiServer = startApi(client);
 
 client.login(process.env.DISCORD_TOKEN);
+
+let isShuttingDown = false;
+async function gracefulShutdown(signal: string) {
+    if (isShuttingDown) return;
+    isShuttingDown = true;
+    console.log(`\n[Shutdown] Получен сигнал ${signal}. Завершение работы бота...`);
+
+    try {
+        const { PlayerManager } = await import('./services/PlayerService');
+        console.log('[Shutdown] Остановка активных плееров и FFmpeg процессов...');
+        PlayerManager.stopAll();
+
+        if (apiServer?.close) {
+            console.log('[Shutdown] Остановка API сервера...');
+            await apiServer.close();
+        }
+
+        console.log('[Shutdown] Отключение Discord клиента...');
+        client.destroy();
+
+        console.log('[Shutdown] Закрытие базы данных Prisma...');
+        await prisma.$disconnect();
+
+        console.log('[Shutdown] Все процессы корректно завершены.');
+        process.exit(0);
+    } catch (err) {
+        console.error('[Shutdown] Ошибка при завершении:', err);
+        process.exit(1);
+    }
+}
+
+process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
