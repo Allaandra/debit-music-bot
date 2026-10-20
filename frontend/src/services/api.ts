@@ -162,6 +162,29 @@ export const api = {
 
     getSfxAudioUrl(soundId: number) {
         return `${BASE_URL}/sfx/audio/${soundId}`;
+    },
+
+    async logout() {
+        await fetchAuth(`${BASE_URL}/auth/logout`, { method: 'POST' });
+    },
+
+    async deletePlaylist(playlistId: number, deleteTracks: boolean) {
+        await fetchAuth(`${BASE_URL}/playlists/${playlistId}?deleteTracks=${deleteTracks}`, { method: 'DELETE' });
+    },
+
+    async editPlaylist(playlistId: number, data: { name?: string; icon?: string }) {
+        await fetchAuth(`${BASE_URL}/playlists/${playlistId}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        });
+    },
+
+    async checkTrackInPlaylistsSingle(playlistId: number, trackId: number): Promise<boolean> {
+        const res = await fetchAuth(`${BASE_URL}/playlists/${playlistId}/tracks`);
+        if (!res.ok) return false;
+        const tracks: any[] = await res.json();
+        return tracks.some((t: any) => t.id === trackId);
     }
 };
 

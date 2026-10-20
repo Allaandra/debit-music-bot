@@ -1,6 +1,6 @@
 import React from 'react';
 import { usePlayer } from '../context/PlayerContext';
-import { BASE_URL } from '../services/api';
+import { api } from '../services/api';
 import { Play, Pause, SkipBack, SkipForward, Shuffle, Repeat, Volume2, ListMusic, Info, Search, Filter, Trash2, MoreVertical, Music, BarChart2, Home, Plus, Upload, Settings, LogOut, Palette, ChevronLeft, ChevronRight, Edit2 } from 'lucide-react';
 
 export const LeftSidebar = () => {
@@ -120,7 +120,7 @@ export const LeftSidebar = () => {
               <img src={user?.avatar || ""} className="user-avatar" style={{ backgroundColor: user?.avatar ? "transparent" : "#5865F2" }} alt="" />
               <span className="user-name">{user?.username || "Guest"}</span>
               <LogOut size={20} className="text-icon" onClick={async () => {
-                await fetch(`${BASE_URL}/auth/logout`, { method: 'POST' });
+                await api.logout();
                 window.location.href = '/';
               }} style={{ cursor: 'pointer' }} />
               <Palette size={20} className="text-icon palette-btn"  onClick={toggleTheme} />
