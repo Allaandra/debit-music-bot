@@ -144,7 +144,7 @@ export const Modals = () => {
                 if (input) newName = input.value;
               }
               
-              editPlaylist(editPlaylistModal.id, newName, newIcon);
+              editPlaylist(editPlaylistModal.id, newName || undefined, newIcon || undefined);
             }} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
               {editPlaylistModal.editMode === 'cover' ? (
                 <input 
@@ -152,7 +152,7 @@ export const Modals = () => {
                   name="plicon"
                   type="text" 
                   autoFocus
-                  defaultValue={editPlaylistModal.icon}
+                  defaultValue={editPlaylistModal.icon || ''}
                   placeholder="Playlist cover URL..." 
                   style={{padding: '10px', borderRadius: '8px', border: '1px solid var(--border-light)', background: 'rgba(0,0,0,0.2)', color: 'white'}}
                 />
