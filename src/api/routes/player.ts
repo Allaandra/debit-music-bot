@@ -1,17 +1,19 @@
 import { Router } from 'express';
 import { Client } from 'discord.js';
 import { joinVoiceChannel } from '@discordjs/voice';
-import { prisma } from '../../database'; // Используем новый Prisma Client
+import { prisma } from '../../database';
+import { PlayerManager } from '../../services/PlayerService';
 
 export default function playerRoutes(client: Client) {
     const router = Router();
 
     router.post('/play', async (req, res) => {
         const { type, query, playlistId, playlistName } = req.body;
-        const userId = (req as any).user.id;
+        const userId = (req as any).user?.id;
+        if (!userId) return res.status(401).json({ error: 'Unauthorized' });
 
         if (!type || !query) {
-            return res.status(400).json({ error: 'Не переданы все параметры (userId, type, query)' });
+            return res.status(400).json({ error: 'Не переданы все параметры (type, query)' });
         }
 
         try {
@@ -29,8 +31,7 @@ export default function playerRoutes(client: Client) {
                 return res.status(404).json({ error: 'Сервер не найден' });
             }
 
-            const playerManager = (await import('../../services/PlayerService')).PlayerManager;
-            const guildPlayer = playerManager.getPlayer(guildId);
+            const guildPlayer = PlayerManager.getPlayer(guildId);
 
             // Подключаемся или переходим в нужный канал
             if (!guildPlayer.connection || guildPlayer.connection.joinConfig.channelId !== channelId) {
@@ -95,14 +96,6 @@ export default function playerRoutes(client: Client) {
             
             const trackIndex = allTracks.findIndex(t => t.query === track.query);
             
-            console.log('--- DEBUG ---');
-            console.log('Target Query:', track.query);
-            console.log('First Track Query in DB:', allTracks.length > 0 ? allTracks[0].query : 'None');
-            console.log('Found Index:', trackIndex);
-            console.log('allTracks length:', allTracks.length);
-            console.log('PlaylistId:', playlistId);
-            console.log('-------------');
-            
             if (trackIndex !== -1) {
                 // Копируем все треки после текущего в очередь
                 // Приводим Prisma-типы к типам нашего PlayerManager (Track)
@@ -133,8 +126,8 @@ export default function playerRoutes(client: Client) {
     });
 
     router.get('/status', async (req, res) => {
-        const userId = (req as any).user.id;
-        if (!userId) return res.status(400).json({ error: 'Не передан userId' });
+        const userId = (req as any).user?.id;
+        if (!userId) return res.status(401).json({ error: 'Unauthorized' });
 
         try {
             const session = await prisma.activeSession.findUnique({
@@ -142,8 +135,7 @@ export default function playerRoutes(client: Client) {
             });
             if (!session) return res.status(404).json({ error: 'Сессия не найдена' });
 
-            const playerManager = (await import('../../services/PlayerService')).PlayerManager;
-            const guildPlayer = playerManager.getPlayer(session.guildId);
+            const guildPlayer = PlayerManager.getPlayer(session.guildId);
             res.json({ ...guildPlayer.getStatus(), guildId: session.guildId });
         } catch (e: any) {
             res.status(500).json({ error: e.message });
@@ -152,7 +144,8 @@ export default function playerRoutes(client: Client) {
 
     router.post('/action', async (req, res) => {
         const { action, payload } = req.body;
-        const userId = (req as any).user.id;
+        const userId = (req as any).user?.id;
+        if (!userId) return res.status(401).json({ error: 'Unauthorized' });
         if (!action) return res.status(400).json({ error: 'Не переданы параметры' });
 
         try {
@@ -161,16 +154,26 @@ export default function playerRoutes(client: Client) {
             });
             if (!session) return res.status(404).json({ error: 'Сессия не найдена' });
 
-            const playerManager = (await import('../../services/PlayerService')).PlayerManager;
-            const guildPlayer = playerManager.getPlayer(session.guildId);
+            const guildPlayer = PlayerManager.getPlayer(session.guildId);
 
-            if (action === 'pause') guildPlayer.pause();
-            else if (action === 'resume') guildPlayer.resume();
-            else if (action === 'seek') guildPlayer.seek(payload.seconds);
-            else if (action === 'skip') guildPlayer.playNext();
-            else if (action === 'previous') guildPlayer.playPrevious();
-            else if (action === 'shuffle') guildPlayer.toggleShuffle();
-            else if (action === 'repeat') guildPlayer.toggleRepeat();
+            if (action === 'pause') {
+                guildPlayer.pause();
+            } else if (action === 'resume') {
+                guildPlayer.resume();
+            } else if (action === 'seek') {
+                const seconds = Number(payload?.seconds);
+                if (!isNaN(seconds) && seconds >= 0) {
+                    guildPlayer.seek(seconds);
+                }
+            } else if (action === 'skip') {
+                guildPlayer.playNext();
+            } else if (action === 'previous') {
+                guildPlayer.playPrevious();
+            } else if (action === 'shuffle') {
+                guildPlayer.toggleShuffle();
+            } else if (action === 'repeat') {
+                guildPlayer.toggleRepeat();
+            }
 
             res.json({ status: 'success', state: guildPlayer.getStatus(), guildId: session.guildId });
         } catch (e: any) {

@@ -99,7 +99,10 @@ export class AudioStreamer extends EventEmitter {
             }
         });
 
-        this.currentFfmpegProcess.on('error', (err: any) => console.error('FFmpeg Decoder spawn error:', err.message));
+        this.currentFfmpegProcess.on('error', (err: any) => {
+            console.error('FFmpeg Decoder spawn error:', err.message);
+            this.emit('error', err);
+        });
 
         this.mixer = new AudioMixer();
 
@@ -124,7 +127,10 @@ export class AudioStreamer extends EventEmitter {
             }
         });
 
-        this.currentEncoderProcess.on('error', (err: any) => console.error('FFmpeg Encoder spawn error:', err.message));
+        this.currentEncoderProcess.on('error', (err: any) => {
+            console.error('FFmpeg Encoder spawn error:', err.message);
+            this.emit('error', err);
+        });
 
         this.currentFfmpegProcess.stdout.pipe(this.mixer).pipe(this.currentEncoderProcess.stdin);
         

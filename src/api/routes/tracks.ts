@@ -3,6 +3,7 @@ import { prisma } from '../../database';
 import path from 'path';
 import fs from 'fs';
 import { syncUserSoundsThrottled } from './files';
+import { PlayerManager } from '../../services/PlayerService';
 
 export default function tracksRoutes() {
     const router = Router();
@@ -53,8 +54,7 @@ export default function tracksRoutes() {
                 }
             }
 
-            const playerManager = (await import('../../services/PlayerService')).PlayerManager;
-            const guildPlayer = playerManager.getPlayer('default'); // Just for resolve
+            const guildPlayer = PlayerManager.getPlayer('default'); // Just for resolve
             const track = await guildPlayer.resolveTrack(type, query);
             
             const result = await prisma.track.create({

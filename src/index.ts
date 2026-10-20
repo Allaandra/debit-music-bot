@@ -112,7 +112,6 @@ async function gracefulShutdown(signal: string) {
     console.log(`\n[Shutdown] Получен сигнал ${signal}. Завершение работы бота...`);
 
     try {
-        const { PlayerManager } = await import('./services/PlayerService');
         console.log('[Shutdown] Остановка активных плееров и FFmpeg процессов...');
         PlayerManager.stopAll();
 
