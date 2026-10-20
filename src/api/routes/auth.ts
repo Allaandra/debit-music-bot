@@ -2,10 +2,11 @@ import { Router } from 'express';
 import jwt from 'jsonwebtoken';
 import path from 'path';
 import fs from 'fs';
+import { JWT_SECRET } from '../middlewares/authMiddleware';
 
 export default function authRoutes() {
     const router = Router();
-    const JWT_SECRET = process.env.JWT_SECRET || 'super-secret-dnd-key-2026';
+    // JWT_SECRET is imported from authMiddleware
 
     function ensureUserDirectories(userId: string) {
         try {

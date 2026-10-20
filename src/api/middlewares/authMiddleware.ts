@@ -1,7 +1,11 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'super-secret-dnd-key-2026';
+export const JWT_SECRET = process.env.JWT_SECRET || 'super-secret-dnd-key-2026';
+
+if (!process.env.JWT_SECRET) {
+    console.warn('[SECURITY WARNING] JWT_SECRET is not set in environment variables! Using default fallback key. Please define JWT_SECRET in your .env file for production security.');
+}
 
 export interface AuthRequest extends Request {
     user?: {

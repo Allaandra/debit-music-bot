@@ -9,13 +9,16 @@ export default function filesRoutes() {
 
     const storage = multer.diskStorage({
         destination: (req: any, file: any, cb: any) => {
-            const userId = req.user?.id || '450362999073406977';
+            const userId = req.user?.id;
+            if (!userId) {
+                return cb(new Error('Unauthorized: User ID missing'), '');
+            }
             const dir = path.join(__dirname, '../../..', 'sounds', userId);
             if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
             cb(null, dir);
         },
         filename: (req: any, file: any, cb: any) => {
-            cb(null, file.originalname);
+            cb(null, path.basename(file.originalname));
         }
     });
     const upload = multer({ storage });
@@ -93,13 +96,16 @@ export default function filesRoutes() {
     setInterval(() => syncSounds(), 5 * 60 * 1000);
 
     router.post('/upload', upload.single('file'), async (req: any, res) => {
+        const userId = req.user?.id;
+        if (!userId) return res.status(401).json({ error: 'Unauthorized' });
         if (!req.file) return res.status(400).json({ error: 'Файл не найден' });
-        await syncSounds(req.user?.id);
+        await syncSounds(userId);
         res.json({ status: 'success', file: req.file.originalname });
     });
 
     router.get('/sounds', async (req: any, res) => {
-        const userId = req.user?.id || '450362999073406977';
+        const userId = req.user?.id;
+        if (!userId) return res.status(401).json({ error: 'Unauthorized' });
         const userDir = path.join(__dirname, '../../..', 'sounds', userId);
         try {
             if (!fs.existsSync(userDir)) {

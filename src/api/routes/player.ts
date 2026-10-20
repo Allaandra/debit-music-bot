@@ -71,8 +71,8 @@ export default function playerRoutes(client: Client) {
             // Автоматически ставим в очередь все следующие треки из базы данных
             let allTracks: any[] = [];
             if (playlistId) {
-                const playlist = await prisma.playlist.findUnique({
-                    where: { id: parseInt(playlistId) },
+                const playlist = await prisma.playlist.findFirst({
+                    where: { id: parseInt(playlistId), ownerId: userId },
                     include: {
                         tracks: {
                             orderBy: { position: 'asc' },

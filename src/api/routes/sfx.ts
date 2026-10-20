@@ -10,14 +10,17 @@ export default function sfxRoutes(client: Client) {
 
     const storage = multer.diskStorage({
         destination: (req: any, file: any, cb: any) => {
-            const userId = req.user?.id || '450362999073406977';
+            const userId = req.user?.id;
+            if (!userId) {
+                return cb(new Error('Unauthorized: User ID missing'), '');
+            }
             const dir = path.resolve(__dirname, '../../..', 'sounds', userId, 'sfx');
             if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
             cb(null, dir);
         },
         filename: (req: any, file: any, cb: any) => {
-            const ext = path.extname(file.originalname);
-            const safeName = `${Date.now()}_${file.originalname.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
+            const base = path.basename(file.originalname);
+            const safeName = `${Date.now()}_${base.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
             cb(null, safeName);
         }
     });

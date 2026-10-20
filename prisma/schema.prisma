@@ -17,7 +17,7 @@ model ActiveSession {
 
 model Track {
   id        Int       @id @default(autoincrement())
-  ownerId   String    @default("450362999073406977") @map("owner_id")
+  ownerId   String    @map("owner_id")
   title     String
   artist    String?
   type      String
@@ -33,7 +33,7 @@ model Track {
 
 model Playlist {
   id        Int       @id @default(autoincrement())
-  ownerId   String    @default("450362999073406977") @map("owner_id")
+  ownerId   String    @map("owner_id")
   name      String
   icon      String?
   createdAt DateTime? @default(now())

@@ -6,8 +6,11 @@ import fs from 'fs';
 export default function playlistsRoutes() {
     const router = Router();
 
+    // GET / - Получить все плейлисты текущего пользователя
     router.get('/', async (req, res) => {
-        const userId = (req as any).user.id;
+        const userId = (req as any).user?.id;
+        if (!userId) return res.status(401).json({ error: 'Unauthorized' });
+
         try {
             const playlists = await prisma.playlist.findMany({
                 where: { ownerId: userId },
@@ -19,7 +22,7 @@ export default function playlistsRoutes() {
                 }
             });
             
-            // Форматируем под старый формат (свойство trackCount)
+            // Форматируем под формат клиента (свойство trackCount)
             const formatted = playlists.map(p => ({
                 ...p,
                 trackCount: p._count.tracks
@@ -31,14 +34,17 @@ export default function playlistsRoutes() {
         }
     });
 
+    // POST / - Создать новый плейлист
     router.post('/', async (req, res) => {
         const { name } = req.body;
-        const userId = (req as any).user.id;
-        if (!name) return res.status(400).json({ error: 'Название обязательно' });
+        const userId = (req as any).user?.id;
+        if (!userId) return res.status(401).json({ error: 'Unauthorized' });
+        if (!name || typeof name !== 'string') return res.status(400).json({ error: 'Название обязательно' });
+
         try {
             const result = await prisma.playlist.create({
                 data: {
-                    name,
+                    name: name.trim(),
                     ownerId: userId
                 }
             });
@@ -48,10 +54,30 @@ export default function playlistsRoutes() {
         }
     });
 
+    // POST /:id/tracks - Добавить трек в плейлист (с проверкой прав владельца)
     router.post('/:id/tracks', async (req, res) => {
         const { trackId } = req.body;
         const playlistId = parseInt(req.params.id);
+        const userId = (req as any).user?.id;
+        if (!userId) return res.status(401).json({ error: 'Unauthorized' });
+        if (isNaN(playlistId) || !trackId) {
+            return res.status(400).json({ error: 'Invalid parameters' });
+        }
+
         try {
+            // IDOR защита: проверяем, что плейлист принадлежит пользователю
+            const playlist = await prisma.playlist.findFirst({
+                where: { id: playlistId, ownerId: userId }
+            });
+            if (!playlist) {
+                return res.status(404).json({ error: 'Плейлист не найден или доступ запрещен' });
+            }
+
+            const parsedTrackId = parseInt(trackId);
+            if (isNaN(parsedTrackId)) {
+                return res.status(400).json({ error: 'Invalid trackId' });
+            }
+
             const maxTrack = await prisma.playlistTrack.findFirst({
                 where: { playlistId },
                 orderBy: { position: 'desc' }
@@ -62,7 +88,7 @@ export default function playlistsRoutes() {
             await prisma.playlistTrack.create({
                 data: {
                     playlistId,
-                    trackId: parseInt(trackId),
+                    trackId: parsedTrackId,
                     position: pos
                 }
             });
@@ -72,9 +98,24 @@ export default function playlistsRoutes() {
         }
     });
 
+    // GET /:id/tracks - Получить треки плейлиста (с проверкой прав владельца)
     router.get('/:id/tracks', async (req, res) => {
         const playlistId = parseInt(req.params.id);
+        const userId = (req as any).user?.id;
+        if (!userId) return res.status(401).json({ error: 'Unauthorized' });
+        if (isNaN(playlistId)) {
+            return res.status(400).json({ error: 'Invalid playlist ID' });
+        }
+
         try {
+            // IDOR защита: проверяем, что плейлист принадлежит пользователю
+            const playlist = await prisma.playlist.findFirst({
+                where: { id: playlistId, ownerId: userId }
+            });
+            if (!playlist) {
+                return res.status(404).json({ error: 'Плейлист не найден или доступ запрещен' });
+            }
+
             const playlistTracks = await prisma.playlistTrack.findMany({
                 where: { playlistId },
                 orderBy: { position: 'asc' },
@@ -92,10 +133,25 @@ export default function playlistsRoutes() {
         }
     });
 
+    // DELETE /:id/tracks/:trackId - Удалить трек из плейлиста (с проверкой прав владельца)
     router.delete('/:id/tracks/:trackId', async (req, res) => {
         const playlistId = parseInt(req.params.id);
         const trackId = parseInt(req.params.trackId);
+        const userId = (req as any).user?.id;
+        if (!userId) return res.status(401).json({ error: 'Unauthorized' });
+        if (isNaN(playlistId) || isNaN(trackId)) {
+            return res.status(400).json({ error: 'Invalid parameters' });
+        }
+
         try {
+            // IDOR защита: проверяем, что плейлист принадлежит пользователю
+            const playlist = await prisma.playlist.findFirst({
+                where: { id: playlistId, ownerId: userId }
+            });
+            if (!playlist) {
+                return res.status(404).json({ error: 'Плейлист не найден или доступ запрещен' });
+            }
+
             await prisma.playlistTrack.delete({
                 where: {
                     playlistId_trackId: {
@@ -110,10 +166,25 @@ export default function playlistsRoutes() {
         }
     });
 
+    // PUT /:id - Обновить имя или иконку плейлиста (с проверкой прав владельца)
     router.put('/:id', async (req, res) => {
         const { name, icon } = req.body;
         const playlistId = parseInt(req.params.id);
+        const userId = (req as any).user?.id;
+        if (!userId) return res.status(401).json({ error: 'Unauthorized' });
+        if (isNaN(playlistId)) {
+            return res.status(400).json({ error: 'Invalid playlist ID' });
+        }
+
         try {
+            // IDOR защита: проверяем, что плейлист принадлежит пользователю
+            const playlist = await prisma.playlist.findFirst({
+                where: { id: playlistId, ownerId: userId }
+            });
+            if (!playlist) {
+                return res.status(404).json({ error: 'Плейлист не найден или доступ запрещен' });
+            }
+
             const dataToUpdate: any = {};
             if (name !== undefined) dataToUpdate.name = name;
             if (icon !== undefined) dataToUpdate.icon = icon;
@@ -130,29 +201,51 @@ export default function playlistsRoutes() {
         }
     });
 
+    // DELETE /:id - Удалить плейлист (с проверкой прав владельца)
     router.delete('/:id', async (req, res) => {
         const { deleteTracks } = req.query;
         const playlistId = parseInt(req.params.id);
+        const userId = (req as any).user?.id;
+        if (!userId) return res.status(401).json({ error: 'Unauthorized' });
+        if (isNaN(playlistId)) {
+            return res.status(400).json({ error: 'Invalid playlist ID' });
+        }
+
         try {
+            // IDOR защита: проверяем, что плейлист принадлежит пользователю
+            const playlist = await prisma.playlist.findFirst({
+                where: { id: playlistId, ownerId: userId }
+            });
+            if (!playlist) {
+                return res.status(404).json({ error: 'Плейлист не найден или доступ запрещен' });
+            }
+
             if (deleteTracks === 'true') {
                 const playlistTracks = await prisma.playlistTrack.findMany({
                     where: { playlistId },
                     include: { track: true }
                 });
                 
+                const soundsDir = path.resolve(__dirname, '../../..', 'sounds');
+
                 for (const pt of playlistTracks) {
-                    if (pt.track.type === 'local') {
-                        const filePath = path.join(__dirname, '../../..', 'sounds', pt.track.query);
-                        if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+                    if (pt.track.ownerId === userId) {
+                        if (pt.track.type === 'local') {
+                            const filePath = path.resolve(soundsDir, pt.track.query);
+                            if (filePath.startsWith(soundsDir) && fs.existsSync(filePath)) {
+                                fs.unlinkSync(filePath);
+                            }
+                        }
+                        await prisma.track.delete({
+                            where: { id: pt.track.id }
+                        });
                     }
-                    await prisma.track.delete({
-                        where: { id: pt.track.id }
-                    });
                 }
             }
             
-            // Note: playlist_tracks will be automatically deleted if they are set to CASCADE in DB,
-            // but Prisma will handle it automatically.
+            await prisma.playlistTrack.deleteMany({
+                where: { playlistId }
+            });
             await prisma.playlist.delete({
                 where: { id: playlistId }
             });
