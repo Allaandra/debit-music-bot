@@ -173,6 +173,11 @@ export default function playerRoutes(client: Client) {
                 guildPlayer.toggleShuffle();
             } else if (action === 'repeat') {
                 guildPlayer.toggleRepeat();
+            } else if (action === 'volume') {
+                const vol = Number(payload?.volume);
+                if (!isNaN(vol) && vol >= 0 && vol <= 2.0) {
+                    guildPlayer.setVolume(vol);
+                }
             }
 
             res.json({ status: 'success', state: guildPlayer.getStatus(), guildId: session.guildId });

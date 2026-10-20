@@ -1,4 +1,4 @@
-﻿import React from 'react';
+import React from 'react';
 import { usePlayer } from '../context/PlayerContext';
 import { Play, Pause, SkipBack, SkipForward, Shuffle, Repeat, Volume2, ListMusic, Info, Search, Filter, Trash2, MoreVertical, Music, BarChart2, Home, Plus, Upload, Settings, LogOut, Palette, ChevronLeft, ChevronRight } from 'lucide-react';
 
@@ -250,7 +250,7 @@ export const MainPanel = () => {
                                   style={{ justifyContent: 'space-between' }}
                                 >
                                   <span>Add to playlist</span>
-                                  <span style={{ fontSize: '10px', marginTop: '4px' }}>в–¶</span>
+                                  <ChevronRight size={14} />
                                 </div>
                                 <div style={{ height: '1px', background: 'var(--border-light)', margin: '4px 0' }}></div>
                                 <div 

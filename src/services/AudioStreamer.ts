@@ -13,6 +13,7 @@ export class AudioStreamer extends EventEmitter {
     currentTrack: Track | null = null;
     isPlaying: boolean = false;
     isPaused: boolean = false;
+    volume: number = 0.8;
     
     // For seek tracking
     startTimestamp: number = 0;
@@ -104,7 +105,7 @@ export class AudioStreamer extends EventEmitter {
             this.emit('error', err);
         });
 
-        this.mixer = new AudioMixer();
+        this.mixer = new AudioMixer(this.volume);
 
         const encoderArgs = [
             '-f', 's16le',
@@ -201,6 +202,13 @@ export class AudioStreamer extends EventEmitter {
         this.stopCurrentProcesses();
         this.player.stop();
         this.emit('stop');
+    }
+
+    setVolume(vol: number) {
+        this.volume = Math.max(0, Math.min(vol, 2.0));
+        if (this.mixer) {
+            this.mixer.setMusicVolume(this.volume);
+        }
     }
 
     getElapsed(): number {

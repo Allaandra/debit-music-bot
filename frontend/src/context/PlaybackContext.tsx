@@ -11,6 +11,9 @@ export interface PlaybackContextValue {
   guildId: string | null;
   sfxVolume: number;
   setSfxVolume: (vol: number) => void;
+  musicVolume: number;
+  setMusicVolume: (vol: number) => void;
+  handleVolumeChange: (vol: number, immediate?: boolean) => void;
   duration: number;
   elapsed: number;
   formatTime: (seconds: number) => string;
@@ -45,6 +48,11 @@ export const PlaybackProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     const saved = localStorage.getItem('sfxVolume');
     return saved !== null && !isNaN(Number(saved)) ? Number(saved) : 0.8;
   });
+  const [musicVolume, setMusicVolume] = useState<number>(() => {
+    const saved = localStorage.getItem('musicVolume');
+    return saved !== null && !isNaN(Number(saved)) ? Number(saved) : 0.8;
+  });
+  const volumeDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const socketRef = useRef<Socket | null>(null);
   const guildIdRef = useRef<string | null>(null);
@@ -57,6 +65,18 @@ export const PlaybackProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     localStorage.setItem('sfxVolume', sfxVolume.toString());
   }, [sfxVolume]);
 
+  useEffect(() => {
+    localStorage.setItem('musicVolume', musicVolume.toString());
+  }, [musicVolume]);
+
+  useEffect(() => {
+    return () => {
+      if (volumeDebounceRef.current) {
+        clearTimeout(volumeDebounceRef.current);
+      }
+    };
+  }, []);
+
   const fetchStatus = async () => {
     try {
       const data = await api.fetchStatus();
@@ -64,6 +84,9 @@ export const PlaybackProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         setStatus(prev => ({ ...prev, ...data, queue: data.queue || [] }));
         if (data.guildId) {
           setGuildId(data.guildId);
+        }
+        if (typeof data.volume === 'number') {
+          setMusicVolume(data.volume);
         }
       }
     } catch (e) {
@@ -95,6 +118,9 @@ export const PlaybackProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       }));
       if (newState.guildId) {
         setGuildId(newState.guildId);
+      }
+      if (typeof newState.volume === 'number') {
+        setMusicVolume(newState.volume);
       }
     });
 
@@ -159,12 +185,31 @@ export const PlaybackProvider: React.FC<{ children: React.ReactNode }> = ({ chil
           ...res.state,
           queue: res.state.queue || []
         }));
+        if (typeof res.state.volume === 'number') {
+          setMusicVolume(res.state.volume);
+        }
       }
       if (res?.guildId) {
         setGuildId(res.guildId);
       }
     } catch (e) {
       console.error(`Failed to execute action ${action}`, e);
+    }
+  };
+
+  const handleVolumeChange = (newVol: number, immediate = false) => {
+    const clamped = Math.max(0, Math.min(2, Math.round(newVol * 100) / 100));
+    setMusicVolume(clamped);
+    setStatus(prev => ({ ...prev, volume: clamped }));
+    if (volumeDebounceRef.current) {
+      clearTimeout(volumeDebounceRef.current);
+    }
+    if (immediate) {
+      handleAction('volume', { volume: clamped });
+    } else {
+      volumeDebounceRef.current = setTimeout(() => {
+        handleAction('volume', { volume: clamped });
+      }, 100);
     }
   };
 
@@ -206,6 +251,9 @@ export const PlaybackProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         guildId,
         sfxVolume,
         setSfxVolume,
+        musicVolume,
+        setMusicVolume,
+        handleVolumeChange,
         duration,
         elapsed,
         formatTime,

@@ -10,9 +10,15 @@ interface ActiveSfx {
 
 export class AudioMixer extends Transform {
     private activeSfx: ActiveSfx[] = [];
+    public musicVolume: number = 1.0;
 
-    constructor() {
+    constructor(initialMusicVolume: number = 1.0) {
         super();
+        this.musicVolume = initialMusicVolume;
+    }
+
+    setMusicVolume(volume: number) {
+        this.musicVolume = Math.max(0, Math.min(volume, 2.0));
     }
 
     addSfx(buffer: Buffer, volume: number = 1.0) {
@@ -24,31 +30,48 @@ export class AudioMixer extends Transform {
     }
 
     _transform(chunk: Buffer, encoding: BufferEncoding, callback: TransformCallback): void {
-        if (this.activeSfx.length === 0) {
+        const chunkLen = chunk.length;
+        const vol = this.musicVolume;
+        const hasSfx = this.activeSfx.length > 0;
+
+        if (vol === 1.0 && !hasSfx) {
             callback(null, chunk);
             return;
         }
 
         const mixed = Buffer.from(chunk);
-        const chunkLen = mixed.length;
 
-        for (let sfxIdx = this.activeSfx.length - 1; sfxIdx >= 0; sfxIdx--) {
-            const sfx = this.activeSfx[sfxIdx];
-            const remainingSfx = sfx.buffer.length - sfx.offset;
-            const bytesToMix = Math.min(chunkLen, remainingSfx);
-
-            for (let i = 0; i < bytesToMix; i += 2) {
-                const m = mixed.readInt16LE(i);
-                const s = Math.round(sfx.buffer.readInt16LE(sfx.offset + i) * sfx.volume);
-                let sum = m + s;
-                if (sum > 32767) sum = 32767;
-                else if (sum < -32768) sum = -32768;
-                mixed.writeInt16LE(sum, i);
+        // Масштабирование громкости музыки
+        if (vol !== 1.0) {
+            for (let i = 0; i < chunkLen; i += 2) {
+                let sample = mixed.readInt16LE(i);
+                sample = Math.round(sample * vol);
+                if (sample > 32767) sample = 32767;
+                else if (sample < -32768) sample = -32768;
+                mixed.writeInt16LE(sample, i);
             }
+        }
 
-            sfx.offset += bytesToMix;
-            if (sfx.offset >= sfx.buffer.length) {
-                this.activeSfx.splice(sfxIdx, 1);
+        // Наложение звуковых эффектов (SFX)
+        if (hasSfx) {
+            for (let sfxIdx = this.activeSfx.length - 1; sfxIdx >= 0; sfxIdx--) {
+                const sfx = this.activeSfx[sfxIdx];
+                const remainingSfx = sfx.buffer.length - sfx.offset;
+                const bytesToMix = Math.min(chunkLen, remainingSfx);
+
+                for (let i = 0; i < bytesToMix; i += 2) {
+                    const m = mixed.readInt16LE(i);
+                    const s = Math.round(sfx.buffer.readInt16LE(sfx.offset + i) * sfx.volume);
+                    let sum = m + s;
+                    if (sum > 32767) sum = 32767;
+                    else if (sum < -32768) sum = -32768;
+                    mixed.writeInt16LE(sum, i);
+                }
+
+                sfx.offset += bytesToMix;
+                if (sfx.offset >= sfx.buffer.length) {
+                    this.activeSfx.splice(sfxIdx, 1);
+                }
             }
         }
 

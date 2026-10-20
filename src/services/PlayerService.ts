@@ -127,12 +127,18 @@ export class PlayerService extends EventEmitter {
         }
     }
 
+    setVolume(volume: number) {
+        this.streamer.setVolume(volume);
+        this.emit('stateUpdate', this.getStatus());
+    }
+
     getStatus() {
         return {
             isPlaying: this.streamer.isPlaying,
             isPaused: this.streamer.isPaused,
             currentTrack: this.streamer.currentTrack,
             elapsed: this.streamer.getElapsed(),
+            volume: this.streamer.volume,
             queue: this.queueManager.queue,
             activePlaylistName: this.queueManager.activePlaylistName,
             queueLength: this.queueManager.queue.length,

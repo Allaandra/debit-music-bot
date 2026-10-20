@@ -1,6 +1,6 @@
 import React from 'react';
 import { usePlayer } from '../context/PlayerContext';
-import { Play, Pause, SkipBack, SkipForward, Shuffle, Repeat, Volume2, ListMusic, Info, Swords, Search, Filter, Trash2, MoreVertical, Music, BarChart2, Home, Plus, Upload, Settings, LogOut, Palette, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Play, Pause, SkipBack, SkipForward, Shuffle, Repeat, Volume2, VolumeX, ListMusic, Info, Swords, Search, Filter, Trash2, MoreVertical, Music, BarChart2, Home, Plus, Upload, Settings, LogOut, Palette, ChevronLeft, ChevronRight } from 'lucide-react';
 
 export const PlayerBar = () => {
   const player = usePlayer();
@@ -20,6 +20,19 @@ export const PlayerBar = () => {
       handleAddToPlaylist, formatTime, toggleTheme, handleRightToggle,
       USER_ID, duration, elapsed, filteredTracks, playlistName
   } = player;
+
+  const lastNonZeroVolume = React.useRef(player.musicVolume > 0 ? player.musicVolume : 0.8);
+  if (player.musicVolume > 0) {
+    lastNonZeroVolume.current = player.musicVolume;
+  }
+
+  const toggleMute = () => {
+    if (player.musicVolume > 0) {
+      player.handleVolumeChange(0, true);
+    } else {
+      player.handleVolumeChange(lastNonZeroVolume.current || 0.8, true);
+    }
+  };
 
   return (
     <>
@@ -104,11 +117,26 @@ export const PlayerBar = () => {
           </div>
 
           {/* Music Volume slider */}
-          <div className="volume-control-group" title="Music Volume">
-            <Volume2 size={18} />
+          <div className="volume-control-group" title={`Music Volume: ${Math.round((player.musicVolume ?? 0.8) * 100)}%`}>
+            <button
+              style={{ background: 'none', border: 'none', padding: 0, display: 'flex', alignItems: 'center', cursor: 'pointer', color: 'inherit' }}
+              onClick={toggleMute}
+              title={player.musicVolume > 0 ? "Mute" : "Unmute"}
+            >
+              {player.musicVolume > 0 ? <Volume2 size={18} /> : <VolumeX size={18} color="var(--accent)" />}
+            </button>
             <div className="volume-bar" style={{position: 'relative', width: '70px'}}>
-              <input id="volume-bar" name="volumeBar" type="range" min="0" max="100" defaultValue="50" style={{position: 'absolute', width: '100%', opacity: 0, cursor: 'pointer', zIndex: 2}} />
-              <div className="volume-filled" style={{width: '50%'}}></div>
+              <input
+                id="volume-bar"
+                name="volumeBar"
+                type="range"
+                min="0"
+                max="100"
+                value={Math.round((player.musicVolume ?? 0.8) * 100)}
+                onChange={(e) => player.handleVolumeChange(Number(e.target.value) / 100)}
+                style={{ position: 'absolute', width: '100%', opacity: 0, cursor: 'pointer', zIndex: 2 }}
+              />
+              <div className="volume-filled" style={{ width: `${Math.min(100, Math.round((player.musicVolume ?? 0.8) * 100))}%` }}></div>
             </div>
           </div>
         </div>
