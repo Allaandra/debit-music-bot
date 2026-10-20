@@ -28,6 +28,8 @@ model Track {
 
   playlists PlaylistTrack[]
 
+  @@index([ownerId])
+  @@index([ownerId, type])
   @@map("tracks")
 }
 
@@ -40,6 +42,7 @@ model Playlist {
 
   tracks PlaylistTrack[]
 
+  @@index([ownerId])
   @@map("playlists")
 }
 
@@ -65,6 +68,7 @@ model SfxPlaylist {
 
   sounds    SfxSound[]
 
+  @@index([ownerId])
   @@map("sfx_playlists")
 }
 
@@ -80,5 +84,7 @@ model SfxSound {
 
   playlist   SfxPlaylist @relation(fields: [playlistId], references: [id], onDelete: Cascade)
 
+  @@index([ownerId])
+  @@index([playlistId])
   @@map("sfx_sounds")
 }

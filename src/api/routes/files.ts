@@ -4,6 +4,132 @@ import path from 'path';
 import fs from 'fs';
 import multer from 'multer';
 
+export const AUDIO_EXTENSIONS = new Set(['.mp3', '.wav', '.ogg', '.flac', '.m4a', '.aac', '.opus']);
+
+const userLastSync = new Map<string, number>();
+const SYNC_THROTTLE_MS = 15000; // 15 секунд кулдаун на пользователя
+
+export async function syncSounds(userId?: string): Promise<void> {
+    try {
+        const baseDir = path.join(__dirname, '../../..', 'sounds');
+        if (!fs.existsSync(baseDir)) fs.mkdirSync(baseDir, { recursive: true });
+        
+        const mm = await import('music-metadata');
+        
+        // Исключаем служебные системные папки SFX
+        const systemDirs = new Set(['default_sfx', 'shared_sfx']);
+        
+        const usersToSync = userId 
+            ? [userId] 
+            : fs.readdirSync(baseDir).filter(f => {
+                if (systemDirs.has(f)) return false;
+                try {
+                    return fs.statSync(path.join(baseDir, f)).isDirectory();
+                } catch {
+                    return false;
+                }
+            });
+        
+        for (const uid of usersToSync) {
+            const userDir = path.join(baseDir, uid);
+            if (!fs.existsSync(userDir)) continue;
+            
+            const diskFiles = fs.readdirSync(userDir).filter((f: string) => {
+                const ext = path.extname(f).toLowerCase();
+                return AUDIO_EXTENSIONS.has(ext);
+            });
+
+            // 1. Извлекаем все существующие локальные треки пользователя ОДНИМ запросом к БД
+            const dbLocalTracks = await prisma.track.findMany({
+                where: { 
+                    type: 'local',
+                    ownerId: uid 
+                },
+                select: { id: true, query: true }
+            });
+
+            const dbTrackMap = new Map<string, number>();
+            for (const t of dbLocalTracks) {
+                dbTrackMap.set(t.query, t.id);
+            }
+
+            const diskQuerySet = new Set<string>();
+
+            // 2. Сканируем файлы на диске и добавляем новые
+            for (const file of diskFiles) {
+                const queryPath = `${uid}/${file}`; // Путь относительно папки sounds
+                diskQuerySet.add(queryPath);
+                
+                if (!dbTrackMap.has(queryPath)) {
+                    let duration = 0;
+                    let title = path.basename(file, path.extname(file));
+                    let artist = 'Локальный файл';
+                    let thumbnail = null;
+
+                    try {
+                        const metadata = await mm.parseFile(path.join(userDir, file));
+                        if (metadata.format.duration) duration = Math.round(metadata.format.duration);
+                        if (metadata.common.title) title = metadata.common.title;
+                        if (metadata.common.artist) artist = metadata.common.artist;
+                        if (metadata.common.picture && metadata.common.picture.length > 0) {
+                            const pic = metadata.common.picture[0];
+                            const coversDir = path.join(__dirname, '../../..', 'covers');
+                            if (!fs.existsSync(coversDir)) fs.mkdirSync(coversDir, { recursive: true });
+                            const coverName = `${uid}_${file.replace(/\.[^/.]+$/, "")}.jpg`;
+                            fs.writeFileSync(path.join(coversDir, coverName), pic.data);
+                            thumbnail = `/covers/${encodeURIComponent(coverName)}`;
+                        }
+                    } catch (e) {
+                        console.error('Failed to parse metadata for', file);
+                    }
+
+                    await prisma.track.create({
+                        data: {
+                            title,
+                            artist,
+                            type: 'local',
+                            query: queryPath,
+                            duration,
+                            thumbnail,
+                            ownerId: uid
+                        }
+                    });
+                }
+            }
+
+            // 3. Garbage Collection: удаляем из БД записи файлов, которые были удалены с диска
+            for (const [queryPath, trackId] of dbTrackMap.entries()) {
+                if (!diskQuerySet.has(queryPath)) {
+                    const fullPath = path.join(baseDir, queryPath);
+                    if (!fs.existsSync(fullPath)) {
+                        await prisma.playlistTrack.deleteMany({
+                            where: { trackId }
+                        });
+                        await prisma.track.delete({
+                            where: { id: trackId }
+                        });
+                    }
+                }
+            }
+        }
+    } catch (e) {
+        console.error('Ошибка синхронизации звуков:', e);
+    }
+}
+
+export async function syncUserSoundsThrottled(userId: string): Promise<void> {
+    const now = Date.now();
+    const last = userLastSync.get(userId) || 0;
+    if (now - last < SYNC_THROTTLE_MS) return;
+    userLastSync.set(userId, now);
+    await syncSounds(userId);
+}
+
+// Запускаем синхронизацию при старте и раз в 5 минут
+syncSounds();
+const syncInterval = setInterval(() => syncSounds(), 5 * 60 * 1000);
+syncInterval.unref();
+
 export default function filesRoutes() {
     const router = Router();
 
@@ -23,84 +149,19 @@ export default function filesRoutes() {
     });
     const upload = multer({ storage });
 
-    async function syncSounds(userId?: string) {
-        try {
-            const baseDir = path.join(__dirname, '../../..', 'sounds');
-            if (!fs.existsSync(baseDir)) fs.mkdirSync(baseDir, { recursive: true });
-            
-            const mm = await import('music-metadata');
-            
-            // Если userId не передан, сканируем все подпапки (всех юзеров)
-            const usersToSync = userId ? [userId] : fs.readdirSync(baseDir).filter(f => fs.statSync(path.join(baseDir, f)).isDirectory());
-            
-            for (const uid of usersToSync) {
-                const userDir = path.join(baseDir, uid);
-                if (!fs.existsSync(userDir)) continue;
-                
-                const files = fs.readdirSync(userDir).filter((f: string) => f.endsWith('.mp3') || f.endsWith('.wav') || f.endsWith('.ogg'));
-                
-                for (const file of files) {
-                    const queryPath = `${uid}/${file}`; // Путь относительно папки sounds
-                    
-                    const existing = await prisma.track.findFirst({
-                        where: { 
-                            type: 'local', 
-                            query: queryPath,
-                            ownerId: uid
-                        }
-                    });
-                    
-                    if (!existing) {
-                        let duration = 0;
-                        let title = file;
-                        let artist = 'Локальный файл';
-                        let thumbnail = null;
-                        try {
-                            const metadata = await mm.parseFile(path.join(userDir, file));
-                            if (metadata.format.duration) duration = Math.round(metadata.format.duration);
-                            if (metadata.common.title) title = metadata.common.title;
-                            if (metadata.common.artist) artist = metadata.common.artist;
-                            if (metadata.common.picture && metadata.common.picture.length > 0) {
-                                const pic = metadata.common.picture[0];
-                                const coversDir = path.join(__dirname, '../../..', 'covers');
-                                if (!fs.existsSync(coversDir)) fs.mkdirSync(coversDir, { recursive: true });
-                                const coverName = `${uid}_${file.replace(/\.[^/.]+$/, "")}.jpg`;
-                                fs.writeFileSync(path.join(coversDir, coverName), pic.data);
-                                thumbnail = `/covers/${encodeURIComponent(coverName)}`;
-                            }
-                        } catch (e) {
-                            console.error('Failed to parse metadata for', file);
-                        }
-
-                        await prisma.track.create({
-                            data: {
-                                title,
-                                artist,
-                                type: 'local',
-                                query: queryPath,
-                                duration,
-                                thumbnail,
-                                ownerId: uid
-                            }
-                        });
-                    }
-                }
-            }
-        } catch (e) {
-            console.error('Ошибка синхронизации звуков:', e);
-        }
-    }
-    
-    // Запускаем синхронизацию при старте и раз в 5 минут
-    syncSounds();
-    setInterval(() => syncSounds(), 5 * 60 * 1000);
-
     router.post('/upload', upload.single('file'), async (req: any, res) => {
         const userId = req.user?.id;
         if (!userId) return res.status(401).json({ error: 'Unauthorized' });
         if (!req.file) return res.status(400).json({ error: 'Файл не найден' });
         await syncSounds(userId);
         res.json({ status: 'success', file: req.file.originalname });
+    });
+
+    router.post('/sounds/sync', async (req: any, res) => {
+        const userId = req.user?.id;
+        if (!userId) return res.status(401).json({ error: 'Unauthorized' });
+        await syncSounds(userId);
+        res.json({ status: 'success' });
     });
 
     router.get('/sounds', async (req: any, res) => {
@@ -111,7 +172,10 @@ export default function filesRoutes() {
             if (!fs.existsSync(userDir)) {
                 return res.json({ files: [] });
             }
-            const files = fs.readdirSync(userDir).filter((f: string) => f.endsWith('.mp3') || f.endsWith('.wav') || f.endsWith('.ogg'));
+            const files = fs.readdirSync(userDir).filter((f: string) => {
+                const ext = path.extname(f).toLowerCase();
+                return AUDIO_EXTENSIONS.has(ext);
+            });
             res.json({ files });
         } catch (e: any) {
             res.status(500).json({ error: e.message });

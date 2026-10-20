@@ -2,13 +2,17 @@ import { Router } from 'express';
 import { prisma } from '../../database';
 import path from 'path';
 import fs from 'fs';
+import { syncUserSoundsThrottled } from './files';
 
 export default function tracksRoutes() {
     const router = Router();
 
     router.get('/', async (req, res) => {
-        const userId = (req as any).user.id;
+        const userId = (req as any).user?.id;
+        if (!userId) return res.status(401).json({ error: 'Unauthorized' });
+
         try {
+            await syncUserSoundsThrottled(userId);
             const tracks = await prisma.track.findMany({
                 where: { ownerId: userId },
                 orderBy: [
@@ -24,7 +28,9 @@ export default function tracksRoutes() {
 
     router.post('/', async (req, res) => {
         const { query, type } = req.body;
-        const userId = (req as any).user.id;
+        const userId = (req as any).user?.id;
+        if (!userId) return res.status(401).json({ error: 'Unauthorized' });
+
         try {
             if (type === 'url') {
                 const play = (await import('play-dl')).default;
@@ -69,7 +75,8 @@ export default function tracksRoutes() {
     });
 
     router.post('/import_playlist', async (req, res) => {
-        const userId = (req as any).user.id;
+        const userId = (req as any).user?.id;
+        if (!userId) return res.status(401).json({ error: 'Unauthorized' });
         const { query, createPlaylist, playlistName } = req.body;
         if (!query) return res.status(400).json({ error: 'No query' });
         
@@ -185,7 +192,6 @@ export default function tracksRoutes() {
                     pIcon = ytInfo.thumbnails[0].url;
                 }
                 if (query.includes('spotify.com/playlist') || query.includes('spotify.com/album')) {
-                    // We already set thumbnail to playlistCover in spotify tracks
                     pIcon = tracksToImport.length > 0 ? tracksToImport[0].thumbnail : null;
                 }
                 if (pIcon) {
@@ -203,7 +209,9 @@ export default function tracksRoutes() {
     });
 
     router.delete('/:id', async (req, res) => {
-        const userId = (req as any).user.id;
+        const userId = (req as any).user?.id;
+        if (!userId) return res.status(401).json({ error: 'Unauthorized' });
+
         try {
             const track = await prisma.track.findFirst({
                 where: { 
@@ -214,12 +222,16 @@ export default function tracksRoutes() {
             if (!track) return res.status(404).json({ error: 'Трек не найден' });
             
             if (track.type === 'local') {
-                const filePath = path.join(__dirname, '../../..', 'sounds', track.query);
-                if (fs.existsSync(filePath)) {
+                const soundsDir = path.resolve(__dirname, '../../..', 'sounds');
+                const filePath = path.resolve(soundsDir, track.query);
+                if (filePath.startsWith(soundsDir) && fs.existsSync(filePath)) {
                     fs.unlinkSync(filePath);
                 }
             }
             
+            await prisma.playlistTrack.deleteMany({
+                where: { trackId: track.id }
+            });
             await prisma.track.delete({
                 where: { id: track.id }
             });

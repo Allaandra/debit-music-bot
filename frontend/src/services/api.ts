@@ -96,6 +96,11 @@ export const api = {
         await fetchAuth(`${BASE_URL}/upload`, { method: 'POST', body: formData });
     },
 
+    async syncSounds() {
+        const res = await fetchAuth(`${BASE_URL}/sounds/sync`, { method: 'POST' });
+        return res.ok ? await res.json() : null;
+    },
+
     async createPlaylist(name: string) {
         await fetchAuth(`${BASE_URL}/playlists`, {
             method: 'POST',

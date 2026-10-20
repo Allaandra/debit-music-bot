@@ -6,6 +6,7 @@ import { Play, Pause, SkipBack, SkipForward, Shuffle, Repeat, Volume2, ListMusic
 export const LeftSidebar = () => {
   const player = usePlayer();
   const [activePlaylistMenuId, setActivePlaylistMenuId] = React.useState<number | null>(null);
+  const [isSyncing, setIsSyncing] = React.useState(false);
   const { 
       status, setStatus, tracks, setTracks, newTrackInput, setNewTrackInput,
       setEditPlaylistModal, setDeletePlaylistModal,
@@ -35,6 +36,19 @@ export const LeftSidebar = () => {
       document.removeEventListener('click', handleClickOutside);
     };
   }, [activePlaylistMenuId]);
+
+  const handleSyncSounds = async () => {
+    if (isSyncing) return;
+    setIsSyncing(true);
+    try {
+      await api.syncSounds();
+      await Promise.all([fetchTracks(), fetchPlaylists()]);
+    } catch (e) {
+      console.error('Failed to sync sounds:', e);
+    } finally {
+      setTimeout(() => setIsSyncing(false), 600);
+    }
+  };
 
   return (
     <>
@@ -124,7 +138,14 @@ export const LeftSidebar = () => {
                 window.location.href = '/';
               }} style={{ cursor: 'pointer' }} />
               <Palette size={20} className="text-icon palette-btn"  onClick={toggleTheme} />
-              <Settings size={20} className="text-icon"  />
+              <span 
+                className={`text-icon ${isSyncing ? 'spin-anim' : ''}`} 
+                onClick={handleSyncSounds}
+                title={isSyncing ? "Синхронизация..." : "Синхронизировать локальные звуки"}
+                style={{ cursor: isSyncing ? 'default' : 'pointer', display: 'inline-flex' }}
+              >
+                <Settings size={20} />
+              </span>
             </div>
           </div>
         </aside>
