@@ -48,6 +48,7 @@ export interface PlayerStatus {
   shuffle?: boolean;
   repeatMode?: RepeatMode;
   volume?: number;
+  loopingSfx?: number[];
   guildId?: string;
 }
 

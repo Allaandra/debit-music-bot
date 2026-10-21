@@ -53,8 +53,20 @@ export class PlayerService extends EventEmitter {
         await this.streamer.play(track, offsetSeconds);
     }
 
-    async playSfx(sfxFilePath: string, volume: number = 1.0) {
-        await this.streamer.playSfx(sfxFilePath, volume);
+    async playSfx(soundId: number, sfxFilePath: string, volume: number = 1.0, loop: boolean = false) {
+        await this.streamer.playSfx(soundId, sfxFilePath, volume, loop);
+        if (loop) {
+            this.emit('stateUpdate', this.getStatus());
+        }
+    }
+
+    stopLoopSfx(soundId: number) {
+        this.streamer.stopLoopSfx(soundId);
+        this.emit('stateUpdate', this.getStatus());
+    }
+
+    getLoopingSfxIds(): number[] {
+        return this.streamer.getLoopingSfxIds();
     }
 
     async playNext() {
@@ -143,7 +155,8 @@ export class PlayerService extends EventEmitter {
             activePlaylistName: this.queueManager.activePlaylistName,
             queueLength: this.queueManager.queue.length,
             shuffle: this.queueManager.shuffle,
-            repeatMode: this.queueManager.repeatMode
+            repeatMode: this.queueManager.repeatMode,
+            loopingSfx: this.streamer.getLoopingSfxIds()
         };
     }
     stop() {
@@ -153,6 +166,7 @@ export class PlayerService extends EventEmitter {
     }
 
     destroy() {
+        this.streamer.stopAllSfxLoops();
         this.stop();
         if (this.connection) {
             try {

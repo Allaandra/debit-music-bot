@@ -30,7 +30,8 @@ import {
   Compass,
   Footprints,
   LayoutList,
-  LayoutGrid
+  LayoutGrid,
+  Repeat
 } from 'lucide-react';
 
 export const SFX_CATEGORY_ICONS: Record<
@@ -141,7 +142,9 @@ export const RightSfxPanel: React.FC = () => {
     queryFn: api.fetchSfxPlaylists
   });
 
-  const { sfxVolume = 0.8 } = usePlayer();
+  const { sfxVolume = 0.8, status } = usePlayer();
+  const loopingSfx = status?.loopingSfx || [];
+  const isSoundLooping = (soundId: number) => loopingSfx.includes(soundId);
 
   const [selectedPlaylistId, setSelectedPlaylistId] = useState<number | null>(null);
   const [playingSoundId, setPlayingSoundId] = useState<number | null>(null);
@@ -216,6 +219,20 @@ export const RightSfxPanel: React.FC = () => {
     } catch (err) {
       console.error('Failed to play SFX in Discord:', err);
       setPlayingSoundId(null);
+    }
+  };
+
+  // Toggle SFX loop in Discord (continuous ambient sound)
+  const handleToggleLoop = async (e: React.MouseEvent, soundId: number) => {
+    e.stopPropagation();
+    try {
+      if (isSoundLooping(soundId)) {
+        await api.stopSfxLoop(soundId);
+      } else {
+        await api.playSfx(soundId, sfxVolume, true);
+      }
+    } catch (err) {
+      console.error('Failed to toggle SFX loop:', err);
     }
   };
 
@@ -452,7 +469,7 @@ export const RightSfxPanel: React.FC = () => {
             {sounds.map((sound: any) => (
               <div
                 key={sound.id}
-                className={`sfx-sound-card ${viewMode === 'single' ? 'single-col' : ''} ${playingSoundId === sound.id ? 'playing' : ''}`}
+                className={`sfx-sound-card ${viewMode === 'single' ? 'single-col' : ''} ${playingSoundId === sound.id ? 'playing' : ''} ${isSoundLooping(sound.id) ? 'is-looping' : ''}`}
                 onClick={() => handlePlayInDiscord(sound.id)}
                 title={`Click to play in Discord\n${sound.title}`}
               >
@@ -472,6 +489,13 @@ export const RightSfxPanel: React.FC = () => {
                       {sound.duration < 10 ? `${sound.duration.toFixed(1)}s` : `${Math.round(sound.duration)}s`}
                     </span>
                   )}
+                  <button
+                    className={`sfx-sound-loop-trigger ${isSoundLooping(sound.id) ? 'active' : ''}`}
+                    onClick={(e) => handleToggleLoop(e, sound.id)}
+                    title={isSoundLooping(sound.id) ? 'Stop ambient loop' : 'Loop sound (Ambience)'}
+                  >
+                    <Repeat size={viewMode === 'single' ? 13 : 11} />
+                  </button>
                   <button
                     className={`sfx-sound-menu-trigger ${activeMenu?.sound?.id === sound.id ? 'active' : ''}`}
                     onClick={(e) => handleToggleMenu(e, sound)}
@@ -741,6 +765,17 @@ export const RightSfxPanel: React.FC = () => {
           }}
           onClick={(e) => e.stopPropagation()}
         >
+          <button
+            className="sfx-dropdown-item"
+            onClick={(e) => {
+              const soundId = activeMenu.sound.id;
+              setActiveMenu(null);
+              handleToggleLoop(e, soundId);
+            }}
+          >
+            <Repeat size={13} color={isSoundLooping(activeMenu.sound.id) ? 'var(--accent)' : 'currentColor'} />
+            {isSoundLooping(activeMenu.sound.id) ? 'Stop Ambient Loop' : 'Loop Sound (Ambience)'}
+          </button>
           <button
             className="sfx-dropdown-item"
             onClick={() => {

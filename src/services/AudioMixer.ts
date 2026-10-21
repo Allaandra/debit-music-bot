@@ -3,9 +3,11 @@ import { spawn } from 'child_process';
 import ffmpegPath from 'ffmpeg-static';
 
 interface ActiveSfx {
+    id: number;
     buffer: Buffer;
     offset: number;
     volume: number;
+    loop: boolean;
 }
 
 export class AudioMixer extends Transform {
@@ -21,8 +23,40 @@ export class AudioMixer extends Transform {
         this.musicVolume = Math.max(0, Math.min(volume, 2.0));
     }
 
-    addSfx(buffer: Buffer, volume: number = 1.0) {
-        this.activeSfx.push({ buffer, offset: 0, volume });
+    addSfx(id: number, buffer: Buffer, volume: number = 1.0, loop: boolean = false) {
+        const existing = this.activeSfx.find(s => s.id === id);
+        if (existing) {
+            existing.volume = volume;
+            existing.loop = loop;
+            if (!loop) {
+                existing.offset = 0;
+            }
+            return;
+        }
+        this.activeSfx.push({ id, buffer, offset: 0, volume, loop });
+    }
+
+    removeSfx(id: number) {
+        const idx = this.activeSfx.findIndex(s => s.id === id);
+        if (idx !== -1) {
+            this.activeSfx.splice(idx, 1);
+        }
+    }
+
+    clearSfx() {
+        this.activeSfx = [];
+    }
+
+    isSfxActive(id: number): boolean {
+        return this.activeSfx.some(s => s.id === id);
+    }
+
+    isSfxLooping(id: number): boolean {
+        return this.activeSfx.some(s => s.id === id && s.loop);
+    }
+
+    getActiveLoopIds(): number[] {
+        return this.activeSfx.filter(s => s.loop).map(s => s.id);
     }
 
     hasActiveSfx(): boolean {
@@ -56,21 +90,36 @@ export class AudioMixer extends Transform {
         if (hasSfx) {
             for (let sfxIdx = this.activeSfx.length - 1; sfxIdx >= 0; sfxIdx--) {
                 const sfx = this.activeSfx[sfxIdx];
-                const remainingSfx = sfx.buffer.length - sfx.offset;
-                const bytesToMix = Math.min(chunkLen, remainingSfx);
+                let chunkOffset = 0;
+                let chunkRemaining = chunkLen;
 
-                for (let i = 0; i < bytesToMix; i += 2) {
-                    const m = mixed.readInt16LE(i);
-                    const s = Math.round(sfx.buffer.readInt16LE(sfx.offset + i) * sfx.volume);
-                    let sum = m + s;
-                    if (sum > 32767) sum = 32767;
-                    else if (sum < -32768) sum = -32768;
-                    mixed.writeInt16LE(sum, i);
-                }
+                while (chunkRemaining > 0) {
+                    const remainingSfx = sfx.buffer.length - sfx.offset;
+                    const bytesToMix = Math.min(chunkRemaining, remainingSfx);
 
-                sfx.offset += bytesToMix;
-                if (sfx.offset >= sfx.buffer.length) {
-                    this.activeSfx.splice(sfxIdx, 1);
+                    for (let i = 0; i < bytesToMix; i += 2) {
+                        const m = mixed.readInt16LE(chunkOffset + i);
+                        const s = Math.round(sfx.buffer.readInt16LE(sfx.offset + i) * sfx.volume);
+                        let sum = m + s;
+                        if (sum > 32767) sum = 32767;
+                        else if (sum < -32768) sum = -32768;
+                        mixed.writeInt16LE(sum, chunkOffset + i);
+                    }
+
+                    sfx.offset += bytesToMix;
+                    chunkOffset += bytesToMix;
+                    chunkRemaining -= bytesToMix;
+
+                    if (sfx.offset >= sfx.buffer.length) {
+                        if (sfx.loop) {
+                            // Бесшовное зацикливание: сброс в начало буфера
+                            sfx.offset = 0;
+                        } else {
+                            // Одиночный звук завершился
+                            this.activeSfx.splice(sfxIdx, 1);
+                            break;
+                        }
+                    }
                 }
             }
         }

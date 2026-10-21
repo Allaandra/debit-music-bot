@@ -159,11 +159,20 @@ export const api = {
         await fetchAuth(`${BASE_URL}/sfx/sounds/${id}`, { method: 'DELETE' });
     },
 
-    async playSfx(soundId: number, volume: number = 1.0) {
+    async playSfx(soundId: number, volume: number = 1.0, loop: boolean = false) {
         const res = await fetchAuth(`${BASE_URL}/sfx/play`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ soundId, volume })
+            body: JSON.stringify({ soundId, volume, loop })
+        });
+        return await res.json();
+    },
+
+    async stopSfxLoop(soundId: number) {
+        const res = await fetchAuth(`${BASE_URL}/sfx/loop/stop`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ soundId })
         });
         return await res.json();
     },

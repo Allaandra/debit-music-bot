@@ -375,7 +375,7 @@ export class SfxService {
         return true;
     }
 
-    async playSound(client: Client, userId: string, soundId: number, volume: number = 1.0): Promise<{ soundTitle: string }> {
+    async playSound(client: Client, userId: string, soundId: number, volume: number = 1.0, loop: boolean = false): Promise<{ soundTitle: string; looping: boolean }> {
         const sound = await prisma.sfxSound.findFirst({
             where: {
                 id: soundId,
@@ -419,9 +419,23 @@ export class SfxService {
             throw new Error('Audio file not found on server');
         }
 
-        await guildPlayer.playSfx(sfxPath, volume);
+        await guildPlayer.playSfx(soundId, sfxPath, volume, loop);
 
-        return { soundTitle: sound.title };
+        return { soundTitle: sound.title, looping: loop };
+    }
+
+    async stopLoop(client: Client, userId: string, soundId: number): Promise<{ success: boolean }> {
+        const session = await prisma.activeSession.findUnique({
+            where: { userId }
+        });
+
+        if (!session) {
+            throw new Error('Bot is not connected to a voice channel');
+        }
+
+        const guildPlayer = PlayerManager.getPlayer(session.guildId);
+        guildPlayer.stopLoopSfx(soundId);
+        return { success: true };
     }
 
     async getPreviewFilePath(userId: string, soundId: number): Promise<string | null> {

@@ -141,21 +141,39 @@ export default function sfxRoutes(client: Client) {
         }
     });
 
-    // 7. POST play sound in Discord (overlay onto stream)
+    // 7. POST play sound in Discord (overlay onto stream, optional loop)
     router.post('/play', async (req, res) => {
         const userId = (req as any).user.id;
-        const { soundId, volume = 1.0 } = req.body;
+        const { soundId, volume = 1.0, loop = false } = req.body;
 
         if (!soundId) {
             return res.status(400).json({ error: 'soundId is required' });
         }
 
         try {
-            const result = await sfxService.playSound(client, userId, parseInt(soundId), volume);
+            const result = await sfxService.playSound(client, userId, parseInt(soundId), volume, Boolean(loop));
             res.json({ success: true, ...result });
         } catch (err: any) {
             console.error('Error playing SFX sound:', err);
             res.status(500).json({ error: err.message || 'Failed to play SFX' });
+        }
+    });
+
+    // 7.1 POST stop sound loop in Discord
+    router.post('/loop/stop', async (req, res) => {
+        const userId = (req as any).user.id;
+        const { soundId } = req.body;
+
+        if (!soundId) {
+            return res.status(400).json({ error: 'soundId is required' });
+        }
+
+        try {
+            const result = await sfxService.stopLoop(client, userId, parseInt(soundId));
+            res.json(result);
+        } catch (err: any) {
+            console.error('Error stopping SFX loop:', err);
+            res.status(500).json({ error: err.message || 'Failed to stop SFX loop' });
         }
     });
 
