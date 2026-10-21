@@ -60,6 +60,14 @@ export class AudioStreamer extends EventEmitter {
             input = track.url;
         }
 
+        if (!input || typeof input !== 'string') {
+            throw new Error('Некорректный адрес или файл для воспроизведения');
+        }
+
+        if (track.type === 'url' && !input.startsWith('http')) {
+            throw new Error(`Не удалось получить прямой поток воспроизведения для трека: ${track.title}`);
+        }
+
         const isFileOrUrl = typeof input === 'string';
         const isUrl = isFileOrUrl && input.startsWith('http');
         const ffmpegArgs = [];
@@ -142,6 +150,20 @@ export class AudioStreamer extends EventEmitter {
         this.currentEncoderProcess.on('error', (err: any) => {
             console.error('FFmpeg Encoder spawn error:', err.message);
             this.emit('error', err);
+        });
+
+        this.currentEncoderProcess.stdin.on('error', (err: any) => {
+            if (err.code !== 'EPIPE' && err.code !== 'EOF') {
+                console.error('FFmpeg Encoder stdin error:', err.message || err);
+            }
+        });
+
+        this.mixer.on('error', (err: any) => {
+            console.error('AudioMixer stream error:', err.message || err);
+        });
+
+        this.currentFfmpegProcess.stdout.on('error', (err: any) => {
+            console.error('FFmpeg Decoder stdout error:', err.message || err);
         });
 
         this.currentFfmpegProcess.stdout.pipe(this.mixer).pipe(this.currentEncoderProcess.stdin);
@@ -257,6 +279,19 @@ export class AudioStreamer extends EventEmitter {
 
         this.currentEncoderProcess = spawn(ffmpegPath as string, encoderArgs, { stdio: ['pipe', 'pipe', 'pipe'] });
         this.currentEncoderProcess.on('error', (err: any) => console.error('FFmpeg Ambience Encoder spawn error:', err.message));
+        this.currentEncoderProcess.stdin.on('error', (err: any) => {
+            if (err.code !== 'EPIPE' && err.code !== 'EOF') {
+                console.error('FFmpeg Ambience Encoder stdin error:', err.message || err);
+            }
+        });
+
+        this.mixer.on('error', (err: any) => {
+            console.error('Ambience AudioMixer stream error:', err.message || err);
+        });
+
+        this.silenceProcess.stdout.on('error', (err: any) => {
+            console.error('FFmpeg Silence stdout error:', err.message || err);
+        });
 
         this.silenceProcess.stdout.pipe(this.mixer).pipe(this.currentEncoderProcess.stdin);
 
@@ -266,14 +301,25 @@ export class AudioStreamer extends EventEmitter {
 
     stopAmbienceStream() {
         if (this.silenceProcess) {
-            this.silenceProcess.kill();
+            try {
+                this.silenceProcess.stdout?.unpipe();
+                this.silenceProcess.kill();
+            } catch (e) {}
             this.silenceProcess = null;
         }
         if (this.currentEncoderProcess && !this.isPlaying) {
-            this.currentEncoderProcess.kill();
+            try {
+                this.currentEncoderProcess.stdin?.end();
+                this.currentEncoderProcess.kill();
+            } catch (e) {}
             this.currentEncoderProcess = null;
         }
         if (!this.isPlaying) {
+            if (this.mixer) {
+                try {
+                    this.mixer.unpipe();
+                } catch (e) {}
+            }
             this.mixer = null;
             this.player.stop();
         }
@@ -281,22 +327,38 @@ export class AudioStreamer extends EventEmitter {
 
     stopCurrentProcesses() {
         if (this.currentFfmpegProcess) {
-            this.currentFfmpegProcess.kill();
+            try {
+                this.currentFfmpegProcess.stdout?.unpipe();
+                this.currentFfmpegProcess.kill();
+            } catch (e) {}
             this.currentFfmpegProcess = null;
         }
         if (this.silenceProcess) {
-            this.silenceProcess.kill();
+            try {
+                this.silenceProcess.stdout?.unpipe();
+                this.silenceProcess.kill();
+            } catch (e) {}
             this.silenceProcess = null;
         }
         if (this.currentEncoderProcess) {
-            this.currentEncoderProcess.kill();
+            try {
+                this.currentEncoderProcess.stdin?.end();
+                this.currentEncoderProcess.kill();
+            } catch (e) {}
             this.currentEncoderProcess = null;
         }
         if (this.currentSfxProcess) {
-            this.currentSfxProcess.kill();
+            try {
+                this.currentSfxProcess.kill();
+            } catch (e) {}
             this.currentSfxProcess = null;
         }
-        this.mixer = null;
+        if (this.mixer) {
+            try {
+                this.mixer.unpipe();
+            } catch (e) {}
+            this.mixer = null;
+        }
     }
 
     pause() {

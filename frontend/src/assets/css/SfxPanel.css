@@ -35,11 +35,12 @@
 }
 
 .sfx-title {
+  font-family: var(--font-display);
   margin: 0;
   font-size: 20px;
-  font-weight: 500;
+  font-weight: 700;
   color: var(--text-main);
-  letter-spacing: 0.5px;
+  letter-spacing: 0.02em;
 }
 
 .sfx-stair-1-actions {
@@ -243,10 +244,11 @@
 }
 
 .sfx-category-heading {
-  font-size: 14px;
-  font-weight: 500;
+  font-family: var(--font-display);
+  font-size: 15px;
+  font-weight: 700;
   color: var(--text-main);
-  letter-spacing: 0.2px;
+  letter-spacing: 0.02em;
 }
 
 .sfx-sounds-count {

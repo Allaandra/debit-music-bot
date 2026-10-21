@@ -1,3 +1,27 @@
+@import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700;800&family=Podkova:wght@600;700;800&display=swap');
+
+:root {
+  --font-display: 'Podkova', serif;
+  --font-ui: 'Nunito', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+input, button, select, textarea {
+  font-family: var(--font-ui);
+  letter-spacing: 0.015em;
+}
+
+/* Все атмосферные заголовки (D&D свитки и книги - Podkova) */
+h1, h2, h3, .playlist-title, .queue-title, .sfx-title, .sfx-category-heading, .section-title {
+  font-family: var(--font-display);
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+/* Моноширинные цифры (исключает скачки таймеров) */
+.progress-time, .track-duration, .volume-val, .sfx-sound-duration, .progress-bar-container span {
+  font-variant-numeric: tabular-nums;
+}
+
 * {
   box-sizing: border-box;
   margin: 0;
@@ -5,7 +29,10 @@
 }
 
 body {
-  font-family: 'Inter', sans-serif;
+  font-family: var(--font-ui);
+  letter-spacing: 0.015em;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
   background-color: var(--base-bg);
   color: var(--text-main);
   overflow: hidden;
