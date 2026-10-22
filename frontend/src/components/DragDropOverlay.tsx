@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { useQueryClient } from '@tanstack/react-query';
-import { Music, Swords, CheckCircle2, AlertCircle, ListMusic, FolderPlus, ArrowDown } from 'lucide-react';
+import { Music, Swords, CheckCircle2, AlertCircle, ListMusic, FolderPlus } from 'lucide-react';
 import { api } from '../services/api';
 import { useLibrary, useUI } from '../context/PlayerContext';
 import '../assets/css/DragDropOverlay.css';

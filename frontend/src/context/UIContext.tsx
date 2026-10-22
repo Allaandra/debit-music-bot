@@ -1,3 +1,4 @@
+/* oxlint-disable react/only-export-components */
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import type { Theme, RightPanelMode, MenuView, Track, Playlist, ImportPlaylistModalData } from '../types';
 

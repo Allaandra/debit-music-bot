@@ -1,35 +1,29 @@
 import React from 'react';
 import { usePlayer, usePlaybackProgress } from '../context/PlayerContext';
 import { resolveMediaUrl } from '../services/api';
-import { Play, Pause, SkipBack, SkipForward, Shuffle, Repeat, Volume2, VolumeX, ListMusic, Info, Swords, Search, Filter, Trash2, MoreVertical, Music, BarChart2, Home, Plus, Upload, Settings, LogOut, Palette, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Play, Pause, SkipBack, SkipForward, Shuffle, Repeat, Volume2, VolumeX, ListMusic, Info, Swords, Music } from 'lucide-react';
 
 export const PlayerBar = () => {
   const player = usePlayer();
-  const { 
-      status, setStatus, tracks, setTracks, newTrackInput, setNewTrackInput,
-      playlists, setPlaylists, isModalOpen, setIsModalOpen,
-      newPlaylistName, setNewPlaylistName, activeMenuId, setActiveMenuId,
-      menuView, setMenuView, activePlaylistId, setActivePlaylistId,
-      selectedTrack, setSelectedTrack, trackPlaylists, setTrackPlaylists,
-      searchQuery, setSearchQuery, showSearch, setShowSearch,
-      rightPanelMode, setRightPanelMode, importPlaylistModal, setImportPlaylistModal,
-      importing, setImporting, deleteTrackModal, setDeleteTrackModal,
-      rightCollapsed, setRightCollapsed, theme, setTheme, leftCollapsed, setLeftCollapsed,
-      fetchTracks, fetchPlaylists, fetchStatus, handleAction, handleAddTrack,
-      handleImportPlaylist, deleteTrackCompletely, deleteTrackFromPlaylist,
-      handleDeleteTrack, handlePlayTrack, handleFileUpload, handleCreatePlaylist,
-      handleAddToPlaylist, toggleTheme, handleRightToggle,
-      USER_ID, filteredTracks, playlistName
+  const {
+    status,
+    rightPanelMode,
+    rightCollapsed,
+    handleAction,
+    handleRightToggle
   } = player;
   const { elapsed, duration, setSeekValue, formatTime } = usePlaybackProgress();
 
   const lastNonZeroVolume = React.useRef(player.musicVolume > 0 ? player.musicVolume : 0.8);
-  if (player.musicVolume > 0) {
-    lastNonZeroVolume.current = player.musicVolume;
-  }
+  React.useEffect(() => {
+    if (player.musicVolume > 0) {
+      lastNonZeroVolume.current = player.musicVolume;
+    }
+  }, [player.musicVolume]);
 
   const toggleMute = () => {
     if (player.musicVolume > 0) {
+      lastNonZeroVolume.current = player.musicVolume;
       player.handleVolumeChange(0, true);
     } else {
       player.handleVolumeChange(lastNonZeroVolume.current || 0.8, true);

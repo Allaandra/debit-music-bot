@@ -1,7 +1,7 @@
 import React from 'react';
 import { usePlayer } from '../context/PlayerContext';
 import { resolveMediaUrl } from '../services/api';
-import { Play, Pause, SkipBack, SkipForward, Shuffle, Repeat, Volume2, ListMusic, Info, Search, Filter, Trash2, MoreVertical, Music, BarChart2, Home, Plus, Upload, Settings, LogOut, Palette, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Play, Pause, Shuffle, Repeat, Search, Filter, Trash2, MoreVertical, ChevronRight } from 'lucide-react';
 
 
 const HoverScroller = ({ text, className, style }: any) => {
@@ -51,23 +51,30 @@ const HoverScroller = ({ text, className, style }: any) => {
 };
 
 export const MainPanel = () => {
-  const player = usePlayer();
-  const { 
-      status, setStatus, tracks, setTracks, newTrackInput, setNewTrackInput,
-      seekValue, setSeekValue, playlists, setPlaylists, isModalOpen, setIsModalOpen,
-      newPlaylistName, setNewPlaylistName, activeMenuId, setActiveMenuId,
-      menuView, setMenuView, activePlaylistId, setActivePlaylistId,
-      selectedTrack, setSelectedTrack, trackPlaylists, setTrackPlaylists,
-      searchQuery, setSearchQuery, showSearch, setShowSearch,
-      rightPanelMode, setRightPanelMode, importPlaylistModal, setImportPlaylistModal,
-      importing, setImporting, deleteTrackModal, setDeleteTrackModal,
-      rightCollapsed, setRightCollapsed, theme, setTheme, leftCollapsed, setLeftCollapsed,
-      fetchTracks, fetchPlaylists, fetchStatus, handleAction, handleAddTrack,
-      handleImportPlaylist, deleteTrackCompletely, deleteTrackFromPlaylist,
-      handleDeleteTrack, handlePlayTrack, handleFileUpload, handleCreatePlaylist,
-      handleAddToPlaylist, formatTime, toggleTheme, handleRightToggle,
-      USER_ID, duration, elapsed, filteredTracks, playlistName, sortMethod, setSortMethod
-  } = player;
+  const {
+    status,
+    tracks,
+    playlists,
+    activeMenuId,
+    setActiveMenuId,
+    menuView,
+    setMenuView,
+    activePlaylistId,
+    setSelectedTrack,
+    searchQuery,
+    setSearchQuery,
+    showSearch,
+    setShowSearch,
+    handleAction,
+    handleDeleteTrack,
+    handlePlayTrack,
+    handleAddToPlaylist,
+    formatTime,
+    filteredTracks,
+    playlistName,
+    sortMethod,
+    setSortMethod
+  } = usePlayer();
 
   React.useEffect(() => {
     const handleClickOutside = () => {

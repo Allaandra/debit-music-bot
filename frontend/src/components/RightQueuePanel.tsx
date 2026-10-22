@@ -1,7 +1,7 @@
 import React from 'react';
 import { usePlayback } from '../context/PlayerContext';
 import { resolveMediaUrl } from '../services/api';
-import { Music } from 'lucide-react';
+
 
 export const RightQueuePanel = () => {
   const { status } = usePlayback();

@@ -1,4 +1,5 @@
-import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
+/* oxlint-disable react/only-export-components */
+import React, { createContext, useContext, useState, useEffect, useRef, useCallback } from 'react';
 import { io, Socket } from 'socket.io-client';
 import type { PlayerStatus, Track } from '../types';
 import { api, SOCKET_URL } from '../services/api';
@@ -61,32 +62,31 @@ const PlaybackProgressProvider: React.FC<{
   status: PlayerStatus;
   children: React.ReactNode;
 }> = ({ status, children }) => {
-  const [liveElapsed, setLiveElapsed] = useState<number>(status.elapsed || 0);
+  const statusSyncKey = `${status.currentTrack?.query ?? ''}:${status.elapsed ?? 0}:${status.isPlaying}:${status.isPaused}`;
+  const [tickState, setTickState] = useState<{ key: string; bonusSeconds: number }>({
+    key: statusSyncKey,
+    bonusSeconds: 0
+  });
   const [seekValue, setSeekValue] = useState<number | null>(null);
-
-  // Sync with server status updates
-  useEffect(() => {
-    setLiveElapsed(status.elapsed || 0);
-  }, [status.elapsed, status.currentTrack?.query, status.isPlaying, status.isPaused]);
 
   // Smooth local 1s timer isolated in PlaybackProgressProvider so the rest of the app never re-renders
   useEffect(() => {
     if (!status.isPlaying || status.isPaused) return;
 
     const timer = setInterval(() => {
-      setLiveElapsed(prev => {
-        const trackDuration = status.currentTrack?.duration || status.duration || 0;
-        if (trackDuration > 0 && prev >= trackDuration) {
-          return prev;
-        }
-        return prev + 1;
-      });
+      setTickState(prev => ({
+        key: statusSyncKey,
+        bonusSeconds: (prev.key === statusSyncKey ? prev.bonusSeconds : 0) + 1
+      }));
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [status.isPlaying, status.isPaused, status.currentTrack?.duration, status.duration]);
+  }, [status.isPlaying, status.isPaused, statusSyncKey]);
 
   const duration = status.currentTrack?.duration || status.duration || 0;
+  const baseElapsed = status.elapsed || 0;
+  const bonusSeconds = tickState.key === statusSyncKey ? tickState.bonusSeconds : 0;
+  const liveElapsed = duration > 0 ? Math.min(baseElapsed + bonusSeconds, duration) : baseElapsed + bonusSeconds;
   const elapsed = seekValue !== null ? seekValue : liveElapsed;
 
   return (
@@ -149,7 +149,7 @@ export const PlaybackProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     };
   }, []);
 
-  const fetchStatus = async () => {
+  const fetchStatus = useCallback(async () => {
     try {
       const data = await api.fetchStatus();
       if (data) {
@@ -164,7 +164,7 @@ export const PlaybackProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     } catch (e) {
       console.error('Failed to fetch status', e);
     }
-  };
+  }, []);
 
   // Socket.IO lifecycle
   useEffect(() => {
@@ -209,17 +209,18 @@ export const PlaybackProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
   // Initial fetch and 15s fallback sync
   useEffect(() => {
-    fetchStatus();
+    const initialTimer = setTimeout(fetchStatus, 0);
 
     const interval = setInterval(fetchStatus, 15000);
     const onFocus = () => fetchStatus();
     window.addEventListener('focus', onFocus);
 
     return () => {
+      clearTimeout(initialTimer);
       clearInterval(interval);
       window.removeEventListener('focus', onFocus);
     };
-  }, []);
+  }, [fetchStatus]);
 
   const handleAction = async (action: string, payload?: any) => {
     try {

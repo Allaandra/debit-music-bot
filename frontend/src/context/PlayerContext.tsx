@@ -1,3 +1,4 @@
+/* oxlint-disable react/only-export-components */
 import React from 'react';
 import { AuthProvider, useAuth } from './AuthContext';
 import type { AuthContextValue } from './AuthContext';

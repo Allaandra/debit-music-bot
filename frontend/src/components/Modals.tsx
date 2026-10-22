@@ -1,26 +1,27 @@
 import React from 'react';
 import { usePlayer } from '../context/PlayerContext';
-import { Play, Pause, SkipBack, SkipForward, Shuffle, Repeat, Volume2, ListMusic, Info, Search, Filter, Trash2, MoreVertical, Music, BarChart2, Home, Plus, Upload, Settings, LogOut, Palette, ChevronLeft, ChevronRight } from 'lucide-react';
-
 export const Modals = () => {
-  const player = usePlayer();
-  const { 
-      status, setStatus, tracks, setTracks, newTrackInput, setNewTrackInput,
-      editPlaylistModal, setEditPlaylistModal, deletePlaylistModal, setDeletePlaylistModal, editPlaylist, deletePlaylist,
-      seekValue, setSeekValue, playlists, setPlaylists, isModalOpen, setIsModalOpen,
-      newPlaylistName, setNewPlaylistName, activeMenuId, setActiveMenuId,
-      menuView, setMenuView, activePlaylistId, setActivePlaylistId,
-      selectedTrack, setSelectedTrack, trackPlaylists, setTrackPlaylists,
-      searchQuery, setSearchQuery, showSearch, setShowSearch,
-      rightPanelMode, setRightPanelMode, importPlaylistModal, setImportPlaylistModal,
-      importing, setImporting, deleteTrackModal, setDeleteTrackModal,
-      rightCollapsed, setRightCollapsed, theme, setTheme, leftCollapsed, setLeftCollapsed,
-      fetchTracks, fetchPlaylists, fetchStatus, handleAction, handleAddTrack,
-      handleImportPlaylist, deleteTrackCompletely, deleteTrackFromPlaylist,
-      handleDeleteTrack, handlePlayTrack, handleFileUpload, handleCreatePlaylist,
-      handleAddToPlaylist, formatTime, toggleTheme, handleRightToggle,
-      USER_ID, duration, elapsed, filteredTracks, playlistName
-  } = player;
+  const {
+    editPlaylistModal,
+    setEditPlaylistModal,
+    deletePlaylistModal,
+    setDeletePlaylistModal,
+    editPlaylist,
+    deletePlaylist,
+    isModalOpen,
+    setIsModalOpen,
+    newPlaylistName,
+    setNewPlaylistName,
+    importPlaylistModal,
+    setImportPlaylistModal,
+    importing,
+    deleteTrackModal,
+    setDeleteTrackModal,
+    handleImportPlaylist,
+    deleteTrackCompletely,
+    deleteTrackFromPlaylist,
+    handleCreatePlaylist
+  } = usePlayer();
 
   return (
     <>

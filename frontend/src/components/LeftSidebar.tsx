@@ -1,29 +1,29 @@
 import React from 'react';
 import { usePlayer } from '../context/PlayerContext';
 import { api } from '../services/api';
-import { Play, Pause, SkipBack, SkipForward, Shuffle, Repeat, Volume2, ListMusic, Info, Search, Filter, Trash2, MoreVertical, Music, BarChart2, Home, Plus, Upload, Settings, LogOut, Palette, ChevronLeft, ChevronRight, Edit2 } from 'lucide-react';
+import { Trash2, MoreVertical, Music, Home, Plus, Upload, Settings, LogOut, Palette, ChevronLeft, ChevronRight, Edit2 } from 'lucide-react';
 
 export const LeftSidebar = () => {
-  const player = usePlayer();
   const [activePlaylistMenuId, setActivePlaylistMenuId] = React.useState<number | null>(null);
   const [isSyncing, setIsSyncing] = React.useState(false);
-  const { 
-      status, setStatus, tracks, setTracks, newTrackInput, setNewTrackInput,
-      setEditPlaylistModal, setDeletePlaylistModal,
-      seekValue, setSeekValue, playlists, setPlaylists, isModalOpen, setIsModalOpen,
-      newPlaylistName, setNewPlaylistName, activeMenuId, setActiveMenuId,
-      menuView, setMenuView, activePlaylistId, setActivePlaylistId,
-      selectedTrack, setSelectedTrack, trackPlaylists, setTrackPlaylists,
-      searchQuery, setSearchQuery, showSearch, setShowSearch,
-      rightPanelMode, setRightPanelMode, importPlaylistModal, setImportPlaylistModal,
-      importing, setImporting, deleteTrackModal, setDeleteTrackModal,
-      rightCollapsed, setRightCollapsed, theme, setTheme, leftCollapsed, setLeftCollapsed,
-      fetchTracks, fetchPlaylists, fetchStatus, handleAction, handleAddTrack,
-      handleImportPlaylist, deleteTrackCompletely, deleteTrackFromPlaylist,
-      handleDeleteTrack, handlePlayTrack, handleFileUpload, handleCreatePlaylist,
-      handleAddToPlaylist, formatTime, toggleTheme, handleRightToggle,
-      user, duration, elapsed, filteredTracks, playlistName
-  } = player;
+  const {
+    newTrackInput,
+    setNewTrackInput,
+    setEditPlaylistModal,
+    setDeletePlaylistModal,
+    playlists,
+    setIsModalOpen,
+    activePlaylistId,
+    setActivePlaylistId,
+    leftCollapsed,
+    setLeftCollapsed,
+    fetchTracks,
+    fetchPlaylists,
+    handleAddTrack,
+    handleFileUpload,
+    toggleTheme,
+    user
+  } = usePlayer();
 
   React.useEffect(() => {
     const handleClickOutside = () => {

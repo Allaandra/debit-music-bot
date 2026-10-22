@@ -1,7 +1,7 @@
 import React from 'react';
 import { useLibrary } from '../context/PlayerContext';
 import { resolveMediaUrl } from '../services/api';
-import { Music } from 'lucide-react';
+
 
 export const RightInfoPanel = () => {
   const { selectedTrack, trackPlaylists } = useLibrary();

@@ -17,7 +17,7 @@ import './assets/css/PlayerBar.css';
 import './assets/css/Modals.css';
 import './assets/css/SfxPanel.css';
 
-import { api, BASE_URL } from './services/api';
+
 
 function AppLayout() {
   const { theme, setActiveMenuId, setMenuView } = useUI();

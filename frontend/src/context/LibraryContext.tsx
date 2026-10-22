@@ -1,4 +1,5 @@
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+/* oxlint-disable react/only-export-components */
+import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import type { Track, Playlist, SortMethod } from '../types';
 import { api } from '../services/api';
@@ -62,8 +63,11 @@ export const LibraryProvider: React.FC<{ children: React.ReactNode }> = ({ child
     return saved && saved !== 'undefined' ? JSON.parse(saved) : null;
   });
 
-  const [selectedTrack, setSelectedTrack] = useState<Track | null>(null);
-  const [trackPlaylists, setTrackPlaylists] = useState<string[]>([]);
+  const [userSelectedTrack, setUserSelectedTrack] = useState<{
+    track: Track | null;
+    forCurrentQuery: string | undefined;
+  }>({ track: null, forCurrentQuery: undefined });
+  const [, setTrackPlaylists] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
 
   const [sortMethod, setSortMethod] = useState<SortMethod>(() => {
@@ -116,35 +120,44 @@ export const LibraryProvider: React.FC<{ children: React.ReactNode }> = ({ child
     await queryClient.invalidateQueries({ queryKey: ['playlists'] });
   }, [queryClient]);
 
-  // Sync selectedTrack with status.currentTrack
-  useEffect(() => {
-    const current = playback.status.currentTrack;
-    if (current) {
-      const matchingTrack = (Array.isArray(tracks) ? tracks : []).find(t => t.query === current.query);
-      if (matchingTrack) {
-        setSelectedTrack({ ...matchingTrack, ...current });
-      } else {
-        setSelectedTrack(current);
-      }
+  const currentTrack = playback.status.currentTrack;
+  const currentTrackQuery = currentTrack?.query;
+
+  const setSelectedTrack = useCallback((track: Track | null) => {
+    setUserSelectedTrack({
+      track,
+      forCurrentQuery: track ? currentTrackQuery : undefined
+    });
+  }, [currentTrackQuery]);
+
+  // Derive selectedTrack synchronously during render (no cascading useEffect renders)
+  const selectedTrack = useMemo<Track | null>(() => {
+    const hasManualSelection =
+      userSelectedTrack.track !== null &&
+      userSelectedTrack.forCurrentQuery === currentTrackQuery;
+
+    const baseTrack = hasManualSelection ? userSelectedTrack.track : (currentTrack || null);
+    if (!baseTrack) return null;
+
+    const matchingTrack = (Array.isArray(tracks) ? tracks : []).find(
+      t => (baseTrack.id && t.id === baseTrack.id) || t.query === baseTrack.query
+    );
+    if (matchingTrack) {
+      return { ...matchingTrack, ...baseTrack };
     }
-  }, [playback.status.currentTrack?.query, tracks]);
+    return baseTrack;
+  }, [userSelectedTrack, currentTrack, currentTrackQuery, tracks]);
 
   // Instant zero-network lookup of playlists containing selectedTrack
-  useEffect(() => {
-    if (!selectedTrack) {
-      setTrackPlaylists([]);
-      return;
-    }
+  const trackPlaylists = useMemo<string[]>(() => {
+    if (!selectedTrack) return [];
     if (Array.isArray(selectedTrack.playlistNames)) {
-      setTrackPlaylists(selectedTrack.playlistNames);
-      return;
+      return selectedTrack.playlistNames;
     }
-    const matching = tracks.find(t => (selectedTrack.id && t.id === selectedTrack.id) || t.query === selectedTrack.query);
-    if (matching && Array.isArray(matching.playlistNames)) {
-      setTrackPlaylists(matching.playlistNames);
-    } else {
-      setTrackPlaylists([]);
-    }
+    const matching = (Array.isArray(tracks) ? tracks : []).find(
+      t => (selectedTrack.id && t.id === selectedTrack.id) || t.query === selectedTrack.query
+    );
+    return matching && Array.isArray(matching.playlistNames) ? matching.playlistNames : [];
   }, [selectedTrack, tracks]);
 
   const handleAddTrack = async (e: React.FormEvent) => {

@@ -34,7 +34,7 @@ import {
   Repeat
 } from 'lucide-react';
 
-export const SFX_CATEGORY_ICONS: Record<
+const SFX_CATEGORY_ICONS: Record<
   string, 
   { label: string; icon: React.ComponentType<{ size?: number; className?: string; strokeWidth?: number }> }
 > = {
@@ -198,16 +198,8 @@ export const RightSfxPanel: React.FC = () => {
     };
   }, [activeMenu]);
 
-  // Auto-select first playlist when loaded
-  useEffect(() => {
-    if (playlists.length > 0) {
-      if (!selectedPlaylistId || !playlists.some((p: any) => p.id === selectedPlaylistId)) {
-        setSelectedPlaylistId(playlists[0].id);
-      }
-    }
-  }, [playlists, selectedPlaylistId]);
-
   const currentPlaylist = playlists.find((p: any) => p.id === selectedPlaylistId) || playlists[0];
+  const activeCategoryId = currentPlaylist?.id ?? null;
   const sounds = currentPlaylist?.sounds || [];
 
   // Play SFX in Discord
@@ -320,7 +312,7 @@ export const RightSfxPanel: React.FC = () => {
   const handleUploadSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!uploadFile) return;
-    const targetId = uploadPlaylistId || selectedPlaylistId || playlists[0]?.id;
+    const targetId = uploadPlaylistId || activeCategoryId || playlists[0]?.id;
     if (!targetId) return;
 
     try {
@@ -371,7 +363,7 @@ export const RightSfxPanel: React.FC = () => {
           <button
             className="sfx-icon-btn"
             onClick={() => {
-              setUploadPlaylistId(selectedPlaylistId && selectedPlaylistId > 0 ? selectedPlaylistId : playlists[0]?.id);
+              setUploadPlaylistId(activeCategoryId && activeCategoryId > 0 ? activeCategoryId : playlists[0]?.id);
               setIsUploadOpen(true);
             }}
             title="Upload SFX sound"
@@ -394,7 +386,7 @@ export const RightSfxPanel: React.FC = () => {
           {playlists.map((pl: any) => (
             <div
               key={pl.id}
-              className={`sfx-category-card ${selectedPlaylistId === pl.id ? 'active' : ''}`}
+              className={`sfx-category-card ${activeCategoryId === pl.id ? 'active' : ''}`}
               onClick={() => setSelectedPlaylistId(pl.id)}
               title={pl.name}
             >
@@ -457,7 +449,7 @@ export const RightSfxPanel: React.FC = () => {
             <button
               className="sfx-btn-primary"
               onClick={() => {
-                setUploadPlaylistId(selectedPlaylistId && selectedPlaylistId > 0 ? selectedPlaylistId : playlists[0]?.id);
+                setUploadPlaylistId(activeCategoryId && activeCategoryId > 0 ? activeCategoryId : playlists[0]?.id);
                 setIsUploadOpen(true);
               }}
             >
@@ -621,7 +613,7 @@ export const RightSfxPanel: React.FC = () => {
                   Category:
                 </label>
                 <select
-                  value={uploadPlaylistId || selectedPlaylistId || ''}
+                  value={uploadPlaylistId || activeCategoryId || ''}
                   onChange={e => setUploadPlaylistId(Number(e.target.value))}
                   style={{ padding: '10px', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.15)', background: 'var(--panel-bg)', color: 'white' }}
                 >
