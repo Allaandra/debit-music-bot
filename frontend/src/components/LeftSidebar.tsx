@@ -5,7 +5,6 @@ import { Trash2, MoreVertical, Music, Home, Plus, Upload, Settings, LogOut, Pale
 
 export const LeftSidebar = () => {
   const [activePlaylistMenuId, setActivePlaylistMenuId] = React.useState<number | null>(null);
-  const [isSyncing, setIsSyncing] = React.useState(false);
   const {
     newTrackInput,
     setNewTrackInput,
@@ -18,7 +17,6 @@ export const LeftSidebar = () => {
     leftCollapsed,
     setLeftCollapsed,
     fetchTracks,
-    fetchPlaylists,
     handleAddTrack,
     handleFileUpload,
     toggleTheme,
@@ -36,19 +34,6 @@ export const LeftSidebar = () => {
       document.removeEventListener('click', handleClickOutside);
     };
   }, [activePlaylistMenuId]);
-
-  const handleSyncSounds = async () => {
-    if (isSyncing) return;
-    setIsSyncing(true);
-    try {
-      await api.syncSounds();
-      await Promise.all([fetchTracks(), fetchPlaylists()]);
-    } catch (e) {
-      console.error('Failed to sync sounds:', e);
-    } finally {
-      setTimeout(() => setIsSyncing(false), 600);
-    }
-  };
 
   return (
     <>
@@ -139,12 +124,11 @@ export const LeftSidebar = () => {
                 await api.logout();
                 window.location.href = '/';
               }} style={{ cursor: 'pointer' }} />
-              <Palette size={20} className="text-icon palette-btn"  onClick={toggleTheme} />
-              <span 
-                className={`text-icon ${isSyncing ? 'spin-anim' : ''}`} 
-                onClick={handleSyncSounds}
-                title={isSyncing ? "Синхронизация..." : "Синхронизировать локальные звуки"}
-                style={{ cursor: isSyncing ? 'default' : 'pointer', display: 'inline-flex' }}
+              <Palette size={20} className="text-icon palette-btn" onClick={toggleTheme} />
+              <span
+                className="text-icon"
+                title="Настройки"
+                style={{ cursor: 'pointer', display: 'inline-flex' }}
               >
                 <Settings size={20} />
               </span>

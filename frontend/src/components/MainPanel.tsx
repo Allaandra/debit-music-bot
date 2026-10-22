@@ -1,7 +1,7 @@
 import React from 'react';
 import { usePlayer } from '../context/PlayerContext';
-import { resolveMediaUrl } from '../services/api';
-import { Play, Pause, Shuffle, Repeat, Search, Filter, Trash2, MoreVertical, ChevronRight } from 'lucide-react';
+import { resolveMediaUrl, api } from '../services/api';
+import { Play, Pause, Shuffle, Repeat, Search, Filter, Trash2, MoreVertical, ChevronRight, RefreshCw } from 'lucide-react';
 
 
 const HoverScroller = ({ text, className, style }: any) => {
@@ -51,6 +51,7 @@ const HoverScroller = ({ text, className, style }: any) => {
 };
 
 export const MainPanel = () => {
+  const [isSyncing, setIsSyncing] = React.useState(false);
   const {
     status,
     tracks,
@@ -65,6 +66,8 @@ export const MainPanel = () => {
     setSearchQuery,
     showSearch,
     setShowSearch,
+    fetchTracks,
+    fetchPlaylists,
     handleAction,
     handleDeleteTrack,
     handlePlayTrack,
@@ -75,6 +78,19 @@ export const MainPanel = () => {
     sortMethod,
     setSortMethod
   } = usePlayer();
+
+  const handleSyncSounds = async () => {
+    if (isSyncing) return;
+    setIsSyncing(true);
+    try {
+      await api.syncSounds();
+      await Promise.all([fetchTracks(), fetchPlaylists()]);
+    } catch (e) {
+      console.error('Failed to sync sounds:', e);
+    } finally {
+      setTimeout(() => setIsSyncing(false), 600);
+    }
+  };
 
   React.useEffect(() => {
     const handleClickOutside = () => {
@@ -166,6 +182,15 @@ export const MainPanel = () => {
                       </span>
                     )}
                   </div>
+
+                  <button
+                    className={`icon-btn ${isSyncing ? 'spin-anim' : ''}`}
+                    style={{ background: 'none', border: 'none', padding: 0, cursor: isSyncing ? 'default' : 'pointer' }}
+                    onClick={handleSyncSounds}
+                    title={isSyncing ? 'Сканирование файлов...' : 'Принудительный скан локальных файлов (sounds/)'}
+                  >
+                    <RefreshCw size={19} color={isSyncing ? 'var(--accent)' : 'var(--text-muted)'} />
+                  </button>
                 </div>
               </div>
               

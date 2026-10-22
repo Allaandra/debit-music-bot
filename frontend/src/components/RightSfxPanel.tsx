@@ -493,7 +493,7 @@ export const RightSfxPanel: React.FC = () => {
                     onClick={(e) => handleToggleMenu(e, sound)}
                     title="Actions"
                   >
-                    <MoreVertical size={viewMode === 'single' ? 13 : 11} />
+                    <MoreVertical size={viewMode === 'single' ? 14 : 13} />
                   </button>
                 </div>
               </div>
