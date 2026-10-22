@@ -1,5 +1,6 @@
 import React from 'react';
 import { usePlayer } from '../context/PlayerContext';
+import { resolveMediaUrl } from '../services/api';
 import { Play, Pause, SkipBack, SkipForward, Shuffle, Repeat, Volume2, ListMusic, Info, Search, Filter, Trash2, MoreVertical, Music, BarChart2, Home, Plus, Upload, Settings, LogOut, Palette, ChevronLeft, ChevronRight } from 'lucide-react';
 
 
@@ -207,7 +208,7 @@ export const MainPanel = () => {
                       <div className="track-title-col">
                         <div className="track-icon" style={{ position: 'relative' }}>
                           {track.thumbnail ? (
-                            <img src={track.thumbnail.startsWith('/') ? `http://localhost:3001${track.thumbnail}` : track.thumbnail} style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '4px' }} alt="thumb" />
+                            <img src={resolveMediaUrl(track.thumbnail)} style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '4px' }} alt="thumb" />
                           ) : (
                             <div className="art-placeholder" style={{ borderRadius: '4px' }}></div>
                           )}

@@ -28,6 +28,24 @@ function extractTrackInfo(info: any) {
 }
 
 export class TrackResolver {
+    static isYoutubePlaylist(query: string): boolean {
+        try {
+            const url = new URL(query.trim());
+            const host = url.hostname.toLowerCase();
+            if (!host.includes('youtube.com') && !host.includes('youtu.be')) return false;
+            const listId = url.searchParams.get('list');
+            if (!listId) return false;
+            if (url.pathname.startsWith('/playlist')) return true;
+            return !listId.startsWith('RD');
+        } catch {
+            return false;
+        }
+    }
+
+    static isSpotifyPlaylistOrAlbum(query: string): boolean {
+        return query.includes('spotify.com/playlist') || query.includes('spotify.com/album');
+    }
+
     static async resolveTrack(type: 'local' | 'url', query: string): Promise<Track> {
         let title = query;
         let artist = 'Unknown';

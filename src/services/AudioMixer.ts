@@ -12,6 +12,7 @@ interface ActiveSfx {
 
 export class AudioMixer extends Transform {
     private activeSfx: ActiveSfx[] = [];
+    private remainder: Buffer | null = null;
     public musicVolume: number = 1.0;
 
     constructor(initialMusicVolume: number = 1.0) {
@@ -24,6 +25,10 @@ export class AudioMixer extends Transform {
     }
 
     addSfx(id: number, buffer: Buffer, volume: number = 1.0, loop: boolean = false) {
+        // Ensure buffer is 2-byte aligned for s16le
+        const alignedBuffer = buffer.length % 2 === 0 ? buffer : buffer.subarray(0, buffer.length - 1);
+        if (alignedBuffer.length === 0) return;
+
         const existing = this.activeSfx.find(s => s.id === id);
         if (existing) {
             existing.volume = volume;
@@ -33,7 +38,7 @@ export class AudioMixer extends Transform {
             }
             return;
         }
-        this.activeSfx.push({ id, buffer, offset: 0, volume, loop });
+        this.activeSfx.push({ id, buffer: alignedBuffer, offset: 0, volume, loop });
     }
 
     removeSfx(id: number) {
@@ -64,16 +69,30 @@ export class AudioMixer extends Transform {
     }
 
     _transform(chunk: Buffer, encoding: BufferEncoding, callback: TransformCallback): void {
-        const chunkLen = chunk.length;
+        let working = this.remainder ? Buffer.concat([this.remainder, chunk]) : chunk;
+        const remainderBytes = working.length % 2;
+        if (remainderBytes !== 0) {
+            this.remainder = working.subarray(working.length - remainderBytes);
+            working = working.subarray(0, working.length - remainderBytes);
+        } else {
+            this.remainder = null;
+        }
+
+        const chunkLen = working.length;
+        if (chunkLen === 0) {
+            callback();
+            return;
+        }
+
         const vol = this.musicVolume;
         const hasSfx = this.activeSfx.length > 0;
 
         if (vol === 1.0 && !hasSfx) {
-            callback(null, chunk);
+            callback(null, working);
             return;
         }
 
-        const mixed = Buffer.from(chunk);
+        const mixed = Buffer.from(working);
 
         // Масштабирование громкости музыки
         if (vol !== 1.0) {
@@ -95,7 +114,17 @@ export class AudioMixer extends Transform {
 
                 while (chunkRemaining > 0) {
                     const remainingSfx = sfx.buffer.length - sfx.offset;
-                    const bytesToMix = Math.min(chunkRemaining, remainingSfx);
+                    const bytesToMix = Math.min(chunkRemaining, remainingSfx) & ~1;
+
+                    if (bytesToMix <= 0) {
+                        if (sfx.loop) {
+                            sfx.offset = 0;
+                            continue;
+                        } else {
+                            this.activeSfx.splice(sfxIdx, 1);
+                            break;
+                        }
+                    }
 
                     for (let i = 0; i < bytesToMix; i += 2) {
                         const m = mixed.readInt16LE(chunkOffset + i);
@@ -117,6 +146,9 @@ export class AudioMixer extends Transform {
                         } else {
                             // Одиночный звук завершился
                             this.activeSfx.splice(sfxIdx, 1);
+                            if (this.activeSfx.length === 0) {
+                                this.emit('empty');
+                            }
                             break;
                         }
                     }
@@ -128,15 +160,53 @@ export class AudioMixer extends Transform {
     }
 }
 
-// In-memory cache for decoded SFX PCM buffers
+// Bounded LRU cache for decoded SFX PCM buffers (max 64 MB)
+const MAX_PCM_CACHE_BYTES = 64 * 1024 * 1024;
 const pcmCache = new Map<string, Buffer>();
+const inFlightDecodes = new Map<string, Promise<Buffer>>();
+let currentCacheBytes = 0;
+
+function storeInPcmCache(filePath: string, buf: Buffer) {
+    if (pcmCache.has(filePath)) {
+        currentCacheBytes -= pcmCache.get(filePath)!.length;
+        pcmCache.delete(filePath);
+    }
+    if (buf.length > MAX_PCM_CACHE_BYTES) {
+        return; // Too large to cache in RAM
+    }
+    while (currentCacheBytes + buf.length > MAX_PCM_CACHE_BYTES && pcmCache.size > 0) {
+        const oldestKey = pcmCache.keys().next().value;
+        if (!oldestKey) break;
+        const oldestBuf = pcmCache.get(oldestKey)!;
+        currentCacheBytes -= oldestBuf.length;
+        pcmCache.delete(oldestKey);
+    }
+    pcmCache.set(filePath, buf);
+    currentCacheBytes += buf.length;
+}
+
+export function invalidateSfxPcmCache(filePath: string) {
+    const existing = pcmCache.get(filePath);
+    if (existing) {
+        currentCacheBytes -= existing.length;
+        pcmCache.delete(filePath);
+    }
+}
 
 export async function getSfxPcmBuffer(filePath: string): Promise<Buffer> {
     if (pcmCache.has(filePath)) {
-        return pcmCache.get(filePath)!;
+        const buf = pcmCache.get(filePath)!;
+        // Refresh LRU order
+        pcmCache.delete(filePath);
+        pcmCache.set(filePath, buf);
+        return buf;
     }
 
-    return new Promise((resolve, reject) => {
+    if (inFlightDecodes.has(filePath)) {
+        return inFlightDecodes.get(filePath)!;
+    }
+
+    const decodePromise = new Promise<Buffer>((resolve, reject) => {
         const proc = spawn(ffmpegPath as string, [
             '-i', filePath,
             '-af', 'loudnorm=I=-16:TP=-1.5:LRA=11',
@@ -150,14 +220,22 @@ export async function getSfxPcmBuffer(filePath: string): Promise<Buffer> {
         proc.stdout.on('data', (c: Buffer) => chunks.push(c));
         proc.stderr.on('data', () => {});
         proc.on('close', (code) => {
+            inFlightDecodes.delete(filePath);
             if (code === 0) {
-                const buf = Buffer.concat(chunks);
-                pcmCache.set(filePath, buf);
-                resolve(buf);
+                const raw = Buffer.concat(chunks);
+                const aligned = raw.length % 2 === 0 ? raw : raw.subarray(0, raw.length - 1);
+                storeInPcmCache(filePath, aligned);
+                resolve(aligned);
             } else {
                 reject(new Error(`Failed to decode SFX to PCM (exit code ${code})`));
             }
         });
-        proc.on('error', reject);
+        proc.on('error', (err) => {
+            inFlightDecodes.delete(filePath);
+            reject(err);
+        });
     });
+
+    inFlightDecodes.set(filePath, decodePromise);
+    return decodePromise;
 }

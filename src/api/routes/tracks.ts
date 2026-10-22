@@ -3,7 +3,7 @@ import { prisma } from '../../database';
 import path from 'path';
 import fs from 'fs';
 import { syncUserSoundsThrottled } from './files';
-import { PlayerManager } from '../../services/PlayerService';
+import { TrackResolver } from '../../services/TrackResolver';
 
 export default function tracksRoutes() {
     const router = Router();
@@ -19,9 +19,23 @@ export default function tracksRoutes() {
                 orderBy: [
                     { addedAt: 'desc' },
                     { id: 'desc' }
-                ]
+                ],
+                include: {
+                    playlists: {
+                        include: {
+                            playlist: {
+                                select: { id: true, name: true }
+                            }
+                        }
+                    }
+                }
             });
-            res.json(tracks);
+            const formatted = tracks.map(({ playlists, ...t }) => ({
+                ...t,
+                playlistIds: playlists.map(p => p.playlistId),
+                playlistNames: playlists.map(p => p.playlist.name)
+            }));
+            res.json(formatted);
         } catch (e: any) {
             res.status(500).json({ error: e.message });
         }
@@ -34,14 +48,12 @@ export default function tracksRoutes() {
 
         try {
             if (type === 'url') {
-                const play = (await import('play-dl')).default;
-                const validation = await play.validate(query);
-                if (validation === 'yt_playlist') {
+                if (TrackResolver.isYoutubePlaylist(query)) {
                     const youtubedl = (await import('youtube-dl-exec')).default;
                     const info = await youtubedl(query, { dumpSingleJson: true, flat: true } as any);
                     return res.json({ status: 'playlist_detected', title: (info as any).title || 'YouTube Playlist', total_tracks: (info as any).entries?.length || 0 });
                 }
-                if (query.includes('spotify.com/playlist') || query.includes('spotify.com/album')) {
+                if (TrackResolver.isSpotifyPlaylistOrAlbum(query)) {
                     // @ts-ignore
                     const spotifyUrlInfo = (await import('spotify-url-info')).default || (await import('spotify-url-info'));
                     // @ts-ignore
@@ -54,8 +66,7 @@ export default function tracksRoutes() {
                 }
             }
 
-            const guildPlayer = PlayerManager.getPlayer('default'); // Just for resolve
-            const track = await guildPlayer.resolveTrack(type, query);
+            const track = await TrackResolver.resolveTrack(type, query);
             
             const result = await prisma.track.create({
                 data: {
@@ -81,25 +92,13 @@ export default function tracksRoutes() {
         if (!query) return res.status(400).json({ error: 'No query' });
         
         try {
-            let targetPlaylistId: number | null = null;
-            
-            if (createPlaylist) {
-                const result = await prisma.playlist.create({
-                    data: {
-                        name: playlistName || 'Imported Playlist',
-                        ownerId: userId
-                    }
-                });
-                targetPlaylistId = result.id;
-            }
-
-            const play = (await import('play-dl')).default;
-            const validation = await play.validate(query);
+            const isYtPlaylist = TrackResolver.isYoutubePlaylist(query);
+            const isSpotifyList = TrackResolver.isSpotifyPlaylistOrAlbum(query);
             let tracksToImport: any[] = [];
             let ytInfo: any = null;
             let fetchedPlaylistCover: string | null = null;
 
-            if (validation === 'yt_playlist') {
+            if (isYtPlaylist) {
                 const youtubedl = (await import('youtube-dl-exec')).default;
                 ytInfo = await youtubedl(query, { dumpSingleJson: true, flat: true } as any);
                 const tracks = ytInfo.entries || [];
@@ -110,7 +109,7 @@ export default function tracksRoutes() {
                     duration: Math.round(t.duration || 0),
                     thumbnail: t.thumbnails ? t.thumbnails[0]?.url : null
                 }));
-            } else if (query.includes('spotify.com/playlist') || query.includes('spotify.com/album')) {
+            } else if (isSpotifyList) {
                 // @ts-ignore
                 const spotifyUrlInfo = (await import('spotify-url-info')).default || (await import('spotify-url-info'));
                 // @ts-ignore
@@ -128,33 +127,61 @@ export default function tracksRoutes() {
             }
 
             const reversedTracks = tracksToImport.map((t, i) => ({ ...t, originalPos: i + 1 })).reverse();
-            for (const t of reversedTracks) {
-                const result = await prisma.track.create({
-                    data: {
-                        title: t.title || 'Unknown',
-                        artist: t.artist || 'Unknown',
-                        type: 'url',
-                        query: t.query,
-                        duration: t.duration || 0,
-                        thumbnail: t.thumbnail,
-                        ownerId: userId
+
+            // Выполняем создание плейлиста и всех треков в единой транзакции SQLite
+            const targetPlaylistId = await prisma.$transaction(async (tx) => {
+                let playlistId: number | null = null;
+
+                if (createPlaylist) {
+                    let pIcon: string | null = null;
+                    if (tracksToImport.length > 0 && tracksToImport[0].thumbnail) pIcon = tracksToImport[0].thumbnail;
+                    if (isYtPlaylist && ytInfo?.thumbnails?.length > 0) {
+                        pIcon = ytInfo.thumbnails[0].url;
                     }
-                });
-                t.dbId = result.id; // Save the inserted ID to update later
-                
-                if (targetPlaylistId) {
-                    await prisma.playlistTrack.create({
+                    if (isSpotifyList) {
+                        pIcon = tracksToImport.length > 0 ? tracksToImport[0].thumbnail : null;
+                    }
+
+                    const created = await tx.playlist.create({
                         data: {
-                            playlistId: targetPlaylistId,
-                            trackId: result.id,
-                            position: t.originalPos
+                            name: playlistName || 'Imported Playlist',
+                            ownerId: userId,
+                            icon: pIcon
                         }
                     });
+                    playlistId = created.id;
                 }
-            }
+
+                for (const t of reversedTracks) {
+                    const result = await tx.track.create({
+                        data: {
+                            title: t.title || 'Unknown',
+                            artist: t.artist || 'Unknown',
+                            type: 'url',
+                            query: t.query,
+                            duration: t.duration || 0,
+                            thumbnail: t.thumbnail,
+                            ownerId: userId
+                        }
+                    });
+                    t.dbId = result.id;
+
+                    if (playlistId) {
+                        await tx.playlistTrack.create({
+                            data: {
+                                playlistId,
+                                trackId: result.id,
+                                position: t.originalPos
+                            }
+                        });
+                    }
+                }
+
+                return playlistId;
+            });
 
             // Background task to fetch real thumbnails for Spotify tracks
-            if (query.includes('spotify.com/playlist') || query.includes('spotify.com/album')) {
+            if (isSpotifyList) {
                 setTimeout(async () => {
                     try {
                         // @ts-ignore
@@ -166,7 +193,6 @@ export default function tracksRoutes() {
                             try {
                                 const preview = await spotify.getPreview(t.query);
                                 if (preview && preview.image) {
-                                    // Update the track with the new thumbnail, if it hasn't been changed manually
                                     await prisma.track.updateMany({
                                         where: { 
                                             id: t.dbId,
@@ -183,23 +209,6 @@ export default function tracksRoutes() {
                         console.error('Background spotify thumbnail fetch failed', e);
                     }
                 }, 0);
-            }
-
-            if (createPlaylist && targetPlaylistId) {
-                let pIcon = null;
-                if (tracksToImport.length > 0 && tracksToImport[0].thumbnail) pIcon = tracksToImport[0].thumbnail;
-                if (validation === 'yt_playlist' && ytInfo && ytInfo.thumbnails && ytInfo.thumbnails.length > 0) {
-                    pIcon = ytInfo.thumbnails[0].url;
-                }
-                if (query.includes('spotify.com/playlist') || query.includes('spotify.com/album')) {
-                    pIcon = tracksToImport.length > 0 ? tracksToImport[0].thumbnail : null;
-                }
-                if (pIcon) {
-                    await prisma.playlist.update({
-                        where: { id: targetPlaylistId },
-                        data: { icon: pIcon }
-                    });
-                }
             }
 
             res.json({ status: 'success', imported: tracksToImport.length, playlistId: targetPlaylistId });

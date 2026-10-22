@@ -1,12 +1,13 @@
 import React from 'react';
-import { usePlayer } from '../context/PlayerContext';
+import { usePlayer, usePlaybackProgress } from '../context/PlayerContext';
+import { resolveMediaUrl } from '../services/api';
 import { Play, Pause, SkipBack, SkipForward, Shuffle, Repeat, Volume2, VolumeX, ListMusic, Info, Swords, Search, Filter, Trash2, MoreVertical, Music, BarChart2, Home, Plus, Upload, Settings, LogOut, Palette, ChevronLeft, ChevronRight } from 'lucide-react';
 
 export const PlayerBar = () => {
   const player = usePlayer();
   const { 
       status, setStatus, tracks, setTracks, newTrackInput, setNewTrackInput,
-      seekValue, setSeekValue, playlists, setPlaylists, isModalOpen, setIsModalOpen,
+      playlists, setPlaylists, isModalOpen, setIsModalOpen,
       newPlaylistName, setNewPlaylistName, activeMenuId, setActiveMenuId,
       menuView, setMenuView, activePlaylistId, setActivePlaylistId,
       selectedTrack, setSelectedTrack, trackPlaylists, setTrackPlaylists,
@@ -17,9 +18,10 @@ export const PlayerBar = () => {
       fetchTracks, fetchPlaylists, fetchStatus, handleAction, handleAddTrack,
       handleImportPlaylist, deleteTrackCompletely, deleteTrackFromPlaylist,
       handleDeleteTrack, handlePlayTrack, handleFileUpload, handleCreatePlaylist,
-      handleAddToPlaylist, formatTime, toggleTheme, handleRightToggle,
-      USER_ID, duration, elapsed, filteredTracks, playlistName
+      handleAddToPlaylist, toggleTheme, handleRightToggle,
+      USER_ID, filteredTracks, playlistName
   } = player;
+  const { elapsed, duration, setSeekValue, formatTime } = usePlaybackProgress();
 
   const lastNonZeroVolume = React.useRef(player.musicVolume > 0 ? player.musicVolume : 0.8);
   if (player.musicVolume > 0) {
@@ -42,7 +44,7 @@ export const PlayerBar = () => {
             <>
               <div className="track-icon-lg">
                 {status.currentTrack.thumbnail ? (
-                  <img src={status.currentTrack.thumbnail.startsWith('/') ? `http://localhost:3001${status.currentTrack.thumbnail}` : status.currentTrack.thumbnail} style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '4px' }} alt="thumb" />
+                  <img src={resolveMediaUrl(status.currentTrack.thumbnail)} style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '4px' }} alt="thumb" />
                 ) : (
                   <Music size={24} />
                 )}

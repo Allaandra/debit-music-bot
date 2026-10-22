@@ -1,9 +1,10 @@
 import React from 'react';
-import { usePlayer } from '../context/PlayerContext';
+import { useLibrary } from '../context/PlayerContext';
+import { resolveMediaUrl } from '../services/api';
 import { Music } from 'lucide-react';
 
 export const RightInfoPanel = () => {
-  const { status, selectedTrack, trackPlaylists } = usePlayer();
+  const { selectedTrack, trackPlaylists } = useLibrary();
 
   return (
     <>
@@ -11,7 +12,7 @@ export const RightInfoPanel = () => {
         <div className="ti-stair-1">
           <div className="large-art" style={{ position: 'relative' }}>
             {selectedTrack && selectedTrack.thumbnail ? (
-              <img src={selectedTrack.thumbnail.startsWith('/') ? `http://localhost:3001${selectedTrack.thumbnail}` : selectedTrack.thumbnail} style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '16px' }} alt="art" />
+              <img src={resolveMediaUrl(selectedTrack.thumbnail)} style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '16px' }} alt="art" />
             ) : (
               <div className="art-placeholder" style={{ borderRadius: '16px' }}></div>
             )}

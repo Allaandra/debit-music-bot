@@ -1,5 +1,5 @@
 import React from 'react';
-import { PlayerProvider, usePlayer } from './context/PlayerContext';
+import { PlayerProvider, useAuth, useUI } from './context/PlayerContext';
 import { LeftSidebar } from './components/LeftSidebar';
 import { MainPanel } from './components/MainPanel';
 import { RightSidebar } from './components/RightSidebar';
@@ -19,8 +19,8 @@ import './assets/css/SfxPanel.css';
 import { api, BASE_URL } from './services/api';
 
 function AppLayout() {
-  const { theme, setActiveMenuId, setMenuView } = usePlayer();
-  const { user, loadingUser } = usePlayer();
+  const { theme, setActiveMenuId, setMenuView } = useUI();
+  const { user, loadingUser } = useAuth();
 
   if (loadingUser) return <div style={{ color: 'white', padding: 50 }}>Loading...</div>;
 

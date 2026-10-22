@@ -23,6 +23,8 @@ export interface Track {
   platform?: string;
   addedAt?: string;
   name?: string; // fallback in legacy objects
+  playlistIds?: number[];
+  playlistNames?: string[];
 }
 
 export interface Playlist {

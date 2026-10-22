@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../services/api';
-import { usePlayer } from '../context/PlayerContext';
+import { usePlayback } from '../context/PlayerContext';
 import { 
   Swords, 
   Plus, 
@@ -142,7 +142,7 @@ export const RightSfxPanel: React.FC = () => {
     queryFn: api.fetchSfxPlaylists
   });
 
-  const { sfxVolume = 0.8, status } = usePlayer();
+  const { sfxVolume = 0.8, status } = usePlayback();
   const loopingSfx = status?.loopingSfx || [];
   const isSoundLooping = (soundId: number) => loopingSfx.includes(soundId);
 

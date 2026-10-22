@@ -1,13 +1,16 @@
 import path from 'path';
 import fs from 'fs';
 import { Client } from 'discord.js';
-import { joinVoiceChannel } from '@discordjs/voice';
 import { prisma } from '../database';
 import { PlayerManager } from './PlayerService';
+import { invalidateSfxPcmCache } from './AudioMixer';
+
+const SFX_SYNC_THROTTLE_MS = 15000;
 
 export class SfxService {
     private soundsDir = path.resolve(__dirname, '../..', 'sounds');
     private initializedUsers = new Set<string>();
+    private userLastSync = new Map<string, number>();
 
     getSoundFilePath(sound: { ownerId: string; filename: string }): string {
         const userPath = path.join(this.soundsDir, sound.ownerId, 'sfx', sound.filename);
@@ -173,7 +176,14 @@ export class SfxService {
         }
     }
 
-    async syncSfxSounds(userId: string): Promise<void> {
+    async syncSfxSounds(userId: string, force: boolean = false): Promise<void> {
+        const now = Date.now();
+        const lastSync = this.userLastSync.get(userId) || 0;
+        if (!force && now - lastSync < SFX_SYNC_THROTTLE_MS) {
+            return;
+        }
+        this.userLastSync.set(userId, now);
+
         try {
             const userSfxDir = path.join(this.soundsDir, userId, 'sfx');
             if (!fs.existsSync(userSfxDir)) {
@@ -185,20 +195,23 @@ export class SfxService {
                 f.endsWith('.mp3') || f.endsWith('.wav') || f.endsWith('.ogg') || f.endsWith('.m4a')
             );
 
-            const firstPlaylist = await prisma.sfxPlaylist.findFirst({
-                where: { ownerId: userId },
-                orderBy: { order: 'asc' }
-            });
+            const [firstPlaylist, dbSounds] = await Promise.all([
+                prisma.sfxPlaylist.findFirst({
+                    where: { ownerId: userId },
+                    orderBy: { order: 'asc' }
+                }),
+                prisma.sfxSound.findMany({
+                    where: { ownerId: userId }
+                })
+            ]);
+
             if (!firstPlaylist) return;
 
+            const existingByFilename = new Set(dbSounds.map(s => s.filename));
             const mm = await import('music-metadata');
 
             for (const file of files) {
-                const existing = await prisma.sfxSound.findFirst({
-                    where: { ownerId: userId, filename: file }
-                });
-
-                if (!existing) {
+                if (!existingByFilename.has(file)) {
                     let duration: number | null = null;
                     try {
                         const meta = await mm.parseFile(path.join(userSfxDir, file));
@@ -220,12 +233,10 @@ export class SfxService {
             }
 
             // Cleanup DB records if file was deleted on disk
-            const dbSounds = await prisma.sfxSound.findMany({
-                where: { ownerId: userId }
-            });
             for (const s of dbSounds) {
                 const fp = this.getSoundFilePath(s);
                 if (!fs.existsSync(fp)) {
+                    invalidateSfxPcmCache(fp);
                     await prisma.sfxSound.delete({ where: { id: s.id } });
                 }
             }
@@ -301,6 +312,7 @@ export class SfxService {
 
         for (const s of playlist.sounds) {
             const filePath = path.join(this.soundsDir, userId, 'sfx', s.filename);
+            invalidateSfxPcmCache(filePath);
             if (fs.existsSync(filePath)) {
                 fs.unlinkSync(filePath);
             }
@@ -364,6 +376,7 @@ export class SfxService {
         if (!sound) return false;
 
         const filePath = path.join(this.soundsDir, userId, 'sfx', sound.filename);
+        invalidateSfxPcmCache(filePath);
         if (fs.existsSync(filePath)) {
             fs.unlinkSync(filePath);
         }
@@ -390,29 +403,7 @@ export class SfxService {
             throw new Error('Sound not found');
         }
 
-        const session = await prisma.activeSession.findUnique({
-            where: { userId }
-        });
-
-        if (!session) {
-            throw new Error('Bot is not connected to a voice channel');
-        }
-
-        const { guildId, channelId } = session;
-        const guild = client.guilds.cache.get(guildId);
-        if (!guild) {
-            throw new Error('Discord server not found');
-        }
-
-        const guildPlayer = PlayerManager.getPlayer(guildId);
-
-        if (!guildPlayer.connection || guildPlayer.connection.joinConfig.channelId !== channelId) {
-            guildPlayer.connection = joinVoiceChannel({
-                channelId,
-                guildId,
-                adapterCreator: guild.voiceAdapterCreator,
-            });
-        }
+        const { guildPlayer } = await PlayerManager.ensureUserConnection(client, userId);
 
         const sfxPath = this.getSoundFilePath(sound);
         if (!fs.existsSync(sfxPath)) {

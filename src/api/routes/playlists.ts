@@ -119,13 +119,30 @@ export default function playlistsRoutes() {
             const playlistTracks = await prisma.playlistTrack.findMany({
                 where: { playlistId },
                 orderBy: { position: 'asc' },
-                include: { track: true }
+                include: {
+                    track: {
+                        include: {
+                            playlists: {
+                                include: {
+                                    playlist: {
+                                        select: { id: true, name: true }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
             });
             
-            const tracks = playlistTracks.map(pt => ({
-                ...pt.track,
-                position: pt.position
-            }));
+            const tracks = playlistTracks.map(pt => {
+                const { playlists, ...trackData } = pt.track;
+                return {
+                    ...trackData,
+                    position: pt.position,
+                    playlistIds: playlists.map(p => p.playlistId),
+                    playlistNames: playlists.map(p => p.playlist.name)
+                };
+            });
             
             res.json(tracks);
         } catch (e: any) {

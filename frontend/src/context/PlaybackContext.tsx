@@ -32,6 +32,78 @@ export const usePlayback = (): PlaybackContextValue => {
   return context;
 };
 
+export interface PlaybackProgressContextValue {
+  elapsed: number;
+  duration: number;
+  seekValue: number | null;
+  setSeekValue: (val: number | null) => void;
+  formatTime: (seconds: number) => string;
+}
+
+const PlaybackProgressContext = createContext<PlaybackProgressContextValue | null>(null);
+
+export const usePlaybackProgress = (): PlaybackProgressContextValue => {
+  const context = useContext(PlaybackProgressContext);
+  if (!context) {
+    throw new Error('usePlaybackProgress must be used within a PlaybackProvider');
+  }
+  return context;
+};
+
+const formatTimeHelper = (seconds: number): string => {
+  if (!seconds || isNaN(seconds)) return '0:00';
+  const m = Math.floor(seconds / 60);
+  const s = Math.floor(seconds % 60);
+  return `${m}:${s.toString().padStart(2, '0')}`;
+};
+
+const PlaybackProgressProvider: React.FC<{
+  status: PlayerStatus;
+  children: React.ReactNode;
+}> = ({ status, children }) => {
+  const [liveElapsed, setLiveElapsed] = useState<number>(status.elapsed || 0);
+  const [seekValue, setSeekValue] = useState<number | null>(null);
+
+  // Sync with server status updates
+  useEffect(() => {
+    setLiveElapsed(status.elapsed || 0);
+  }, [status.elapsed, status.currentTrack?.query, status.isPlaying, status.isPaused]);
+
+  // Smooth local 1s timer isolated in PlaybackProgressProvider so the rest of the app never re-renders
+  useEffect(() => {
+    if (!status.isPlaying || status.isPaused) return;
+
+    const timer = setInterval(() => {
+      setLiveElapsed(prev => {
+        const trackDuration = status.currentTrack?.duration || status.duration || 0;
+        if (trackDuration > 0 && prev >= trackDuration) {
+          return prev;
+        }
+        return prev + 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [status.isPlaying, status.isPaused, status.currentTrack?.duration, status.duration]);
+
+  const duration = status.currentTrack?.duration || status.duration || 0;
+  const elapsed = seekValue !== null ? seekValue : liveElapsed;
+
+  return (
+    <PlaybackProgressContext.Provider
+      value={{
+        elapsed,
+        duration,
+        seekValue,
+        setSeekValue,
+        formatTime: formatTimeHelper
+      }}
+    >
+      {children}
+    </PlaybackProgressContext.Provider>
+  );
+};
+
 export const PlaybackProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [status, setStatus] = useState<PlayerStatus>({
     currentTrack: null,
@@ -103,7 +175,6 @@ export const PlaybackProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     socketRef.current = socket;
 
     socket.on('connect', () => {
-      console.log('[Socket] Connected to server');
       if (guildIdRef.current) {
         socket.emit('subscribe', guildIdRef.current);
       }
@@ -124,10 +195,6 @@ export const PlaybackProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       }
     });
 
-    socket.on('disconnect', (reason) => {
-      console.log('[Socket] Disconnected:', reason);
-    });
-
     return () => {
       socket.disconnect();
     };
@@ -139,28 +206,6 @@ export const PlaybackProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       socketRef.current.emit('subscribe', guildId);
     }
   }, [guildId]);
-
-  // Smooth local playback progress timer
-  useEffect(() => {
-    if (!status.isPlaying || status.isPaused) return;
-
-    const timer = setInterval(() => {
-      setStatus(prev => {
-        if (!prev.isPlaying || prev.isPaused) return prev;
-        const trackDuration = prev.currentTrack?.duration || prev.duration || 0;
-        const currentElapsed = prev.elapsed || 0;
-        if (trackDuration > 0 && currentElapsed >= trackDuration) {
-          return prev;
-        }
-        return {
-          ...prev,
-          elapsed: currentElapsed + 1
-        };
-      });
-    }, 1000);
-
-    return () => clearInterval(timer);
-  }, [status.isPlaying, status.isPaused]);
 
   // Initial fetch and 15s fallback sync
   useEffect(() => {
@@ -231,13 +276,6 @@ export const PlaybackProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     }
   };
 
-  const formatTime = (seconds: number): string => {
-    if (!seconds || isNaN(seconds)) return '0:00';
-    const m = Math.floor(seconds / 60);
-    const s = Math.floor(seconds % 60);
-    return `${m}:${s.toString().padStart(2, '0')}`;
-  };
-
   const duration = status.currentTrack?.duration || status.duration || 0;
   const elapsed = seekValue !== null ? seekValue : (status.elapsed || 0);
 
@@ -256,13 +294,15 @@ export const PlaybackProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         handleVolumeChange,
         duration,
         elapsed,
-        formatTime,
+        formatTime: formatTimeHelper,
         fetchStatus,
         handleAction,
         handlePlayTrack
       }}
     >
-      {children}
+      <PlaybackProgressProvider status={status}>
+        {children}
+      </PlaybackProgressProvider>
     </PlaybackContext.Provider>
   );
 };

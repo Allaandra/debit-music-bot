@@ -1,5 +1,7 @@
 import { VoiceConnection, joinVoiceChannel } from '@discordjs/voice';
+import { Client } from 'discord.js';
 import { EventEmitter } from 'events';
+import { prisma } from '../database';
 import { Track } from './types';
 import { TrackResolver } from './TrackResolver';
 import { QueueManager } from './QueueManager';
@@ -189,6 +191,38 @@ export class PlayerManagerClass extends EventEmitter {
             });
         }
         return this.players.get(guildId)!;
+    }
+
+    async ensureUserConnection(client: Client, userId: string): Promise<{ guildPlayer: PlayerService; guildId: string; channelId: string }> {
+        const session = await prisma.activeSession.findUnique({
+            where: { userId }
+        });
+
+        if (!session) {
+            const err: any = new Error('Бот не привязан к голосовому каналу (зайдите в голосовой канал Discord)');
+            err.statusCode = 404;
+            throw err;
+        }
+
+        const { guildId, channelId } = session;
+        const guild = client.guilds.cache.get(guildId);
+        if (!guild) {
+            const err: any = new Error('Сервер Discord не найден');
+            err.statusCode = 404;
+            throw err;
+        }
+
+        const guildPlayer = this.getPlayer(guildId);
+
+        if (!guildPlayer.connection || guildPlayer.connection.joinConfig.channelId !== channelId) {
+            guildPlayer.connection = joinVoiceChannel({
+                channelId,
+                guildId,
+                adapterCreator: guild.voiceAdapterCreator,
+            });
+        }
+
+        return { guildPlayer, guildId, channelId };
     }
 
     stopAll() {

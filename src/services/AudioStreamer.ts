@@ -1,10 +1,12 @@
 import { AudioPlayer, createAudioPlayer, VoiceConnection, createAudioResource, StreamType } from '@discordjs/voice';
-import { spawn } from 'child_process';
+import { spawn, ChildProcess } from 'child_process';
 import ffmpegPath from 'ffmpeg-static';
 import path from 'path';
 import { Track } from './types';
 import { EventEmitter } from 'events';
 import { AudioMixer, getSfxPcmBuffer } from './AudioMixer';
+
+const AMBIENCE_IDLE_TIMEOUT_MS = 5000;
 
 export class AudioStreamer extends EventEmitter {
     player: AudioPlayer;
@@ -19,11 +21,11 @@ export class AudioStreamer extends EventEmitter {
     startTimestamp: number = 0;
     seekOffset: number = 0; 
     
-    private currentFfmpegProcess: any = null;
-    private currentEncoderProcess: any = null;
-    private currentSfxProcess: any = null;
-    private silenceProcess: any = null;
+    private currentFfmpegProcess: ChildProcess | null = null;
+    private currentEncoderProcess: ChildProcess | null = null;
+    private silenceProcess: ChildProcess | null = null;
     private mixer: AudioMixer | null = null;
+    private ambienceIdleTimer: ReturnType<typeof setTimeout> | null = null;
     private loopingSfx: Map<number, { filePath: string; volume: number }> = new Map();
 
     constructor() {
@@ -42,90 +44,27 @@ export class AudioStreamer extends EventEmitter {
         });
     }
 
-    async play(track: Track, offsetSeconds: number = 0) {
-        this.stopCurrentProcesses();
-        
-        this.currentTrack = track;
-        this.seekOffset = offsetSeconds;
-        this.startTimestamp = Date.now();
-        this.isPlaying = true;
-        this.isPaused = false;
-
-        let input: any = null;
-
-        if (track.type === 'local') {
-            input = path.join(__dirname, '..', '..', 'sounds', track.query);
-        } else {
-            // track.url теперь содержит ПРЯМУЮ ссылку на медиа-файл (googlevideo.com/...)
-            input = track.url;
+    private clearAmbienceIdleTimer() {
+        if (this.ambienceIdleTimer) {
+            clearTimeout(this.ambienceIdleTimer);
+            this.ambienceIdleTimer = null;
         }
+    }
 
-        if (!input || typeof input !== 'string') {
-            throw new Error('Некорректный адрес или файл для воспроизведения');
-        }
+    private scheduleAmbienceIdleCheck() {
+        this.clearAmbienceIdleTimer();
+        if (this.isPlaying && !this.isPaused) return;
+        if (this.loopingSfx.size > 0) return;
 
-        if (track.type === 'url' && !input.startsWith('http')) {
-            throw new Error(`Не удалось получить прямой поток воспроизведения для трека: ${track.title}`);
-        }
-
-        const isFileOrUrl = typeof input === 'string';
-        const isUrl = isFileOrUrl && input.startsWith('http');
-        const ffmpegArgs = [];
-        
-        if (isUrl) {
-            // Флаги для автоматического переподключения
-            ffmpegArgs.push(
-                '-reconnect', '1',
-                '-reconnect_streamed', '1',
-                '-reconnect_delay_max', '5',
-                '-reconnect_on_network_error', '1',
-                '-reconnect_on_http_error', '4xx,5xx'
-            );
-        }
-
-        if (isFileOrUrl && !isUrl && offsetSeconds > 0) {
-            ffmpegArgs.push('-ss', offsetSeconds.toString());
-        }
-
-        ffmpegArgs.push('-i', input);
-
-        if (isUrl && offsetSeconds > 0) {
-            ffmpegArgs.push('-ss', offsetSeconds.toString());
-        }
-
-        // Decode to raw 16-bit 48kHz stereo PCM for the mixer
-        ffmpegArgs.push(
-            '-f', 's16le',
-            '-ar', '48000',
-            '-ac', '2',
-            'pipe:1'
-        );
-        
-        this.currentFfmpegProcess = spawn(ffmpegPath as string, ffmpegArgs, { stdio: ['ignore', 'pipe', 'pipe'] });
-
-        this.currentFfmpegProcess.stderr.on('data', (data: any) => {
-            const msg = data.toString();
-            if (msg.includes('Error') && !msg.includes('-10054') && !msg.includes('Will reconnect')) {
-                console.error('FFmpeg Decoder Error:', msg);
+        this.ambienceIdleTimer = setTimeout(() => {
+            this.ambienceIdleTimer = null;
+            if ((!this.isPlaying || this.isPaused) && this.loopingSfx.size === 0 && !this.mixer?.hasActiveSfx()) {
+                this.stopAmbienceStream();
             }
-        });
+        }, AMBIENCE_IDLE_TIMEOUT_MS);
+    }
 
-        this.currentFfmpegProcess.on('error', (err: any) => {
-            console.error('FFmpeg Decoder spawn error:', err.message);
-            this.emit('error', err);
-        });
-
-        this.mixer = new AudioMixer(this.volume);
-
-        for (const [id, sfx] of this.loopingSfx.entries()) {
-            try {
-                const buf = await getSfxPcmBuffer(sfx.filePath);
-                this.mixer.addSfx(id, buf, sfx.volume, true);
-            } catch (err: any) {
-                console.error(`Failed to reattach looping SFX ${id}:`, err.message);
-            }
-        }
-
+    private createEncoderProcess(label: string): ChildProcess {
         const encoderArgs = [
             '-f', 's16le',
             '-ar', '48000',
@@ -138,74 +77,147 @@ export class AudioStreamer extends EventEmitter {
             'pipe:1'
         ];
 
-        this.currentEncoderProcess = spawn(ffmpegPath as string, encoderArgs, { stdio: ['pipe', 'pipe', 'pipe'] });
+        const proc = spawn(ffmpegPath as string, encoderArgs, { stdio: ['pipe', 'pipe', 'pipe'] });
 
-        this.currentEncoderProcess.stderr.on('data', (data: any) => {
+        proc.stderr?.on('data', (data: Buffer) => {
             const msg = data.toString();
             if (msg.includes('Error') && !msg.includes('-10054')) {
-                console.error('FFmpeg Encoder Error:', msg);
+                console.error(`FFmpeg ${label} Encoder Error:`, msg);
             }
         });
 
-        this.currentEncoderProcess.on('error', (err: any) => {
-            console.error('FFmpeg Encoder spawn error:', err.message);
+        proc.on('error', (err: Error) => {
+            console.error(`FFmpeg ${label} Encoder spawn error:`, err.message);
             this.emit('error', err);
         });
 
-        this.currentEncoderProcess.stdin.on('error', (err: any) => {
+        proc.stdin?.on('error', (err: NodeJS.ErrnoException) => {
             if (err.code !== 'EPIPE' && err.code !== 'EOF') {
-                console.error('FFmpeg Encoder stdin error:', err.message || err);
+                console.error(`FFmpeg ${label} Encoder stdin error:`, err.message || err);
             }
         });
 
-        this.mixer.on('error', (err: any) => {
+        return proc;
+    }
+
+    private async createMixerWithLoops(): Promise<AudioMixer> {
+        const mixer = new AudioMixer(this.volume);
+        mixer.on('error', (err: Error) => {
             console.error('AudioMixer stream error:', err.message || err);
         });
+        mixer.on('empty', () => {
+            this.scheduleAmbienceIdleCheck();
+        });
 
-        this.currentFfmpegProcess.stdout.on('error', (err: any) => {
+        for (const [id, sfx] of this.loopingSfx.entries()) {
+            try {
+                const buf = await getSfxPcmBuffer(sfx.filePath);
+                mixer.addSfx(id, buf, sfx.volume, true);
+            } catch (err: any) {
+                console.error(`Failed to attach looping SFX ${id}:`, err.message);
+            }
+        }
+
+        return mixer;
+    }
+
+    async play(track: Track, offsetSeconds: number = 0) {
+        this.clearAmbienceIdleTimer();
+        this.stopCurrentProcesses();
+        
+        this.currentTrack = track;
+        this.seekOffset = offsetSeconds;
+        this.startTimestamp = Date.now();
+        this.isPlaying = true;
+        this.isPaused = false;
+
+        const input = track.type === 'local'
+            ? path.join(__dirname, '..', '..', 'sounds', track.query)
+            : track.url;
+
+        if (!input || typeof input !== 'string') {
+            throw new Error('Некорректный адрес или файл для воспроизведения');
+        }
+
+        if (track.type === 'url' && !input.startsWith('http')) {
+            throw new Error(`Не удалось получить прямой поток воспроизведения для трека: ${track.title}`);
+        }
+
+        const isUrl = input.startsWith('http');
+        const ffmpegArgs: string[] = [];
+        
+        if (isUrl) {
+            // Флаги для автоматического переподключения
+            ffmpegArgs.push(
+                '-reconnect', '1',
+                '-reconnect_streamed', '1',
+                '-reconnect_delay_max', '5',
+                '-reconnect_on_network_error', '1',
+                '-reconnect_on_http_error', '4xx,5xx'
+            );
+        }
+
+        // Быстрый input-seek (-ss до -i) работает и для локальных файлов, и для HTTP-потоков через Range-запросы
+        if (offsetSeconds > 0) {
+            ffmpegArgs.push('-ss', offsetSeconds.toString());
+        }
+
+        ffmpegArgs.push('-i', input);
+
+        // Decode to raw 16-bit 48kHz stereo PCM for the mixer
+        ffmpegArgs.push(
+            '-f', 's16le',
+            '-ar', '48000',
+            '-ac', '2',
+            'pipe:1'
+        );
+        
+        this.currentFfmpegProcess = spawn(ffmpegPath as string, ffmpegArgs, { stdio: ['ignore', 'pipe', 'pipe'] });
+
+        this.currentFfmpegProcess.stderr?.on('data', (data: Buffer) => {
+            const msg = data.toString();
+            if (msg.includes('Error') && !msg.includes('-10054') && !msg.includes('Will reconnect')) {
+                console.error('FFmpeg Decoder Error:', msg);
+            }
+        });
+
+        this.currentFfmpegProcess.on('error', (err: Error) => {
+            console.error('FFmpeg Decoder spawn error:', err.message);
+            this.emit('error', err);
+        });
+
+        this.currentFfmpegProcess.stdout?.on('error', (err: Error) => {
             console.error('FFmpeg Decoder stdout error:', err.message || err);
         });
 
-        this.currentFfmpegProcess.stdout.pipe(this.mixer).pipe(this.currentEncoderProcess.stdin);
+        this.mixer = await this.createMixerWithLoops();
+        this.currentEncoderProcess = this.createEncoderProcess('Music');
+
+        if (this.currentFfmpegProcess.stdout && this.currentEncoderProcess.stdin) {
+            this.currentFfmpegProcess.stdout.pipe(this.mixer).pipe(this.currentEncoderProcess.stdin);
+        }
         
-        const resource = createAudioResource(this.currentEncoderProcess.stdout, { inputType: StreamType.OggOpus });
+        const resource = createAudioResource(this.currentEncoderProcess.stdout!, { inputType: StreamType.OggOpus });
         this.player.play(resource);
         this.emit('play', track);
     }
 
     async playSfx(soundId: number, sfxFilePath: string, volume: number = 1.0, loop: boolean = false) {
         try {
+            this.clearAmbienceIdleTimer();
             const pcmBuf = await getSfxPcmBuffer(sfxFilePath);
             if (loop) {
                 this.loopingSfx.set(soundId, { filePath: sfxFilePath, volume });
             }
 
-            if (this.isPlaying && !this.isPaused && this.mixer) {
-                // Overlay on top of playing music!
-                this.mixer.addSfx(soundId, pcmBuf, volume, loop);
-            } else if (this.silenceProcess && this.mixer) {
-                // Ambience stream is already running!
-                this.mixer.addSfx(soundId, pcmBuf, volume, loop);
-            } else if (loop) {
-                // Start ambience stream for this loop!
+            // Если музыка не играет, используем (или запускаем) микшер эмбиент-потока —
+            // это позволяет воспроизводить SFX мгновенно из RAM-кэша и накладывать несколько звуков друг на друга
+            if ((!this.isPlaying || this.isPaused) && (!this.silenceProcess || !this.mixer)) {
                 await this.startAmbienceStream();
-            } else {
-                // Single-shot SFX when nothing else is playing
-                if (this.currentSfxProcess) {
-                    this.currentSfxProcess.kill();
-                    this.currentSfxProcess = null;
-                }
-                const sfxArgs = [
-                    '-i', sfxFilePath,
-                    '-af', `loudnorm=I=-16:TP=-1.5:LRA=11,volume=${volume}`,
-                    '-c:a', 'libopus',
-                    '-b:a', '128k',
-                    '-f', 'ogg',
-                    'pipe:1'
-                ];
-                this.currentSfxProcess = spawn(ffmpegPath as string, sfxArgs, { stdio: ['ignore', 'pipe', 'pipe'] });
-                const resource = createAudioResource(this.currentSfxProcess.stdout, { inputType: StreamType.OggOpus });
-                this.player.play(resource);
+            }
+
+            if (this.mixer) {
+                this.mixer.addSfx(soundId, pcmBuf, volume, loop);
             }
         } catch (e: any) {
             console.error('Failed to play SFX:', e.message);
@@ -217,12 +229,13 @@ export class AudioStreamer extends EventEmitter {
         if (this.mixer) {
             this.mixer.removeSfx(soundId);
         }
-        if (!this.isPlaying && this.loopingSfx.size === 0) {
+        if (!this.isPlaying && this.loopingSfx.size === 0 && !this.mixer?.hasActiveSfx()) {
             this.stopAmbienceStream();
         }
     }
 
     stopAllSfxLoops() {
+        this.clearAmbienceIdleTimer();
         this.loopingSfx.clear();
         if (this.mixer) {
             this.mixer.clearSfx();
@@ -252,54 +265,24 @@ export class AudioStreamer extends EventEmitter {
         ];
 
         this.silenceProcess = spawn(ffmpegPath as string, silenceArgs, { stdio: ['ignore', 'pipe', 'pipe'] });
-        this.silenceProcess.on('error', (err: any) => console.error('FFmpeg Silence spawn error:', err.message));
-
-        this.mixer = new AudioMixer(this.volume);
-
-        for (const [id, sfx] of this.loopingSfx.entries()) {
-            try {
-                const buf = await getSfxPcmBuffer(sfx.filePath);
-                this.mixer.addSfx(id, buf, sfx.volume, true);
-            } catch (err: any) {
-                console.error(`Failed to attach looping SFX ${id}:`, err.message);
-            }
-        }
-
-        const encoderArgs = [
-            '-f', 's16le',
-            '-ar', '48000',
-            '-ac', '2',
-            '-i', 'pipe:0',
-            '-c:a', 'libopus',
-            '-b:a', '128k',
-            '-f', 'ogg',
-            '-af', 'dynaudnorm=f=200:g=5:r=0.9',
-            'pipe:1'
-        ];
-
-        this.currentEncoderProcess = spawn(ffmpegPath as string, encoderArgs, { stdio: ['pipe', 'pipe', 'pipe'] });
-        this.currentEncoderProcess.on('error', (err: any) => console.error('FFmpeg Ambience Encoder spawn error:', err.message));
-        this.currentEncoderProcess.stdin.on('error', (err: any) => {
-            if (err.code !== 'EPIPE' && err.code !== 'EOF') {
-                console.error('FFmpeg Ambience Encoder stdin error:', err.message || err);
-            }
-        });
-
-        this.mixer.on('error', (err: any) => {
-            console.error('Ambience AudioMixer stream error:', err.message || err);
-        });
-
-        this.silenceProcess.stdout.on('error', (err: any) => {
+        this.silenceProcess.on('error', (err: Error) => console.error('FFmpeg Silence spawn error:', err.message));
+        this.silenceProcess.stdout?.on('error', (err: Error) => {
             console.error('FFmpeg Silence stdout error:', err.message || err);
         });
 
-        this.silenceProcess.stdout.pipe(this.mixer).pipe(this.currentEncoderProcess.stdin);
+        this.mixer = await this.createMixerWithLoops();
+        this.currentEncoderProcess = this.createEncoderProcess('Ambience');
 
-        const resource = createAudioResource(this.currentEncoderProcess.stdout, { inputType: StreamType.OggOpus });
+        if (this.silenceProcess.stdout && this.currentEncoderProcess.stdin) {
+            this.silenceProcess.stdout.pipe(this.mixer).pipe(this.currentEncoderProcess.stdin);
+        }
+
+        const resource = createAudioResource(this.currentEncoderProcess.stdout!, { inputType: StreamType.OggOpus });
         this.player.play(resource);
     }
 
     stopAmbienceStream() {
+        this.clearAmbienceIdleTimer();
         if (this.silenceProcess) {
             try {
                 this.silenceProcess.stdout?.unpipe();
@@ -326,6 +309,7 @@ export class AudioStreamer extends EventEmitter {
     }
 
     stopCurrentProcesses() {
+        this.clearAmbienceIdleTimer();
         if (this.currentFfmpegProcess) {
             try {
                 this.currentFfmpegProcess.stdout?.unpipe();
@@ -346,12 +330,6 @@ export class AudioStreamer extends EventEmitter {
                 this.currentEncoderProcess.kill();
             } catch (e) {}
             this.currentEncoderProcess = null;
-        }
-        if (this.currentSfxProcess) {
-            try {
-                this.currentSfxProcess.kill();
-            } catch (e) {}
-            this.currentSfxProcess = null;
         }
         if (this.mixer) {
             try {

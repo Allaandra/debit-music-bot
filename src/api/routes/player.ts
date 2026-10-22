@@ -1,6 +1,5 @@
 import { Router } from 'express';
 import { Client } from 'discord.js';
-import { joinVoiceChannel } from '@discordjs/voice';
 import { prisma } from '../../database';
 import { PlayerManager } from '../../services/PlayerService';
 
@@ -17,30 +16,7 @@ export default function playerRoutes(client: Client) {
         }
 
         try {
-            const session = await prisma.activeSession.findUnique({
-                where: { userId }
-            });
-
-            if (!session) {
-                return res.status(404).json({ error: 'Сессия не найдена' });
-            }
-
-            const { guildId, channelId } = session;
-            const guild = client.guilds.cache.get(guildId);
-            if (!guild) {
-                return res.status(404).json({ error: 'Сервер не найден' });
-            }
-
-            const guildPlayer = PlayerManager.getPlayer(guildId);
-
-            // Подключаемся или переходим в нужный канал
-            if (!guildPlayer.connection || guildPlayer.connection.joinConfig.channelId !== channelId) {
-                guildPlayer.connection = joinVoiceChannel({
-                    channelId: channelId,
-                    guildId: guildId,
-                    adapterCreator: client.guilds.cache.get(guildId)!.voiceAdapterCreator,
-                });
-            }
+            const { guildPlayer, guildId } = await PlayerManager.ensureUserConnection(client, userId);
 
             const track = await guildPlayer.resolveTrack(type, query);
             await guildPlayer.play(track);
@@ -120,6 +96,9 @@ export default function playerRoutes(client: Client) {
             });
         }
         catch (error: any) {
+            if (error.statusCode === 404) {
+                return res.status(404).json({ error: error.message });
+            }
             console.error('Ошибка воспроизведения:', error);
             res.status(500).json({ error: 'Ошибка сервера при запуске трека', details: error.message });
         }

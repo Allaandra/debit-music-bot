@@ -125,10 +125,12 @@ export async function syncUserSoundsThrottled(userId: string): Promise<void> {
     await syncSounds(userId);
 }
 
-// Запускаем синхронизацию при старте и раз в 5 минут
-syncSounds();
-const syncInterval = setInterval(() => syncSounds(), 5 * 60 * 1000);
-syncInterval.unref();
+export function startBackgroundSoundSync(): () => void {
+    syncSounds();
+    const syncInterval = setInterval(() => syncSounds(), 5 * 60 * 1000);
+    syncInterval.unref();
+    return () => clearInterval(syncInterval);
+}
 
 export default function filesRoutes() {
     const router = Router();
@@ -144,10 +146,22 @@ export default function filesRoutes() {
             cb(null, dir);
         },
         filename: (req: any, file: any, cb: any) => {
-            cb(null, path.basename(file.originalname));
+            const cleanName = path.basename(file.originalname).replace(/[<>:"/\\|?*\x00-\x1F]/g, '_');
+            cb(null, cleanName);
         }
     });
-    const upload = multer({ storage });
+
+    const upload = multer({
+        storage,
+        limits: { fileSize: 50 * 1024 * 1024 }, // 50 MB max
+        fileFilter: (_req, file, cb) => {
+            const ext = path.extname(file.originalname).toLowerCase();
+            if (!AUDIO_EXTENSIONS.has(ext)) {
+                return cb(new Error(`Неподдерживаемый формат файла: ${ext}`));
+            }
+            cb(null, true);
+        }
+    });
 
     router.post('/upload', upload.single('file'), async (req: any, res) => {
         const userId = req.user?.id;

@@ -1,6 +1,6 @@
 {
   "name": "bot",
-  "version": "2.6.0",
+  "version": "3.0.0",
   "description": "",
   "main": "index.js",
   "scripts": {
@@ -14,9 +14,7 @@
   "type": "commonjs",
   "dependencies": {
     "@discordjs/voice": "^0.19.2",
-    "@distube/ytdl-core": "^4.16.12",
     "@prisma/client": "^5.22.0",
-    "@types/multer": "^2.2.0",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.6",
     "discord.js": "^14.27.0",
@@ -27,13 +25,9 @@
     "libsodium-wrappers": "^0.8.4",
     "multer": "^2.4.0",
     "music-metadata": "^11.16.0",
-    "play-dl": "^1.9.7",
     "prisma": "^5.22.0",
     "socket.io": "^4.8.4",
-    "spotify-uri": "^4.1.0",
     "spotify-url-info": "^3.3.3",
-    "sqlite": "^5.1.1",
-    "sqlite3": "^6.0.1",
     "tsx": "^4.23.12",
     "youtube-dl-exec": "^3.1.15"
   },
@@ -42,6 +36,7 @@
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.6",
     "@types/jsonwebtoken": "^9.0.10",
+    "@types/multer": "^2.2.0",
     "@types/node": "^26.3.0",
     "typescript": "^7.0.2"
   }

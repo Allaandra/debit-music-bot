@@ -1,8 +1,10 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import type { Track, Playlist, SortMethod } from '../types';
 import { api } from '../services/api';
 import { useUI } from './UIContext';
 import { usePlayback } from './PlaybackContext';
+import { useAuth } from './AuthContext';
 
 export interface LibraryContextValue {
   tracks: Track[];
@@ -51,9 +53,9 @@ export const useLibrary = (): LibraryContextValue => {
 export const LibraryProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const ui = useUI();
   const playback = usePlayback();
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
 
-  const [tracks, setTracks] = useState<Track[]>([]);
-  const [playlists, setPlaylists] = useState<Playlist[]>([]);
   const [newTrackInput, setNewTrackInput] = useState('');
   const [activePlaylistId, setActivePlaylistId] = useState<number | null>(() => {
     const saved = localStorage.getItem('activePlaylistId');
@@ -76,29 +78,43 @@ export const LibraryProvider: React.FC<{ children: React.ReactNode }> = ({ child
     localStorage.setItem('sortMethod', sortMethod);
   }, [sortMethod]);
 
-  const fetchTracks = async (playlistId: number | null = activePlaylistId) => {
-    try {
-      const data = await api.fetchTracks(playlistId);
-      setTracks(Array.isArray(data) ? data : ((data as any).tracks || []));
-    } catch (e) {
-      console.error('Failed to fetch tracks', e);
-    }
-  };
+  const { data: tracks = [] } = useQuery<Track[]>({
+    queryKey: ['tracks', activePlaylistId],
+    queryFn: async () => {
+      const data = await api.fetchTracks(activePlaylistId);
+      return Array.isArray(data) ? data : ((data as any)?.tracks || []);
+    },
+    enabled: !!user
+  });
 
-  const fetchPlaylists = async () => {
-    try {
+  const { data: playlists = [] } = useQuery<Playlist[]>({
+    queryKey: ['playlists'],
+    queryFn: async () => {
       const data = await api.fetchPlaylists();
-      setPlaylists(Array.isArray(data) ? data : []);
-    } catch (e) {
-      console.error('Failed to fetch playlists', e);
-      setPlaylists([]);
-    }
-  };
+      return Array.isArray(data) ? data : [];
+    },
+    enabled: !!user
+  });
 
-  useEffect(() => {
-    fetchTracks();
-    fetchPlaylists();
-  }, []);
+  const setTracks: React.Dispatch<React.SetStateAction<Track[]>> = useCallback((updater) => {
+    queryClient.setQueryData<Track[]>(['tracks', activePlaylistId], (old = []) =>
+      typeof updater === 'function' ? updater(old) : updater
+    );
+  }, [queryClient, activePlaylistId]);
+
+  const setPlaylists: React.Dispatch<React.SetStateAction<Playlist[]>> = useCallback((updater) => {
+    queryClient.setQueryData<Playlist[]>(['playlists'], (old = []) =>
+      typeof updater === 'function' ? updater(old) : updater
+    );
+  }, [queryClient]);
+
+  const fetchTracks = useCallback(async (playlistId: number | null = activePlaylistId) => {
+    await queryClient.invalidateQueries({ queryKey: ['tracks', playlistId] });
+  }, [queryClient, activePlaylistId]);
+
+  const fetchPlaylists = useCallback(async () => {
+    await queryClient.invalidateQueries({ queryKey: ['playlists'] });
+  }, [queryClient]);
 
   // Sync selectedTrack with status.currentTrack
   useEffect(() => {
@@ -113,16 +129,23 @@ export const LibraryProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }
   }, [playback.status.currentTrack?.query, tracks]);
 
-  // Check playlists containing selectedTrack
+  // Instant zero-network lookup of playlists containing selectedTrack
   useEffect(() => {
-    if (!selectedTrack || !selectedTrack.id || playlists.length === 0) {
+    if (!selectedTrack) {
       setTrackPlaylists([]);
       return;
     }
-    api.checkTrackInPlaylists(selectedTrack.id, playlists).then(results => {
-      setTrackPlaylists(results);
-    });
-  }, [selectedTrack, playlists]);
+    if (Array.isArray(selectedTrack.playlistNames)) {
+      setTrackPlaylists(selectedTrack.playlistNames);
+      return;
+    }
+    const matching = tracks.find(t => (selectedTrack.id && t.id === selectedTrack.id) || t.query === selectedTrack.query);
+    if (matching && Array.isArray(matching.playlistNames)) {
+      setTrackPlaylists(matching.playlistNames);
+    } else {
+      setTrackPlaylists([]);
+    }
+  }, [selectedTrack, tracks]);
 
   const handleAddTrack = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -254,6 +277,10 @@ export const LibraryProvider: React.FC<{ children: React.ReactNode }> = ({ child
     try {
       await api.addTrackToPlaylist(playlistId, trackId);
       ui.setActiveMenuId(null);
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['tracks'] }),
+        queryClient.invalidateQueries({ queryKey: ['playlists'] })
+      ]);
     } catch (err) {
       console.error('Failed to add track to playlist', err);
     }

@@ -1,5 +1,15 @@
-export const BASE_URL = `http://${window.location.hostname}:3001/api`;
-export const SOCKET_URL = `http://${window.location.hostname}:3001`;
+export const BACKEND_ORIGIN = import.meta.env.DEV
+    ? `http://${window.location.hostname}:3001`
+    : window.location.origin;
+
+export const BASE_URL = `${BACKEND_ORIGIN}/api`;
+export const SOCKET_URL = BACKEND_ORIGIN;
+
+export function resolveMediaUrl(url?: string | null): string {
+    if (!url) return '';
+    if (url.startsWith('/')) return `${BACKEND_ORIGIN}${url}`;
+    return url;
+}
 
 // Use a wrapper to automatically include credentials
 const fetchAuth = (url: string, options: RequestInit = {}) => {
