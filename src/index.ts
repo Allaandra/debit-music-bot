@@ -44,6 +44,7 @@ client.once('clientReady', () => {
 });
 
 import { prisma } from './database';
+import { PlayerManager } from './services/PlayerService';
 
 client.on('voiceStateUpdate', async (oldState, newState) => {
     const userId = newState.id;
@@ -73,8 +74,7 @@ client.on('voiceStateUpdate', async (oldState, newState) => {
             
             // Если бот вышел из канала
             if (userId === client.user?.id) {
-                const playerManager = (await import('./services/PlayerService')).PlayerManager;
-                const guildPlayer = playerManager.getPlayer(guildId);
+                const guildPlayer = PlayerManager.getPlayer(guildId);
                 guildPlayer.stop();
             }
         }
@@ -86,21 +86,53 @@ client.on('voiceStateUpdate', async (oldState, newState) => {
 client.on('messageCreate', (message) => {
     if (message.author.bot) return;
 
-    if (message.content === '!ping') {
-        message.reply('Pong!');
-    }
+    const args = message.content.trim().split(/\s+/);
+    const commandName = args[0]?.toLowerCase();
+    if (!commandName) return;
 
-    const command = client.commands.get(message.content);
+    const command = client.commands.get(commandName);
     if (!command) return;
 
     try {
         command.execute(message);
     } catch (error) {
-        console.error(error);
+        console.error(`Ошибка при выполнении команды ${commandName}:`, error);
         message.reply('Произошла критическая ошибка при выполнении команды');
     }
 });
 
-startApi(client);
+const apiServer = startApi(client);
 
 client.login(process.env.DISCORD_TOKEN);
+
+let isShuttingDown = false;
+async function gracefulShutdown(signal: string) {
+    if (isShuttingDown) return;
+    isShuttingDown = true;
+    console.log(`\n[Shutdown] Получен сигнал ${signal}. Завершение работы бота...`);
+
+    try {
+        console.log('[Shutdown] Остановка активных плееров и FFmpeg процессов...');
+        PlayerManager.stopAll();
+
+        if (apiServer?.close) {
+            console.log('[Shutdown] Остановка API сервера...');
+            await apiServer.close();
+        }
+
+        console.log('[Shutdown] Отключение Discord клиента...');
+        client.destroy();
+
+        console.log('[Shutdown] Закрытие базы данных Prisma...');
+        await prisma.$disconnect();
+
+        console.log('[Shutdown] Все процессы корректно завершены.');
+        process.exit(0);
+    } catch (err) {
+        console.error('[Shutdown] Ошибка при завершении:', err);
+        process.exit(1);
+    }
+}
+
+process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));

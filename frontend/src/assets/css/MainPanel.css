@@ -63,10 +63,11 @@
   border-radius: 16px;
 }
 .playlist-title {
-  font-size: 24px;
-  font-weight: 700;
+  font-family: var(--font-display);
+  font-size: 26px;
+  font-weight: 800;
   color: #ffffff;
-  letter-spacing: -0.5px;
+  letter-spacing: 0.02em;
 }
 
 .meta-pill {
@@ -184,6 +185,7 @@
   flex-direction: column;
 }
 .track-row {
+  font-family: var(--font-display);
   display: flex;
   align-items: center;
   padding: 12px 16px;
@@ -197,9 +199,10 @@
   background-color: var(--track-active);
 }
 .track-header {
+  font-family: var(--font-display);
   border-bottom: 1px solid rgba(0,0,0,0.1);
   margin-bottom: 8px;
-  font-weight: 600;
+  font-weight: 800;
   color: var(--dark-text);
   font-size: 18px;
 }
@@ -207,19 +210,21 @@
   background-color: transparent;
 }
 .track-num {
+  font-family: var(--font-display);
   width: 30px;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-weight: 600;
+  font-weight: 700;
   color: var(--text-muted);
 }
 .track-header .track-num {
+  font-family: var(--font-display);
   width: 30px;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-weight: 600;
+  font-weight: 800;
   color: var(--text-muted);
 }
 .track-title-col {
@@ -230,20 +235,26 @@
   min-width: 0;
 }
 .track-author-col {
+  font-family: var(--font-display);
   flex: 1.5;
   display: flex;
   align-items: center;
   color: var(--text-muted);
+  font-weight: 600;
   font-size: 14px;
   min-width: 0;
 }
 .track-duration-col {
+  font-family: var(--font-display);
+  font-variant-numeric: tabular-nums;
   width: 100px;
   text-align: right;
   color: var(--text-muted);
+  font-weight: 700;
   display: flex;
   align-items: center;
   justify-content: flex-end;
+  font-size: 14px;
 }
 .more-btn {
   margin-left: 16px;
@@ -260,17 +271,24 @@
   border-radius: 4px;
 }
 .track-name {
-  font-weight: 600;
+  font-family: var(--font-display);
+  font-weight: 800;
   color: var(--text-muted);
+  letter-spacing: 0.015em;
 }
 .track-row.active .track-name,
 .track-row.active .track-num {
   color: var(--accent);
 }
 
+.dropdown-menu, .dropdown-item {
+  font-family: var(--font-ui);
+}
+
 
 
 .track-header .track-author-col, .track-header .track-duration-col {
+  font-variant-numeric: tabular-nums;
   color: inherit;
   font-size: inherit;
 }

@@ -43,7 +43,12 @@
 
 .queue-stair-1 {
   background-color: var(--app-bg);
-  padding: 24px 24px 24px 48px;
+  padding: 0 24px 0 48px;
+  height: 72px;
+  min-height: 72px;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
   position: relative;
   z-index: 3;
   box-shadow: 0 12px 24px var(--shadow-color);
@@ -66,12 +71,17 @@
 }
 
 .queue-title {
+  font-family: var(--font-display);
+  letter-spacing: 0.02em;
   font-size: 20px;
-  font-weight: 500;
+  font-weight: 700;
   margin: 0;
 }
 .section-title {
-  font-size: 18px;
+  font-family: var(--font-display);
+  letter-spacing: 0.02em;
+  font-size: 17px;
+  font-weight: 700;
   margin-bottom: 16px;
 }
 .queue-track {

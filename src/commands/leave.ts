@@ -1,32 +1,26 @@
 import { Command } from '../types';
-import { getVoiceConnection } from '@discordjs/voice';
+import { PlayerManager } from '../services/PlayerService';
 import { prisma } from '../database';
 
 export const command: Command = {
     name: '!leave',
     execute: async (message) => {
-        try {
-            const connection = getVoiceConnection(message.guildId!);
-            
-            if (connection) {
-                connection.destroy();
-            }
+        const guildId = message.guildId;
+        if (!guildId) return;
 
-            // Удаляем сессию пользователя, чтобы сбросить панель
+        try {
+            // 1. Принудительно останавливаем воспроизведение, убиваем FFmpeg процессы и отключаем плеер
+            const player = PlayerManager.getPlayer(guildId);
+            player.destroy();
+
+            // 2. Сбрасываем активные сессии гильдии в базе данных
             await prisma.activeSession.deleteMany({
-                where: { userId: message.author.id }
+                where: { guildId }
             });
 
-            // Останавливаем плеер и очищаем очередь через PlayerManager
-            const playerManager = (await import('../services/PlayerService')).PlayerManager;
-            const guildPlayer = playerManager.getPlayer(message.guildId!);
-            guildPlayer.stop();
-
-            message.reply('🛑 Бот отключился. Очередь и сессия веб-панели очищены.');
-            
-        }
-        catch (error) {
-            console.error('Ошибка при выходе из канала:', error);
+            message.reply('🛑 Бот отключился от голосового канала. Воспроизведение остановлено, а очередь очищена.');
+        } catch (error) {
+            console.error('Ошибка при отключении бота:', error);
             message.reply('Произошла системная ошибка при отключении.');
         }
     }

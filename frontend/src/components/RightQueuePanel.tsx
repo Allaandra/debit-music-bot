@@ -1,9 +1,10 @@
 import React from 'react';
-import { usePlayer } from '../context/PlayerContext';
+import { usePlayback } from '../context/PlayerContext';
+import { resolveMediaUrl } from '../services/api';
 import { Music } from 'lucide-react';
 
 export const RightQueuePanel = () => {
-  const { status, selectedTrack, trackPlaylists } = usePlayer();
+  const { status } = usePlayback();
 
   return (
     <>
@@ -19,7 +20,7 @@ export const RightQueuePanel = () => {
                       <div className="queue-track">
                         <div className="track-icon-lg" style={{ position: 'relative' }}>
                           {status.currentTrack.thumbnail ? (
-                            <img src={status.currentTrack.thumbnail.startsWith('/') ? `http://localhost:3001${status.currentTrack.thumbnail}` : status.currentTrack.thumbnail} style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '4px' }} alt="thumb" />
+                            <img src={resolveMediaUrl(status.currentTrack.thumbnail)} style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '4px' }} alt="thumb" />
                           ) : (
                             <div className="art-placeholder" style={{ borderRadius: '4px' }}></div>
                           )}
@@ -42,7 +43,7 @@ export const RightQueuePanel = () => {
                         <div className="queue-track" key={i}>
                           <div className="track-icon-lg" style={{ position: 'relative' }}>
                             {qTrack.thumbnail ? (
-                              <img src={qTrack.thumbnail.startsWith('/') ? `http://localhost:3001${qTrack.thumbnail}` : qTrack.thumbnail} style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '4px' }} alt="thumb" />
+                              <img src={resolveMediaUrl(qTrack.thumbnail)} style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '4px' }} alt="thumb" />
                             ) : (
                               <div className="art-placeholder" style={{ borderRadius: '4px' }}></div>
                             )}

@@ -1,10 +1,11 @@
 import React from 'react';
-import { usePlayer } from '../context/PlayerContext';
+import { useUI } from '../context/PlayerContext';
 import { RightQueuePanel } from './RightQueuePanel';
 import { RightInfoPanel } from './RightInfoPanel';
+import { RightSfxPanel } from './RightSfxPanel';
 
 export const RightSidebar = () => {
-  const { rightCollapsed, rightPanelMode } = usePlayer();
+  const { rightCollapsed, rightPanelMode } = useUI();
 
   return (
     <>
@@ -13,6 +14,8 @@ export const RightSidebar = () => {
           <div className="right-sidebar-content">
             {rightPanelMode === 'queue' ? (
               <RightQueuePanel />
+            ) : rightPanelMode === 'sfx' ? (
+              <RightSfxPanel />
             ) : (
               <RightInfoPanel />
             )}

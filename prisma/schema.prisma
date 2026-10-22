@@ -17,7 +17,7 @@ model ActiveSession {
 
 model Track {
   id        Int       @id @default(autoincrement())
-  ownerId   String    @default("450362999073406977") @map("owner_id")
+  ownerId   String    @map("owner_id")
   title     String
   artist    String?
   type      String
@@ -28,18 +28,21 @@ model Track {
 
   playlists PlaylistTrack[]
 
+  @@index([ownerId])
+  @@index([ownerId, type])
   @@map("tracks")
 }
 
 model Playlist {
   id        Int       @id @default(autoincrement())
-  ownerId   String    @default("450362999073406977") @map("owner_id")
+  ownerId   String    @map("owner_id")
   name      String
   icon      String?
   createdAt DateTime? @default(now())
 
   tracks PlaylistTrack[]
 
+  @@index([ownerId])
   @@map("playlists")
 }
 
@@ -53,4 +56,35 @@ model PlaylistTrack {
 
   @@id([playlistId, trackId])
   @@map("playlist_tracks")
+}
+
+model SfxPlaylist {
+  id        Int        @id @default(autoincrement())
+  ownerId   String     @map("owner_id")
+  name      String
+  icon      String?    @default("⚔️")
+  order     Int        @default(0)
+  createdAt DateTime?  @default(now())
+
+  sounds    SfxSound[]
+
+  @@index([ownerId])
+  @@map("sfx_playlists")
+}
+
+model SfxSound {
+  id         Int         @id @default(autoincrement())
+  ownerId    String      @map("owner_id")
+  playlistId Int         @map("playlist_id")
+  title      String
+  filename   String
+  duration   Float?
+  isGlobal   Boolean     @default(false) @map("is_global")
+  createdAt  DateTime?   @default(now())
+
+  playlist   SfxPlaylist @relation(fields: [playlistId], references: [id], onDelete: Cascade)
+
+  @@index([ownerId])
+  @@index([playlistId])
+  @@map("sfx_sounds")
 }

@@ -1,0 +1,594 @@
+/* SFX SOUNDBOARD PANEL - 3-STAIR ARCHITECTURE */
+
+.sfx-view {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  height: 100%;
+  overflow-x: hidden;
+  box-sizing: border-box;
+}
+
+/* STAIR 1: HEADER (Strictly 72px to match queue-stair-1) */
+.sfx-stair-1 {
+  background-color: var(--app-bg);
+  padding: 0 24px 0 48px;
+  height: 72px;
+  min-height: 72px;
+  box-sizing: border-box;
+  position: relative;
+  z-index: 3;
+  box-shadow: 0 12px 24px var(--shadow-color);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.sfx-stair-1-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.sfx-title-icon {
+  color: var(--accent);
+}
+
+.sfx-title {
+  font-family: var(--font-display);
+  margin: 0;
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--text-main);
+  letter-spacing: 0.02em;
+}
+
+.sfx-stair-1-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.sfx-icon-btn {
+  background: rgba(0, 0, 0, 0.2);
+  border: none;
+  border-radius: 50%;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-main);
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  flex-shrink: 0;
+}
+
+.sfx-icon-btn:hover {
+  background: rgba(255, 255, 255, 0.15);
+  color: var(--accent);
+  transform: translateY(-1px);
+}
+
+/* STAIR 2: CATEGORIES (MINI-PLAYLISTS) */
+.sfx-stair-2 {
+  background-color: rgba(0, 0, 0, 0.15);
+  padding: 18px 24px 18px 48px;
+  position: relative;
+  z-index: 2;
+  box-shadow: 0 12px 24px var(--shadow-color);
+  box-sizing: border-box;
+}
+
+.sfx-categories-scroll {
+  display: flex;
+  gap: 12px;
+  overflow-x: auto;
+  padding: 4px 2px 6px 2px;
+  margin: -4px -2px -6px -2px;
+  align-items: center;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.25) rgba(0, 0, 0, 0.15);
+}
+
+.sfx-categories-scroll::-webkit-scrollbar {
+  height: 4px;
+}
+
+.sfx-categories-scroll::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 2px;
+}
+
+.sfx-categories-scroll::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.25);
+  border-radius: 2px;
+}
+
+.sfx-categories-scroll::-webkit-scrollbar-thumb:hover {
+  background: var(--accent);
+}
+
+.sfx-category-card {
+  width: 56px;
+  height: 56px;
+  min-width: 56px;
+  min-height: 56px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.07);
+  color: var(--text-main);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  position: relative;
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+  box-sizing: border-box;
+  user-select: none;
+  border: 2px solid transparent;
+}
+
+.sfx-category-card:hover {
+  background: rgba(255, 255, 255, 0.16);
+}
+
+/* Crisp active state with 86E59C border, without harsh glow or jumping */
+.sfx-category-card.active {
+  background: rgba(255, 255, 255, 0.12);
+  border: 2px solid #86E59C;
+}
+
+.sfx-category-card.active .sfx-category-name {
+  color: #86E59C;
+}
+
+.sfx-category-inner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  width: 100%;
+  padding: 4px;
+  box-sizing: border-box;
+  z-index: 1;
+}
+
+.sfx-category-icon-svg {
+  color: var(--text-main);
+  opacity: 0.85;
+  transition: all 0.15s ease;
+  flex-shrink: 0;
+}
+
+.sfx-category-card:hover .sfx-category-icon-svg {
+  opacity: 1;
+  color: #fff;
+}
+
+.sfx-category-card.active .sfx-category-icon-svg {
+  opacity: 1;
+  color: #86E59C;
+}
+
+.sfx-category-name {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--text-main);
+  max-width: 48px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: center;
+  transition: color 0.15s ease;
+}
+
+.sfx-category-del-btn {
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  background: rgba(235, 77, 75, 0.9);
+  border: none;
+  border-radius: 50%;
+  width: 14px;
+  height: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  cursor: pointer;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s ease, background 0.15s ease, transform 0.15s ease;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
+  z-index: 2;
+  padding: 0;
+}
+
+.sfx-category-card:hover .sfx-category-del-btn {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.sfx-category-del-btn:hover {
+  background: #ff4757;
+  transform: scale(1.1);
+}
+
+/* STAIR 3: SOUNDS GRID (Strictly fit 2 columns without horizontal scroll) */
+.sfx-stair-3 {
+  background-color: rgba(0, 0, 0, 0.25);
+  padding: 20px 16px 24px 38px;
+  position: relative;
+  z-index: 1;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  overflow-x: hidden;
+  min-height: 0;
+  box-sizing: border-box;
+  width: 100%;
+}
+
+.sfx-stair-3-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  padding-bottom: 8px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+  margin-bottom: 14px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.sfx-category-heading {
+  font-family: var(--font-display);
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-main);
+  letter-spacing: 0.02em;
+}
+
+.sfx-sounds-count {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+/* LAYOUT TOGGLE BUTTONS (1-column vs 2-column) */
+.sfx-view-toggle {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 5px;
+  padding: 1px;
+}
+
+.sfx-view-toggle-btn {
+  background: transparent;
+  border: none;
+  border-radius: 4px;
+  width: 22px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 0;
+  transition: all 0.15s ease;
+}
+
+.sfx-view-toggle-btn:hover {
+  color: var(--text-main);
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.sfx-view-toggle-btn.active {
+  color: var(--accent);
+  background: rgba(134, 229, 156, 0.15);
+}
+
+.sfx-sounds-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/* SINGLE COLUMN LIST LAYOUT */
+.sfx-sounds-grid.single-col {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+/* COMPACT SOUND CARD */
+.sfx-sound-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: rgba(255, 255, 255, 0.07);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 6px;
+  padding: 0 4px 0 8px;
+  height: 34px;
+  min-height: 34px;
+  cursor: pointer;
+  transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  user-select: none;
+  box-sizing: border-box;
+  min-width: 0;
+}
+
+/* SINGLE COLUMN CARD STYLING */
+.sfx-sound-card.single-col {
+  height: 38px;
+  min-height: 38px;
+  padding: 0 10px;
+  border-radius: 7px;
+}
+
+.sfx-sound-card.single-col .sfx-sound-title {
+  font-size: 12px;
+}
+
+.sfx-sound-card.single-col .sfx-play-icon {
+  margin-right: 2px;
+}
+
+.sfx-sound-card:hover {
+  background: rgba(255, 255, 255, 0.14);
+  border-color: rgba(134, 229, 156, 0.3);
+  transform: translateY(-1px);
+}
+
+.sfx-sound-card.menu-open {
+  z-index: 20;
+}
+
+.sfx-sound-card.is-looping {
+  background: rgba(134, 229, 156, 0.12);
+  border-color: rgba(134, 229, 156, 0.45);
+  box-shadow: 0 0 8px rgba(134, 229, 156, 0.2);
+}
+
+.sfx-sound-card.playing {
+  background: rgba(134, 229, 156, 0.15);
+  border-color: var(--accent);
+  box-shadow: 0 0 10px rgba(134, 229, 156, 0.35);
+  animation: sfxPlayBounce 1s infinite alternate ease-in-out;
+}
+
+@keyframes sfxPlayBounce {
+  0% { transform: scale(1); }
+  100% { transform: scale(1.015); }
+}
+
+.sfx-sound-left {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.sfx-play-icon {
+  color: var(--accent);
+  flex-shrink: 0;
+  transition: transform 0.15s;
+}
+
+.sfx-sound-card:hover .sfx-play-icon {
+  transform: scale(1.15);
+}
+
+.sfx-marquee-wrap {
+  display: flex;
+  align-items: center;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  position: relative;
+}
+
+.sfx-sound-title {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-main);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  display: inline-block;
+  min-width: 0;
+  width: 100%;
+  transition: transform 0.25s ease-out;
+}
+
+/* Hover marquee: smoothly scrolls when title is truncated */
+.sfx-sound-card:hover .sfx-sound-title.can-scroll {
+  overflow: visible;
+  text-overflow: clip;
+  width: auto;
+  animation: sfxMarquee var(--scroll-dur, 3s) cubic-bezier(0.4, 0, 0.2, 1) infinite alternate;
+  animation-delay: 0.35s;
+}
+
+@keyframes sfxMarquee {
+  0%, 20% {
+    transform: translateX(0);
+  }
+  80%, 100% {
+    transform: translateX(var(--scroll-dist, 0px));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sfx-sound-card:hover .sfx-sound-title.can-scroll {
+    animation: none;
+  }
+}
+
+.sfx-globe-icon {
+  color: var(--accent);
+  flex-shrink: 0;
+  margin-left: 1px;
+}
+
+.sfx-sound-right {
+  display: flex;
+  align-items: center;
+  position: relative;
+  flex-shrink: 0;
+  gap: 6px;
+}
+
+.sfx-sound-duration {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+  opacity: 0.8;
+  user-select: none;
+}
+
+.sfx-sound-loop-trigger {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 2px;
+  width: 18px;
+  height: 18px;
+  border-radius: 3px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s;
+  flex-shrink: 0;
+}
+
+.sfx-sound-loop-trigger:hover {
+  color: var(--text-main);
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.sfx-sound-loop-trigger.active {
+  color: var(--accent, #86E59C);
+  background: rgba(134, 229, 156, 0.2);
+}
+
+.sfx-sound-menu-trigger {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 2px;
+  width: 18px;
+  height: 18px;
+  border-radius: 3px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s;
+  flex-shrink: 0;
+}
+
+.sfx-sound-menu-trigger:hover,
+.sfx-sound-menu-trigger.active {
+  color: var(--text-main);
+  background: rgba(255, 255, 255, 0.15);
+}
+
+/* SOUND CARD CONTEXT DROPDOWN (PORTAL POPOVER) */
+.sfx-sound-dropdown {
+  position: fixed;
+  background: var(--panel-bg, #243527);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 8px;
+  padding: 4px;
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.75);
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 170px;
+  backdrop-filter: blur(12px);
+  animation: sfxMenuFadeIn 0.12s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes sfxMenuFadeIn {
+  from {
+    opacity: 0;
+    transform: scale(0.96) translateY(-2px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.sfx-dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-main);
+  background: transparent;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.15s, color 0.15s;
+  white-space: nowrap;
+  width: 100%;
+}
+
+.sfx-dropdown-item:hover {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.sfx-dropdown-item.danger:hover {
+  color: #ff5555;
+  background: rgba(255, 85, 85, 0.18);
+}
+
+/* EMPTY STATE */
+.sfx-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 16px;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 13px;
+  gap: 12px;
+}
+
+.sfx-btn-primary {
+  background: var(--accent);
+  color: var(--bottom-bar-bg, #0b110d);
+  border: none;
+  border-radius: 6px;
+  padding: 8px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: opacity 0.2s, transform 0.1s;
+}
+
+.sfx-btn-primary:hover {
+  opacity: 0.9;
+  transform: translateY(-1px);
+}

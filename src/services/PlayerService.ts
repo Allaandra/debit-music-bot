@@ -1,5 +1,7 @@
 import { VoiceConnection, joinVoiceChannel } from '@discordjs/voice';
+import { Client } from 'discord.js';
 import { EventEmitter } from 'events';
+import { prisma } from '../database';
 import { Track } from './types';
 import { TrackResolver } from './TrackResolver';
 import { QueueManager } from './QueueManager';
@@ -51,6 +53,22 @@ export class PlayerService extends EventEmitter {
             this.queueManager.addToHistory(this.streamer.currentTrack);
         }
         await this.streamer.play(track, offsetSeconds);
+    }
+
+    async playSfx(soundId: number, sfxFilePath: string, volume: number = 1.0, loop: boolean = false) {
+        await this.streamer.playSfx(soundId, sfxFilePath, volume, loop);
+        if (loop) {
+            this.emit('stateUpdate', this.getStatus());
+        }
+    }
+
+    stopLoopSfx(soundId: number) {
+        this.streamer.stopLoopSfx(soundId);
+        this.emit('stateUpdate', this.getStatus());
+    }
+
+    getLoopingSfxIds(): number[] {
+        return this.streamer.getLoopingSfxIds();
     }
 
     async playNext() {
@@ -123,17 +141,24 @@ export class PlayerService extends EventEmitter {
         }
     }
 
+    setVolume(volume: number) {
+        this.streamer.setVolume(volume);
+        this.emit('stateUpdate', this.getStatus());
+    }
+
     getStatus() {
         return {
             isPlaying: this.streamer.isPlaying,
             isPaused: this.streamer.isPaused,
             currentTrack: this.streamer.currentTrack,
             elapsed: this.streamer.getElapsed(),
+            volume: this.streamer.volume,
             queue: this.queueManager.queue,
             activePlaylistName: this.queueManager.activePlaylistName,
             queueLength: this.queueManager.queue.length,
             shuffle: this.queueManager.shuffle,
-            repeatMode: this.queueManager.repeatMode
+            repeatMode: this.queueManager.repeatMode,
+            loopingSfx: this.streamer.getLoopingSfxIds()
         };
     }
     stop() {
@@ -141,15 +166,75 @@ export class PlayerService extends EventEmitter {
         this.queueManager.setQueue([]);
         this.emit('stateUpdate', this.getStatus());
     }
+
+    destroy() {
+        this.streamer.stopAllSfxLoops();
+        this.stop();
+        if (this.connection) {
+            try {
+                this.connection.destroy();
+            } catch (e) {}
+            this.connection = null;
+        }
+    }
 }
 
-export class PlayerManager {
-    static players: Map<string, PlayerService> = new Map();
+export class PlayerManagerClass extends EventEmitter {
+    players: Map<string, PlayerService> = new Map();
 
-    static getPlayer(guildId: string): PlayerService {
+    getPlayer(guildId: string): PlayerService {
         if (!this.players.has(guildId)) {
-            this.players.set(guildId, new PlayerService(guildId));
+            const player = new PlayerService(guildId);
+            this.players.set(guildId, player);
+            player.on('stateUpdate', (state) => {
+                this.emit('stateUpdate', { guildId, state });
+            });
         }
         return this.players.get(guildId)!;
     }
+
+    async ensureUserConnection(client: Client, userId: string): Promise<{ guildPlayer: PlayerService; guildId: string; channelId: string }> {
+        const session = await prisma.activeSession.findUnique({
+            where: { userId }
+        });
+
+        if (!session) {
+            const err: any = new Error('Бот не привязан к голосовому каналу (зайдите в голосовой канал Discord)');
+            err.statusCode = 404;
+            throw err;
+        }
+
+        const { guildId, channelId } = session;
+        const guild = client.guilds.cache.get(guildId);
+        if (!guild) {
+            const err: any = new Error('Сервер Discord не найден');
+            err.statusCode = 404;
+            throw err;
+        }
+
+        const guildPlayer = this.getPlayer(guildId);
+
+        if (!guildPlayer.connection || guildPlayer.connection.joinConfig.channelId !== channelId) {
+            guildPlayer.connection = joinVoiceChannel({
+                channelId,
+                guildId,
+                adapterCreator: guild.voiceAdapterCreator,
+            });
+        }
+
+        return { guildPlayer, guildId, channelId };
+    }
+
+    stopAll() {
+        for (const [guildId, player] of this.players.entries()) {
+            try {
+                player.destroy();
+            } catch (e) {
+                console.error(`Error stopping player for guild ${guildId}:`, e);
+            }
+        }
+        this.players.clear();
+    }
 }
+
+export const PlayerManager = new PlayerManagerClass();

@@ -1,9 +1,23 @@
 import { Router } from 'express';
 import jwt from 'jsonwebtoken';
+import path from 'path';
+import fs from 'fs';
+import { JWT_SECRET } from '../middlewares/authMiddleware';
 
 export default function authRoutes() {
     const router = Router();
-    const JWT_SECRET = process.env.JWT_SECRET || 'super-secret-dnd-key-2026';
+    // JWT_SECRET is imported from authMiddleware
+
+    function ensureUserDirectories(userId: string) {
+        try {
+            const userSoundsDir = path.join(__dirname, '../../..', 'sounds', userId);
+            const userSfxDir = path.join(userSoundsDir, 'sfx');
+            if (!fs.existsSync(userSoundsDir)) fs.mkdirSync(userSoundsDir, { recursive: true });
+            if (!fs.existsSync(userSfxDir)) fs.mkdirSync(userSfxDir, { recursive: true });
+        } catch (err) {
+            console.error('Error creating user directories:', err);
+        }
+    }
 
     router.get('/login', (req, res) => {
         const clientId = process.env.DISCORD_CLIENT_ID;
@@ -65,6 +79,9 @@ export default function authRoutes() {
 
             const token = jwt.sign(sessionData, JWT_SECRET, { expiresIn: '30d' });
 
+            // Automatically create user sounds & sfx folders upon authentication
+            ensureUserDirectories(userData.id);
+
             // Set cookie and redirect to frontend
             res.cookie('auth_token', token, {
                 httpOnly: true,
@@ -85,6 +102,9 @@ export default function authRoutes() {
 
         try {
             const decoded = jwt.verify(token, JWT_SECRET);
+            if ((decoded as any)?.id) {
+                ensureUserDirectories((decoded as any).id);
+            }
             res.json(decoded);
         } catch (e) {
             res.status(401).json({ error: 'Invalid token' });

@@ -8,6 +8,19 @@
   align-items: center;
   z-index: 1000;
 }
+.modal-content h3 {
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  margin: 0;
+}
+
+.modal-content p {
+  font-size: 14px;
+  line-height: 1.5;
+}
+
 .modal-content {
   background-color: var(--panel-bg);
   padding: 24px;

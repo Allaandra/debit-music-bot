@@ -6,15 +6,53 @@ import { Track } from './types';
 // @ts-ignore
 const spotify = spotifyUrlInfo(fetch);
 
+function extractTrackInfo(info: any) {
+    if (!info) return null;
+    let entry = info;
+    if (Array.isArray(info.entries)) {
+        if (info.entries.length === 0) return null;
+        entry = info.entries[0];
+    }
+    const streamUrl = entry?.url;
+    if (!streamUrl || typeof streamUrl !== 'string' || !streamUrl.startsWith('http')) {
+        return null;
+    }
+    return {
+        title: entry.title,
+        artist: entry.uploader || entry.channel || entry.artist || 'Unknown',
+        duration: typeof entry.duration === 'number' ? Math.round(entry.duration) : 0,
+        streamUrl,
+        thumbnail: entry.thumbnail,
+        extractor: entry.extractor_key || info.extractor_key || entry.extractor || info.extractor
+    };
+}
+
 export class TrackResolver {
+    static isYoutubePlaylist(query: string): boolean {
+        try {
+            const url = new URL(query.trim());
+            const host = url.hostname.toLowerCase();
+            if (!host.includes('youtube.com') && !host.includes('youtu.be')) return false;
+            const listId = url.searchParams.get('list');
+            if (!listId) return false;
+            if (url.pathname.startsWith('/playlist')) return true;
+            return !listId.startsWith('RD');
+        } catch {
+            return false;
+        }
+    }
+
+    static isSpotifyPlaylistOrAlbum(query: string): boolean {
+        return query.includes('spotify.com/playlist') || query.includes('spotify.com/album');
+    }
+
     static async resolveTrack(type: 'local' | 'url', query: string): Promise<Track> {
         let title = query;
         let artist = 'Unknown';
         let duration = 0;
         let streamUrl = query;
         let thumbnail = undefined;
-
-        let platform = undefined;
+        let platform: string | undefined = undefined;
 
         if (type === 'local') {
             platform = 'Local';
@@ -26,89 +64,124 @@ export class TrackResolver {
                 if (metadata.common.title) title = metadata.common.title;
                 if (metadata.common.artist) artist = metadata.common.artist;
             } catch (e) {}
-        } else if (type === 'url') {
-            let watchUrl = query;
-            let isDirectQuery = false;
+            return { type, query, title, artist, duration, url: streamUrl, thumbnail, platform };
+        }
 
-            if (query.includes('spotify.com') || query.startsWith('spotify:')) {
-                const data = await spotify.getPreview(query);
+        // URL or Search resolution
+        let searchQuery = query.trim();
+        let isDirectUrl = searchQuery.startsWith('http://') || searchQuery.startsWith('https://');
+
+        // Check if Spotify link
+        if (searchQuery.includes('spotify.com') || searchQuery.startsWith('spotify:')) {
+            try {
+                const data = await spotify.getPreview(searchQuery);
                 title = data.title;
                 artist = data.artist;
-                thumbnail = data.image; // Use Spotify cover art if available
-                watchUrl = `scsearch1:${title} ${artist}`; // Bypass YT completely
-                isDirectQuery = true;
-            } else if (!query.includes('youtube.com') && !query.includes('youtu.be') && !query.includes('soundcloud.com')) {
-                // If it's a simple text query, skip play-dl YouTube search and go straight to SoundCloud
-                watchUrl = `scsearch1:${query}`;
-                isDirectQuery = true;
-            }
-
-            const ytDlpOptions: any = { 
-                dumpJson: true, 
-                f: 'bestaudio', 
-                noWarnings: true,
-                noPlaylist: true,
-                noCallHome: true,
-                skipDownload: true,
-            };
-
-            if (process.env.YOUTUBE_COOKIES_FILE) {
-                ytDlpOptions.cookies = path.resolve(process.env.YOUTUBE_COOKIES_FILE);
-            } else if (process.env.YOUTUBE_BROWSER_COOKIES) {
-                ytDlpOptions.cookiesFromBrowser = process.env.YOUTUBE_BROWSER_COOKIES;
-            }
-
-            try {
-                const info = await youtubedl(watchUrl, ytDlpOptions);
-                if (!title || title === query) title = (info as any).title || query;
-                if (artist === 'Unknown') artist = (info as any).uploader || 'Unknown';
-                streamUrl = (info as any).url || watchUrl;
-                if (!duration) duration = (info as any).duration || 0;
-                if (!thumbnail) thumbnail = (info as any).thumbnail;
-                platform = watchUrl.startsWith('scsearch') || (info as any).extractor_key === 'SoundCloud' ? 'SoundCloud' : 'YouTube';
-            } catch (youtubeErr: any) {
-                console.error(`[YouTube] Error for ${watchUrl}:`, youtubeErr.message || youtubeErr);
-                console.warn(`Attempting SoundCloud fallback...`);
-                
-                let scQueryStr = '';
-                if (isDirectQuery) {
-                    scQueryStr = watchUrl.replace('scsearch1:', '');
-                } else if (title && title !== query && title !== 'Unknown') {
-                    scQueryStr = `${title} ${artist !== 'Unknown' ? artist : ''}`.trim();
-                } else if (!query.includes('http')) {
-                    scQueryStr = query;
-                } else if (query.includes('youtube.com') || query.includes('youtu.be')) {
-                    // Fetch title via oEmbed to bypass IP bans
-                    try {
-                        const res = await fetch(`https://www.youtube.com/oembed?url=${query}&format=json`);
-                        const json = await res.json();
-                        if (json && json.title) {
-                            scQueryStr = json.title;
-                        }
-                    } catch (e) {
-                        console.error("Failed to fetch oEmbed title for fallback");
-                    }
-                }
-
-                if (scQueryStr) {
-                    try {
-                        const scInfo = await youtubedl(`scsearch1:${scQueryStr}`, { dumpJson: true, f: 'bestaudio', noWarnings: true } as any);
-                        if (!title || title === query) title = (scInfo as any).title || scQueryStr;
-                        if (artist === 'Unknown') artist = (scInfo as any).uploader || 'Unknown';
-                        streamUrl = (scInfo as any).url;
-                        if (!duration) duration = (scInfo as any).duration || 0;
-                        if (!thumbnail) thumbnail = (scInfo as any).thumbnail;
-                        platform = 'SoundCloud';
-                        console.log(`[SoundCloud] Fallback success: ${title}`);
-                    } catch (scErr: any) {
-                        throw new Error(`Failed to resolve track on both YouTube and SoundCloud. YouTube Error: ${youtubeErr.message.split('\n')[0]}`);
-                    }
-                } else {
-                    throw new Error(`YouTube blocked the request and cannot fallback to SoundCloud for direct URLs: ${youtubeErr.message.split('\n')[0]}`);
-                }
+                thumbnail = data.image;
+                searchQuery = `${title} ${artist}`;
+                isDirectUrl = false;
+            } catch (spotifyErr: any) {
+                console.error('[Spotify] Failed to get preview:', spotifyErr.message || spotifyErr);
             }
         }
 
-        return { type, query, title, artist, duration, url: streamUrl, thumbnail, platform };
+        const ytDlpOptions: any = {
+            dumpSingleJson: true,
+            f: 'bestaudio',
+            noWarnings: true,
+            noPlaylist: true,
+            skipDownload: true,
+        };
+
+        if (process.env.YOUTUBE_COOKIES_FILE) {
+            ytDlpOptions.cookies = path.resolve(process.env.YOUTUBE_COOKIES_FILE);
+        } else if (process.env.YOUTUBE_BROWSER_COOKIES) {
+            ytDlpOptions.cookiesFromBrowser = process.env.YOUTUBE_BROWSER_COOKIES;
+        }
+
+        if (!isDirectUrl) {
+            // 1. Try YouTube search first
+            try {
+                const ytInfo = await youtubedl(`ytsearch1:${searchQuery}`, ytDlpOptions);
+                const res = extractTrackInfo(ytInfo);
+                if (res) {
+                    title = title !== query && title ? title : res.title;
+                    artist = artist !== 'Unknown' && artist ? artist : res.artist;
+                    duration = duration || res.duration;
+                    streamUrl = res.streamUrl;
+                    thumbnail = thumbnail || res.thumbnail;
+                    platform = 'YouTube';
+                    return { type, query, title, artist, duration, url: streamUrl, thumbnail, platform };
+                }
+            } catch (ytErr: any) {
+                console.warn(`[YouTube] Search error for "${searchQuery}":`, ytErr.message?.split('\n')[0]);
+            }
+
+            // 2. Fallback to SoundCloud search
+            try {
+                const scInfo = await youtubedl(`scsearch1:${searchQuery}`, ytDlpOptions);
+                const scRes = extractTrackInfo(scInfo);
+                if (scRes) {
+                    title = title !== query && title ? title : scRes.title;
+                    artist = artist !== 'Unknown' && artist ? artist : scRes.artist;
+                    duration = duration || scRes.duration;
+                    streamUrl = scRes.streamUrl;
+                    thumbnail = thumbnail || scRes.thumbnail;
+                    platform = 'SoundCloud';
+                    return { type, query, title, artist, duration, url: streamUrl, thumbnail, platform };
+                }
+            } catch (scErr: any) {
+                console.warn(`[SoundCloud] Search error for "${searchQuery}":`, scErr.message?.split('\n')[0]);
+            }
+
+            throw new Error(`Не удалось найти трек "${query}" ни на YouTube, ни на SoundCloud.`);
+        } else {
+            // Direct URL (YouTube, SoundCloud, or other web source)
+            try {
+                const info = await youtubedl(searchQuery, ytDlpOptions);
+                const res = extractTrackInfo(info);
+                if (res) {
+                    title = res.title;
+                    artist = res.artist;
+                    duration = res.duration;
+                    streamUrl = res.streamUrl;
+                    thumbnail = res.thumbnail;
+                    platform = res.extractor?.includes('SoundCloud') ? 'SoundCloud' : 'YouTube';
+                    return { type, query, title, artist, duration, url: streamUrl, thumbnail, platform };
+                }
+            } catch (urlErr: any) {
+                console.error(`[TrackResolver] Failed to resolve direct URL ${searchQuery}:`, urlErr.message?.split('\n')[0]);
+
+                // If YouTube direct link blocked, try oEmbed + SoundCloud fallback
+                if (searchQuery.includes('youtube.com') || searchQuery.includes('youtu.be')) {
+                    try {
+                        const oembedRes = await fetch(`https://www.youtube.com/oembed?url=${encodeURIComponent(searchQuery)}&format=json`);
+                        const oembedJson: any = await oembedRes.json();
+                        if (oembedJson?.title) {
+                            console.log(`[YouTube oEmbed] Retrieved title "${oembedJson.title}", falling back to SoundCloud search...`);
+                            const scInfo = await youtubedl(`scsearch1:${oembedJson.title}`, ytDlpOptions);
+                            const scRes = extractTrackInfo(scInfo);
+                            if (scRes) {
+                                return {
+                                    type,
+                                    query,
+                                    title: scRes.title,
+                                    artist: scRes.artist,
+                                    duration: scRes.duration,
+                                    url: scRes.streamUrl,
+                                    thumbnail: scRes.thumbnail,
+                                    platform: 'SoundCloud'
+                                };
+                            }
+                        }
+                    } catch (oembedErr) {
+                        console.error('[YouTube oEmbed] Fallback failed:', oembedErr);
+                    }
+                }
+                throw new Error(`Не удалось воспроизвести ссылку: ${urlErr.message?.split('\n')[0]}`);
+            }
+
+            throw new Error(`Не удалось получить аудио-поток по ссылке: ${query}`);
+        }
     }
 }
