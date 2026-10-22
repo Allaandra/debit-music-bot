@@ -77,12 +77,15 @@ export default function sfxRoutes(client: Client) {
         }
     });
 
-    // 4. POST upload sound
-    router.post('/upload', upload.single('sound'), async (req, res) => {
+    // 4. POST upload sound (supports single or batch array of sounds)
+    router.post('/upload', upload.any(), async (req, res) => {
         const userId = (req as any).user.id;
         const { title, playlistId, isGlobal } = req.body;
+        const uploaded: any[] = (req.files && Array.isArray(req.files))
+            ? req.files
+            : (req.file ? [req.file] : []);
 
-        if (!req.file) {
+        if (uploaded.length === 0) {
             return res.status(400).json({ error: 'No audio file uploaded' });
         }
 
@@ -90,17 +93,39 @@ export default function sfxRoutes(client: Client) {
             return res.status(400).json({ error: 'playlistId is required' });
         }
 
+        const parsedPlaylistId = parseInt(playlistId);
+        if (isNaN(parsedPlaylistId)) {
+            return res.status(400).json({ error: 'Invalid playlistId' });
+        }
+
         try {
-            const sound = await sfxService.uploadSound(
-                userId,
-                parseInt(playlistId),
-                req.file.path,
-                req.file.originalname,
-                req.file.filename,
-                title,
-                isGlobal === 'true' || isGlobal === true
-            );
-            res.json(sound);
+            const createdSounds: any[] = [];
+            for (const f of uploaded) {
+                const cleanTitle = (uploaded.length === 1 && title)
+                    ? title
+                    : f.originalname.replace(/\.[^/.]+$/, '').replace(/^[0-9]+_/, '').replace(/_/g, ' ');
+
+                const sound = await sfxService.uploadSound(
+                    userId,
+                    parsedPlaylistId,
+                    f.path,
+                    f.originalname,
+                    f.filename,
+                    cleanTitle,
+                    isGlobal === 'true' || isGlobal === true
+                );
+                createdSounds.push(sound);
+            }
+
+            if (createdSounds.length === 1) {
+                res.json(createdSounds[0]);
+            } else {
+                res.json({
+                    status: 'success',
+                    count: createdSounds.length,
+                    sounds: createdSounds
+                });
+            }
         } catch (err: any) {
             console.error('Error uploading SFX:', err);
             res.status(500).json({ error: 'Failed to save sound' });

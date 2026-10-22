@@ -91,7 +91,8 @@ export async function syncSounds(userId?: string): Promise<void> {
                             query: queryPath,
                             duration,
                             thumbnail,
-                            ownerId: uid
+                            ownerId: uid,
+                            addedAt: new Date()
                         }
                     });
                 }
@@ -163,12 +164,62 @@ export default function filesRoutes() {
         }
     });
 
-    router.post('/upload', upload.single('file'), async (req: any, res) => {
+    router.post('/upload', upload.any(), async (req: any, res) => {
         const userId = req.user?.id;
         if (!userId) return res.status(401).json({ error: 'Unauthorized' });
-        if (!req.file) return res.status(400).json({ error: 'Файл не найден' });
+        
+        const uploaded: any[] = (req.files && Array.isArray(req.files))
+            ? req.files
+            : (req.file ? [req.file] : []);
+
+        if (uploaded.length === 0) return res.status(400).json({ error: 'Файлы не найдены' });
+
         await syncSounds(userId);
-        res.json({ status: 'success', file: req.file.originalname });
+
+        const rawPlaylistId = req.body?.playlistId || req.query?.playlistId;
+        const targetPlaylistId = rawPlaylistId ? parseInt(rawPlaylistId) : null;
+
+        if (targetPlaylistId && !isNaN(targetPlaylistId)) {
+            try {
+                const playlist = await prisma.playlist.findFirst({
+                    where: { id: targetPlaylistId, ownerId: userId }
+                });
+
+                if (playlist) {
+                    for (const f of uploaded) {
+                        const cleanName = path.basename(f.originalname).replace(/[<>:"/\\|?*\x00-\x1F]/g, '_');
+                        const queryPath = `${userId}/${cleanName}`;
+                        const track = await prisma.track.findFirst({
+                            where: { ownerId: userId, query: queryPath }
+                        });
+
+                        if (track) {
+                            const exists = await prisma.playlistTrack.findFirst({
+                                where: { playlistId: targetPlaylistId, trackId: track.id }
+                            });
+                            if (!exists) {
+                                await prisma.playlistTrack.create({
+                                    data: {
+                                        playlistId: targetPlaylistId,
+                                        trackId: track.id
+                                    }
+                                });
+                            }
+                        }
+                    }
+                }
+            } catch (err) {
+                console.error('Failed to attach uploaded tracks to playlist:', err);
+            }
+        }
+
+        res.json({
+            status: 'success',
+            count: uploaded.length,
+            file: uploaded[0].originalname,
+            files: uploaded.map(f => f.originalname),
+            playlistId: targetPlaylistId || null
+        });
     });
 
     router.post('/sounds/sync', async (req: any, res) => {

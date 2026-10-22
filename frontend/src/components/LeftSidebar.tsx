@@ -92,6 +92,8 @@ export const LeftSidebar = () => {
                 <div 
                   className={`nav-item ${activePlaylistId === pl.id ? 'active' : ''}`} 
                   key={pl.id}
+                  data-playlist-id={pl.id}
+                  data-playlist-name={pl.name}
                   onClick={() => {
                     setActivePlaylistId(pl.id);
                     fetchTracks(pl.id);

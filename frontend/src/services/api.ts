@@ -100,10 +100,32 @@ export const api = {
         return res.ok ? await res.json() : null;
     },
 
-    async uploadFile(file: File) {
+    async uploadFile(file: File, playlistId?: number) {
         const formData = new FormData();
         formData.append('file', file);
-        await fetchAuth(`${BASE_URL}/upload`, { method: 'POST', body: formData });
+        if (playlistId) formData.append('playlistId', playlistId.toString());
+        const res = await fetchAuth(`${BASE_URL}/upload`, { method: 'POST', body: formData });
+        return res.ok ? await res.json() : null;
+    },
+
+    async uploadFiles(files: File[], playlistId?: number) {
+        const formData = new FormData();
+        files.forEach(f => formData.append('files', f));
+        if (playlistId) formData.append('playlistId', playlistId.toString());
+        const res = await fetchAuth(`${BASE_URL}/upload`, { method: 'POST', body: formData });
+        return res.ok ? await res.json() : null;
+    },
+
+    async uploadSfxBatch(files: File[], playlistId: number, isGlobal: boolean = false) {
+        const formData = new FormData();
+        files.forEach(f => formData.append('sounds', f));
+        formData.append('playlistId', playlistId.toString());
+        if (isGlobal) formData.append('isGlobal', 'true');
+        const res = await fetchAuth(`${BASE_URL}/sfx/upload`, {
+            method: 'POST',
+            body: formData
+        });
+        return res.ok ? await res.json() : null;
     },
 
     async syncSounds() {

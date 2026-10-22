@@ -1,0 +1,429 @@
+/* ==========================================================================
+   DragDropOverlay.css — Exact 3-Panel Zoned Drag & Drop System
+   Mapped 1:1 to LeftSidebar, CenterPanel, and RightSidebar inside .main-container
+   ========================================================================== */
+
+.drag-drop-overlay-root {
+  position: absolute;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  pointer-events: none;
+  border-radius: 12px;
+  overflow: hidden;
+  box-sizing: border-box;
+  animation: dragOverlayFadeIn 0.18s ease-out;
+}
+
+@keyframes dragOverlayFadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* Base Drop Zone */
+.drag-zone {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+  position: relative;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+/* ==========================================================================
+   Zone 1: Left Sidebar (Playlists) — Transparent so playlists stay 100% visible
+   ========================================================================== */
+.drag-zone-left {
+  width: calc(var(--sidebar-w, 284px) - 24px);
+  border: 2px dashed rgba(173, 196, 176, 0.35);
+  border-right: none;
+  background: rgba(12, 18, 14, 0.2); /* Ultra-translucent: zero blur, full visibility of playlists! */
+  border-radius: 12px 0 0 12px;
+  padding: 16px 10px;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  align-items: center;
+}
+
+.drag-zone-left.collapsed {
+  width: 80px;
+  padding: 12px 4px;
+}
+
+.drag-zone-left.active {
+  border: 2px solid var(--accent, #86e59c);
+  background: rgba(26, 44, 30, 0.28);
+  box-shadow: inset 0 0 28px rgba(134, 229, 156, 0.15);
+  z-index: 5;
+}
+
+/* Floating Top Pill for Left Sidebar */
+.drag-zone-left-header {
+  position: absolute;
+  top: 14px;
+  left: 10px;
+  right: 10px;
+  display: flex;
+  justify-content: center;
+  pointer-events: none;
+  z-index: 10;
+}
+
+.drag-zone-left-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  border-radius: 20px;
+  background: rgba(18, 26, 20, 0.94);
+  border: 1px solid rgba(173, 196, 176, 0.3);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6);
+  font-family: var(--font-ui, 'Nunito', sans-serif);
+  font-size: 13px;
+  font-weight: 700;
+  color: #f2f7f3;
+  transition: all 0.2s ease;
+  max-width: 95%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.drag-zone-left-pill.highlight {
+  border-color: #86e59c;
+  background: rgba(26, 44, 30, 0.96);
+  color: #86e59c;
+  box-shadow: 0 0 20px rgba(134, 229, 156, 0.4);
+  transform: scale(1.03);
+}
+
+/* Glowing target outline over the hovered playlist row */
+.drag-playlist-target-glow {
+  position: absolute;
+  border-radius: 8px;
+  border: 2px solid #86e59c;
+  background: rgba(134, 229, 156, 0.2);
+  box-shadow: 0 0 20px rgba(134, 229, 156, 0.5);
+  pointer-events: none;
+  z-index: 8;
+  transition: all 0.12s ease-out;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding-right: 10px;
+  box-sizing: border-box;
+}
+
+.drag-playlist-target-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-family: var(--font-ui, 'Nunito', sans-serif);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  color: #0b110d;
+  background: #86e59c;
+  padding: 3px 8px;
+  border-radius: 10px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+}
+
+/* ==========================================================================
+   Zone 2: Middle Panel (Music & Queue)
+   ========================================================================== */
+.drag-zone-center {
+  flex: 1;
+  border: 2px dashed rgba(173, 196, 176, 0.35);
+  background: rgba(14, 22, 16, 0.72);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border-radius: 20px;
+  margin: 0;
+  z-index: 2;
+  padding: 24px;
+  box-shadow: -12px 0 32px var(--shadow-color, rgba(0,0,0,0.5)), 12px 0 32px var(--shadow-color, rgba(0,0,0,0.5));
+}
+
+.drag-zone-center.active {
+  border: 2px solid var(--accent, #86e59c);
+  background: rgba(22, 38, 26, 0.94);
+  box-shadow: 
+    0 0 45px rgba(134, 229, 156, 0.35),
+    inset 0 0 35px rgba(134, 229, 156, 0.15);
+  transform: scale(0.996);
+  z-index: 5;
+}
+
+/* ==========================================================================
+   Zone 3: Right Sidebar (SFX Board)
+   ========================================================================== */
+.drag-zone-right {
+  width: calc(var(--right-sidebar-w, 344px) - 24px);
+  border: 2px dashed rgba(173, 196, 176, 0.35);
+  border-left: none;
+  background: rgba(16, 22, 36, 0.72);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border-radius: 0 12px 12px 0;
+  padding: 20px 16px;
+}
+
+.drag-zone-right.collapsed {
+  width: 72px;
+  padding: 12px 6px;
+}
+
+.drag-zone-right.active {
+  border: 2px solid #5865f2;
+  background: rgba(24, 32, 54, 0.94);
+  box-shadow: 
+    0 0 42px rgba(88, 101, 242, 0.35),
+    inset 0 0 30px rgba(88, 101, 242, 0.15);
+  z-index: 5;
+}
+
+/* Dimmed state for inactive zones */
+.drag-zone.dimmed {
+  opacity: 0.55;
+  filter: grayscale(20%);
+}
+
+/* Card inside center & right zones */
+.drag-zone-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 10px;
+  padding: 26px 20px;
+  border-radius: 18px;
+  background: rgba(18, 26, 20, 0.88);
+  border: 1px solid rgba(173, 196, 176, 0.2);
+  box-shadow: 0 14px 32px rgba(0, 0, 0, 0.6);
+  max-width: 380px;
+  width: 100%;
+  box-sizing: border-box;
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.drag-zone.active .drag-zone-card {
+  transform: scale(1.03);
+}
+
+.drag-zone-card.compact {
+  padding: 14px 8px;
+  gap: 6px;
+  max-width: 72px;
+}
+
+/* Icon Wraps */
+.drag-zone-icon-wrap {
+  width: 64px;
+  height: 64px;
+  border-radius: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.5);
+  transition: all 0.25s ease;
+}
+
+.drag-zone-icon-wrap.compact {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+}
+
+.drag-zone-center .drag-zone-icon-wrap {
+  width: 72px;
+  height: 72px;
+  background: linear-gradient(135deg, rgba(134, 229, 156, 0.25), rgba(30, 52, 36, 0.9));
+  border: 1.5px solid rgba(134, 229, 156, 0.45);
+  color: #86e59c;
+}
+
+.drag-zone-center.active .drag-zone-icon-wrap {
+  border-color: #86e59c;
+  box-shadow: 0 0 28px rgba(134, 229, 156, 0.45);
+  transform: scale(1.08);
+}
+
+.drag-zone-right .drag-zone-icon-wrap {
+  background: linear-gradient(135deg, rgba(88, 101, 242, 0.2), rgba(28, 36, 56, 0.85));
+  border: 1.5px solid rgba(88, 101, 242, 0.4);
+  color: #7986ff;
+}
+
+.drag-zone-right.active .drag-zone-icon-wrap {
+  border-color: #7986ff;
+  box-shadow: 0 0 26px rgba(88, 101, 242, 0.45);
+  transform: scale(1.06) rotate(3deg);
+}
+
+/* Typography in Drop Zones */
+.drag-zone-title {
+  font-family: var(--font-display, 'Podkova', serif);
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: #f2f7f3;
+  margin: 0;
+  line-height: 1.2;
+}
+
+.drag-zone-title.compact {
+  font-size: 13px;
+}
+
+.drag-zone-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-family: var(--font-ui, 'Nunito', sans-serif);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.015em;
+  max-width: 100%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.drag-zone-center .drag-zone-badge {
+  background: rgba(134, 229, 156, 0.16);
+  color: #86e59c;
+  border: 1px solid rgba(134, 229, 156, 0.32);
+}
+
+.drag-zone-right .drag-zone-badge {
+  background: rgba(88, 101, 242, 0.2);
+  color: #9aa5ff;
+  border: 1px solid rgba(88, 101, 242, 0.38);
+}
+
+.drag-zone-hint {
+  font-family: var(--font-ui, 'Nunito', sans-serif);
+  font-size: 12.5px;
+  color: #adc4b0;
+  opacity: 0.85;
+  margin: 0;
+  line-height: 1.35;
+}
+
+/* ==========================================================================
+   Toast Notification for Drag & Drop / Upload Feedback
+   ========================================================================== */
+
+.drag-toast-container {
+  position: fixed;
+  top: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 100000;
+  pointer-events: auto;
+  animation: toastSlideDown 0.26s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes toastSlideDown {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -20px);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+}
+
+.drag-toast {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 20px;
+  border-radius: 14px;
+  background: rgba(18, 26, 20, 0.94);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(173, 196, 176, 0.25);
+  box-shadow: 
+    0 12px 32px rgba(0, 0, 0, 0.7),
+    0 0 20px rgba(134, 229, 156, 0.1);
+  color: #f2f7f3;
+  min-width: 300px;
+  max-width: 480px;
+}
+
+.drag-toast.toast-loading {
+  border-color: rgba(134, 229, 156, 0.4);
+}
+
+.drag-toast.toast-success {
+  border-color: rgba(134, 229, 156, 0.65);
+  box-shadow: 
+    0 12px 32px rgba(0, 0, 0, 0.7),
+    0 0 24px rgba(134, 229, 156, 0.25);
+}
+
+.drag-toast.toast-error {
+  border-color: rgba(255, 95, 95, 0.6);
+  box-shadow: 
+    0 12px 32px rgba(0, 0, 0, 0.7),
+    0 0 24px rgba(255, 95, 95, 0.2);
+}
+
+.drag-toast-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.drag-toast-body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+
+.drag-toast-message {
+  font-family: var(--font-ui, 'Nunito', sans-serif);
+  font-size: 14px;
+  font-weight: 700;
+  color: #f2f7f3;
+}
+
+.drag-toast-submessage {
+  font-family: var(--font-ui, 'Nunito', sans-serif);
+  font-size: 12px;
+  color: #adc4b0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.drag-toast-spinner {
+  width: 20px;
+  height: 20px;
+  border: 2.5px solid rgba(134, 229, 156, 0.25);
+  border-top-color: #86e59c;
+  border-radius: 50%;
+  animation: toastSpin 0.75s linear infinite;
+}
+
+@keyframes toastSpin {
+  to {
+    transform: rotate(360deg);
+  }
+}

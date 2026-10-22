@@ -6,6 +6,7 @@ import { RightSidebar } from './components/RightSidebar';
 import { PlayerBar } from './components/PlayerBar';
 import { Modals } from './components/Modals';
 import { LoginScreen } from './components/LoginScreen';
+import { DragDropOverlay } from './components/DragDropOverlay';
 
 import './assets/css/Themes.css';
 import './assets/css/Globals.css';
@@ -34,9 +35,12 @@ function AppLayout() {
         <LeftSidebar />
         <MainPanel />
         <RightSidebar />
+        <DragDropOverlay />
+  
       </div>
       <PlayerBar />
       <Modals />
+
     </div>
   );
 }
