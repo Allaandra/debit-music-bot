@@ -270,9 +270,9 @@ export const MainPanel = () => {
                         {activeMenuId === track.id && (
                           <div className="dropdown-menu" style={{
                             position: 'absolute', right: 0, top: '100%', zIndex: 10,
-                            background: 'var(--glass-bg)', backdropFilter: 'blur(10px)',
+                            background: 'var(--glass-bg)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)',
                             border: '1px solid var(--border-light)', borderRadius: '8px',
-                            minWidth: '150px', padding: '4px 0',
+                            minWidth: '150px', padding: '4px',
                             boxShadow: '0 4px 12px rgba(0,0,0,0.5)'
                           }} onClick={(e) => e.stopPropagation()}>
                             {menuView === 'main' ? (
@@ -285,11 +285,10 @@ export const MainPanel = () => {
                                   <span>Add to playlist</span>
                                   <ChevronRight size={14} />
                                 </div>
-                                <div style={{ height: '1px', background: 'var(--border-light)', margin: '4px 0' }}></div>
                                 <div 
-                                  className="dropdown-item"
+                                  className="dropdown-item danger"
                                   onClick={(e) => { e.stopPropagation(); handleDeleteTrack(e, track); }}
-                                  style={{ color: '#ff5555', justifyContent: 'space-between' }}
+                                  style={{ justifyContent: 'space-between' }}
                                 >
                                   <span>Delete</span>
                                   <Trash2 size={14} />
@@ -302,17 +301,16 @@ export const MainPanel = () => {
                                   onClick={(e) => { e.stopPropagation(); setMenuView('main'); }}
                                   style={{ color: 'var(--text-muted)' }}
                                 >
-                                  <span>в†ђ Back</span>
+                                  <span>← Back</span>
                                 </div>
-                                <div style={{ height: '1px', background: 'var(--border-light)', margin: '4px 0' }}></div>
-                                <div style={{ maxHeight: '200px', overflowY: 'auto' }}>
-                                  {playlists.length === 0 && <div style={{ padding: '8px 16px', color: 'var(--text-muted)', fontSize: '14px' }}>No playlists</div>}
+                                <div style={{ height: '1px', background: 'rgba(255, 255, 255, 0.1)', margin: '2px 4px' }}></div>
+                                <div style={{ maxHeight: '200px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                                  {playlists.length === 0 && <div style={{ padding: '7px 10px', color: 'var(--text-muted)', fontSize: '12px' }}>No playlists</div>}
                                   {playlists.map((pl: any) => (
                                     <div 
                                       key={pl.id} 
                                       className="dropdown-item"
                                       onClick={(e) => { e.stopPropagation(); handleAddToPlaylist(e, track.id, pl.id); }}
-                                      
                                     >
                                       <span>{pl.name}</span>
                                     </div>

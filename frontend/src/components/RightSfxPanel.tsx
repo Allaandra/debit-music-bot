@@ -753,7 +753,12 @@ export const RightSfxPanel: React.FC = () => {
           className="sfx-sound-dropdown"
           style={{
             top: `${activeMenu.position.top}px`,
-            left: `${activeMenu.position.left}px`
+            left: `${activeMenu.position.left}px`,
+            background: 'var(--glass-bg)',
+            backdropFilter: 'blur(10px)',
+            WebkitBackdropFilter: 'blur(10px)',
+            border: '1px solid var(--border-light)',
+            boxShadow: '0 4px 12px rgba(0,0,0,0.5)'
           }}
           onClick={(e) => e.stopPropagation()}
         >

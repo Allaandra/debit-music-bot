@@ -100,15 +100,15 @@ export const LeftSidebar = () => {
                       }} 
                     />
                     {activePlaylistMenuId === pl.id && (
-                      <div className="dropdown-menu" style={{ position: 'absolute', right: 0, top: '100%', zIndex: 10, background: 'var(--glass-bg)', padding: '4px 0', borderRadius: '8px', border: '1px solid var(--border-light)', backdropFilter: 'blur(10px)', display: 'flex', flexDirection: 'column', minWidth: '150px', boxShadow: '0 4px 12px rgba(0,0,0,0.5)' }} onClick={(e) => e.stopPropagation()}>
+                      <div className="dropdown-menu" style={{ position: 'absolute', right: 0, top: '100%', zIndex: 10, background: 'var(--glass-bg)', padding: '4px', borderRadius: '8px', border: '1px solid var(--border-light)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', display: 'flex', flexDirection: 'column', minWidth: '150px', boxShadow: '0 4px 12px rgba(0,0,0,0.5)' }} onClick={(e) => e.stopPropagation()}>
                         <div className="dropdown-item" onClick={(e) => { e.stopPropagation(); setEditPlaylistModal({ ...pl, editMode: 'rename' }); setActivePlaylistMenuId(null); }}>
-                          <Edit2 size={16} /> Rename
+                          <Edit2 size={14} /> Rename
                         </div>
                         <div className="dropdown-item" onClick={(e) => { e.stopPropagation(); setEditPlaylistModal({ ...pl, editMode: 'cover' }); setActivePlaylistMenuId(null); }}>
-                          <Palette size={16} /> Edit Cover
+                          <Palette size={14} /> Edit Cover
                         </div>
-                        <div className="dropdown-item" style={{ color: '#ff5555' }} onClick={(e) => { e.stopPropagation(); setDeletePlaylistModal(pl); setActivePlaylistMenuId(null); }}>
-                          <Trash2 size={16} /> Delete
+                        <div className="dropdown-item danger" onClick={(e) => { e.stopPropagation(); setDeletePlaylistModal(pl); setActivePlaylistMenuId(null); }}>
+                          <Trash2 size={14} /> Delete
                         </div>
                       </div>
                     )}
