@@ -116,7 +116,7 @@ export const PlaybackProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
   const [seekValue, setSeekValue] = useState<number | null>(null);
   const [guildId, setGuildId] = useState<string | null>(null);
-  const [sfxVolume, setSfxVolume] = useState<number>(() => {
+  const [sfxVolume, setSfxVolumeState] = useState<number>(() => {
     const saved = localStorage.getItem('sfxVolume');
     return saved !== null && !isNaN(Number(saved)) ? Number(saved) : 0.8;
   });
@@ -125,6 +125,7 @@ export const PlaybackProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     return saved !== null && !isNaN(Number(saved)) ? Number(saved) : 0.8;
   });
   const volumeDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const sfxVolumeDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const socketRef = useRef<Socket | null>(null);
   const guildIdRef = useRef<string | null>(null);
@@ -146,6 +147,9 @@ export const PlaybackProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       if (volumeDebounceRef.current) {
         clearTimeout(volumeDebounceRef.current);
       }
+      if (sfxVolumeDebounceRef.current) {
+        clearTimeout(sfxVolumeDebounceRef.current);
+      }
     };
   }, []);
 
@@ -153,7 +157,12 @@ export const PlaybackProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     try {
       const data = await api.fetchStatus();
       if (data) {
-        setStatus(prev => ({ ...prev, ...data, queue: data.queue || [] }));
+        setStatus(prev => ({
+          ...prev,
+          ...data,
+          currentTrack: data.currentTrack ?? null,
+          queue: data.queue || []
+        }));
         if (data.guildId) {
           setGuildId(data.guildId);
         }
@@ -185,6 +194,7 @@ export const PlaybackProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       setStatus(prev => ({
         ...prev,
         ...newState,
+        currentTrack: 'currentTrack' in newState ? (newState.currentTrack ?? null) : prev.currentTrack,
         queue: newState.queue || prev.queue || []
       }));
       if (newState.guildId) {
@@ -222,13 +232,14 @@ export const PlaybackProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     };
   }, [fetchStatus]);
 
-  const handleAction = async (action: string, payload?: any) => {
+  const handleAction = useCallback(async (action: string, payload?: any) => {
     try {
       const res = await api.action(action, payload);
       if (res?.state) {
         setStatus(prev => ({
           ...prev,
           ...res.state,
+          currentTrack: 'currentTrack' in res.state ? (res.state.currentTrack ?? null) : prev.currentTrack,
           queue: res.state.queue || []
         }));
         if (typeof res.state.volume === 'number') {
@@ -241,9 +252,20 @@ export const PlaybackProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     } catch (e) {
       console.error(`Failed to execute action ${action}`, e);
     }
-  };
+  }, []);
 
-  const handleVolumeChange = (newVol: number, immediate = false) => {
+  const setSfxVolume = useCallback((newVol: number) => {
+    const clamped = Math.max(0, Math.min(2, Math.round(newVol * 100) / 100));
+    setSfxVolumeState(clamped);
+    if (sfxVolumeDebounceRef.current) {
+      clearTimeout(sfxVolumeDebounceRef.current);
+    }
+    sfxVolumeDebounceRef.current = setTimeout(() => {
+      api.action('sfxVolume', { volume: clamped }).catch(() => {});
+    }, 40);
+  }, []);
+
+  const handleVolumeChange = useCallback((newVol: number, immediate = false) => {
     const clamped = Math.max(0, Math.min(2, Math.round(newVol * 100) / 100));
     setMusicVolume(clamped);
     setStatus(prev => ({ ...prev, volume: clamped }));
@@ -255,11 +277,19 @@ export const PlaybackProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     } else {
       volumeDebounceRef.current = setTimeout(() => {
         handleAction('volume', { volume: clamped });
-      }, 100);
+      }, 40);
     }
-  };
+  }, [handleAction]);
 
-  const handlePlayTrack = async (track: Track, playlistId?: number | null, playlistName?: string) => {
+  const handlePlayTrack = useCallback(async (track: Track, playlistId?: number | null, playlistName?: string) => {
+    // Optimistically reflect selected track as currentTrack so UI & Info Panel respond immediately
+    setStatus(prev => ({
+      ...prev,
+      currentTrack: track,
+      elapsed: 0,
+      isPlaying: true,
+      isPaused: false
+    }));
     try {
       const res = await api.playTrack(track, playlistId ?? null, playlistName || 'Main Library');
       if (res?.guildId) {
@@ -269,13 +299,15 @@ export const PlaybackProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         setStatus(prev => ({
           ...prev,
           ...res.state,
+          currentTrack: res.state.currentTrack ?? null,
           queue: res.state.queue || []
         }));
       }
     } catch (e) {
       console.error('Failed to play track', e);
+      fetchStatus();
     }
-  };
+  }, [fetchStatus]);
 
   const duration = status.currentTrack?.duration || status.duration || 0;
   const elapsed = seekValue !== null ? seekValue : (status.elapsed || 0);

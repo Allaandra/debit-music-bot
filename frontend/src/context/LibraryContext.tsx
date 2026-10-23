@@ -121,20 +121,23 @@ export const LibraryProvider: React.FC<{ children: React.ReactNode }> = ({ child
   }, [queryClient]);
 
   const currentTrack = playback.status.currentTrack;
-  const currentTrackQuery = currentTrack?.query;
+  const currentTrackKey = currentTrack ? currentTrack.query : '__IDLE__';
 
   const setSelectedTrack = useCallback((track: Track | null) => {
     setUserSelectedTrack({
       track,
-      forCurrentQuery: track ? currentTrackQuery : undefined
+      forCurrentQuery: track ? currentTrackKey : undefined
     });
-  }, [currentTrackQuery]);
+    if (track && track.type === 'url' && track.query) {
+      api.action('prefetch', { type: track.type, query: track.query }).catch(() => {});
+    }
+  }, [currentTrackKey]);
 
   // Derive selectedTrack synchronously during render (no cascading useEffect renders)
   const selectedTrack = useMemo<Track | null>(() => {
     const hasManualSelection =
       userSelectedTrack.track !== null &&
-      userSelectedTrack.forCurrentQuery === currentTrackQuery;
+      userSelectedTrack.forCurrentQuery === currentTrackKey;
 
     const baseTrack = hasManualSelection ? userSelectedTrack.track : (currentTrack || null);
     if (!baseTrack) return null;
@@ -146,7 +149,7 @@ export const LibraryProvider: React.FC<{ children: React.ReactNode }> = ({ child
       return { ...matchingTrack, ...baseTrack };
     }
     return baseTrack;
-  }, [userSelectedTrack, currentTrack, currentTrackQuery, tracks]);
+  }, [userSelectedTrack, currentTrack, currentTrackKey, tracks]);
 
   // Instant zero-network lookup of playlists containing selectedTrack
   const trackPlaylists = useMemo<string[]>(() => {

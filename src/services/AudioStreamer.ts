@@ -11,19 +11,19 @@ const AMBIENCE_IDLE_TIMEOUT_MS = 5000;
 export class AudioStreamer extends EventEmitter {
     player: AudioPlayer;
     connection: VoiceConnection | null = null;
-    
+
     currentTrack: Track | null = null;
     isPlaying: boolean = false;
     isPaused: boolean = false;
     volume: number = 0.8;
-    
+    sfxVolume: number = 0.8;
+
     // For seek tracking
     startTimestamp: number = 0;
-    seekOffset: number = 0; 
-    
+    seekOffset: number = 0;
+
     private currentFfmpegProcess: ChildProcess | null = null;
     private currentEncoderProcess: ChildProcess | null = null;
-    private silenceProcess: ChildProcess | null = null;
     private mixer: AudioMixer | null = null;
     private ambienceIdleTimer: ReturnType<typeof setTimeout> | null = null;
     private loopingSfx: Map<number, { filePath: string; volume: number }> = new Map();
@@ -31,7 +31,7 @@ export class AudioStreamer extends EventEmitter {
     constructor() {
         super();
         this.player = createAudioPlayer();
-        
+
         this.player.on('error', (err) => {
             this.emit('error', err);
         });
@@ -39,7 +39,10 @@ export class AudioStreamer extends EventEmitter {
         this.player.on('stateChange', (oldState, newState) => {
             if (newState.status === 'idle' && oldState.status !== 'idle') {
                 if (this.isPaused || !this.isPlaying) return;
-                this.emit('idle');
+                // If encoder died unexpectedly while music was playing
+                if (!this.currentEncoderProcess) {
+                    this.emit('idle');
+                }
             }
         });
     }
@@ -56,24 +59,43 @@ export class AudioStreamer extends EventEmitter {
         if (this.isPlaying && !this.isPaused) return;
         if (this.loopingSfx.size > 0) return;
 
+        if (this.isPlaying && this.isPaused && !this.mixer?.hasActiveSfx()) {
+            // Music is paused and all one-shot SFX finished: pause clock & player to hide speaking indicator
+            this.mixer?.pauseClock();
+            this.player.pause();
+            return;
+        }
+
         this.ambienceIdleTimer = setTimeout(() => {
             this.ambienceIdleTimer = null;
-            if ((!this.isPlaying || this.isPaused) && this.loopingSfx.size === 0 && !this.mixer?.hasActiveSfx()) {
-                this.stopAmbienceStream();
+            if (!this.isPlaying && this.loopingSfx.size === 0 && !this.mixer?.hasActiveSfx()) {
+                this.stopAllProcesses();
             }
         }, AMBIENCE_IDLE_TIMEOUT_MS);
     }
 
     private createEncoderProcess(label: string): ChildProcess {
+        // Low-latency OggOpus encoder without dynaudnorm (prevents 20s buffering and volume pumping)
         const encoderArgs = [
+            '-hide_banner',
+            '-loglevel', 'error',
+            '-probesize', '32',
+            '-analyzeduration', '0',
+            '-fflags', '+nobuffer',
+            '-flags', 'low_delay',
             '-f', 's16le',
             '-ar', '48000',
             '-ac', '2',
             '-i', 'pipe:0',
             '-c:a', 'libopus',
             '-b:a', '128k',
+            '-vbr', 'on',
+            '-compression_level', '5',
+            '-frame_duration', '20',
+            '-application', 'audio',
+            '-page_duration', '20000',
+            '-flush_packets', '1',
             '-f', 'ogg',
-            '-af', 'dynaudnorm=f=200:g=5:r=0.9',
             'pipe:1'
         ];
 
@@ -102,11 +124,21 @@ export class AudioStreamer extends EventEmitter {
 
     private async createMixerWithLoops(): Promise<AudioMixer> {
         const mixer = new AudioMixer(this.volume);
+        mixer.sfxVolume = this.sfxVolume;
+
         mixer.on('error', (err: Error) => {
             console.error('AudioMixer stream error:', err.message || err);
         });
+
         mixer.on('empty', () => {
             this.scheduleAmbienceIdleCheck();
+        });
+
+        mixer.on('musicEnd', () => {
+            if (!this.isPlaying || this.isPaused) return;
+            this.isPlaying = false;
+            this.scheduleAmbienceIdleCheck();
+            this.emit('idle');
         });
 
         for (const [id, sfx] of this.loopingSfx.entries()) {
@@ -121,10 +153,33 @@ export class AudioStreamer extends EventEmitter {
         return mixer;
     }
 
+    private async ensurePipeline(): Promise<void> {
+        if (this.mixer && this.currentEncoderProcess && !this.currentEncoderProcess.killed) {
+            this.mixer.start();
+            if (this.player.state.status === 'paused' || this.player.state.status === 'autopaused') {
+                this.player.unpause();
+            }
+            return;
+        }
+
+        this.stopEncoderAndMixer();
+
+        this.mixer = await this.createMixerWithLoops();
+        this.currentEncoderProcess = this.createEncoderProcess('Main');
+
+        if (this.currentEncoderProcess.stdin) {
+            this.mixer.pipe(this.currentEncoderProcess.stdin);
+        }
+
+        this.mixer.start();
+        const resource = createAudioResource(this.currentEncoderProcess.stdout!, { inputType: StreamType.OggOpus });
+        this.player.play(resource);
+    }
+
     async play(track: Track, offsetSeconds: number = 0) {
         this.clearAmbienceIdleTimer();
-        this.stopCurrentProcesses();
-        
+        this.stopMusicDecoder();
+
         this.currentTrack = track;
         this.seekOffset = offsetSeconds;
         this.startTimestamp = Date.now();
@@ -144,10 +199,16 @@ export class AudioStreamer extends EventEmitter {
         }
 
         const isUrl = input.startsWith('http');
-        const ffmpegArgs: string[] = [];
-        
+        const ffmpegArgs: string[] = [
+            '-hide_banner',
+            '-loglevel', 'error',
+            '-fflags', '+nobuffer+discardcorrupt',
+            '-flags', 'low_delay',
+            '-probesize', '262144',
+            '-analyzeduration', '500000'
+        ];
+
         if (isUrl) {
-            // Флаги для автоматического переподключения
             ffmpegArgs.push(
                 '-reconnect', '1',
                 '-reconnect_streamed', '1',
@@ -157,48 +218,50 @@ export class AudioStreamer extends EventEmitter {
             );
         }
 
-        // Быстрый input-seek (-ss до -i) работает и для локальных файлов, и для HTTP-потоков через Range-запросы
         if (offsetSeconds > 0) {
             ffmpegArgs.push('-ss', offsetSeconds.toString());
         }
 
-        ffmpegArgs.push('-i', input);
-
-        // Decode to raw 16-bit 48kHz stereo PCM for the mixer
         ffmpegArgs.push(
+            '-i', input,
+            '-vn',
             '-f', 's16le',
             '-ar', '48000',
             '-ac', '2',
             'pipe:1'
         );
-        
-        this.currentFfmpegProcess = spawn(ffmpegPath as string, ffmpegArgs, { stdio: ['ignore', 'pipe', 'pipe'] });
 
-        this.currentFfmpegProcess.stderr?.on('data', (data: Buffer) => {
+        const decoderProc = spawn(ffmpegPath as string, ffmpegArgs, { stdio: ['ignore', 'pipe', 'pipe'] });
+        this.currentFfmpegProcess = decoderProc;
+
+        decoderProc.stderr?.on('data', (data: Buffer) => {
             const msg = data.toString();
             if (msg.includes('Error') && !msg.includes('-10054') && !msg.includes('Will reconnect')) {
-                console.error('FFmpeg Decoder Error:', msg);
+                console.error('FFmpeg Decoder Error:', msg.trim());
             }
         });
 
-        this.currentFfmpegProcess.on('error', (err: Error) => {
+        decoderProc.on('error', (err: Error) => {
+            if (this.currentFfmpegProcess !== decoderProc) return;
             console.error('FFmpeg Decoder spawn error:', err.message);
             this.emit('error', err);
         });
 
-        this.currentFfmpegProcess.stdout?.on('error', (err: Error) => {
+        decoderProc.on('close', () => {
+            if (this.currentFfmpegProcess === decoderProc) {
+                this.currentFfmpegProcess = null;
+            }
+        });
+
+        decoderProc.stdout?.on('error', (err: Error) => {
             console.error('FFmpeg Decoder stdout error:', err.message || err);
         });
 
-        this.mixer = await this.createMixerWithLoops();
-        this.currentEncoderProcess = this.createEncoderProcess('Music');
-
-        if (this.currentFfmpegProcess.stdout && this.currentEncoderProcess.stdin) {
-            this.currentFfmpegProcess.stdout.pipe(this.mixer).pipe(this.currentEncoderProcess.stdin);
+        await this.ensurePipeline();
+        if (this.mixer && decoderProc.stdout) {
+            this.mixer.setMusicSource(decoderProc.stdout);
         }
-        
-        const resource = createAudioResource(this.currentEncoderProcess.stdout!, { inputType: StreamType.OggOpus });
-        this.player.play(resource);
+
         this.emit('play', track);
     }
 
@@ -210,11 +273,7 @@ export class AudioStreamer extends EventEmitter {
                 this.loopingSfx.set(soundId, { filePath: sfxFilePath, volume });
             }
 
-            // Если музыка не играет, используем (или запускаем) микшер эмбиент-потока —
-            // это позволяет воспроизводить SFX мгновенно из RAM-кэша и накладывать несколько звуков друг на друга
-            if ((!this.isPlaying || this.isPaused) && (!this.silenceProcess || !this.mixer)) {
-                await this.startAmbienceStream();
-            }
+            await this.ensurePipeline();
 
             if (this.mixer) {
                 this.mixer.addSfx(soundId, pcmBuf, volume, loop);
@@ -229,9 +288,7 @@ export class AudioStreamer extends EventEmitter {
         if (this.mixer) {
             this.mixer.removeSfx(soundId);
         }
-        if (!this.isPlaying && this.loopingSfx.size === 0 && !this.mixer?.hasActiveSfx()) {
-            this.stopAmbienceStream();
-        }
+        this.scheduleAmbienceIdleCheck();
     }
 
     stopAllSfxLoops() {
@@ -240,136 +297,93 @@ export class AudioStreamer extends EventEmitter {
         if (this.mixer) {
             this.mixer.clearSfx();
         }
-        if (!this.isPlaying) {
-            this.stopAmbienceStream();
-        }
+        this.scheduleAmbienceIdleCheck();
     }
 
     getLoopingSfxIds(): number[] {
         return Array.from(this.loopingSfx.keys());
     }
 
-    async startAmbienceStream() {
-        if (this.silenceProcess && this.currentEncoderProcess && this.mixer) {
-            return;
+    private stopMusicDecoder() {
+        if (this.mixer) {
+            this.mixer.detachMusicSource();
         }
-
-        this.stopCurrentProcesses();
-
-        const silenceArgs = [
-            '-re',
-            '-f', 'lavfi',
-            '-i', 'anullsrc=r=48000:cl=stereo',
-            '-f', 's16le',
-            'pipe:1'
-        ];
-
-        this.silenceProcess = spawn(ffmpegPath as string, silenceArgs, { stdio: ['ignore', 'pipe', 'pipe'] });
-        this.silenceProcess.on('error', (err: Error) => console.error('FFmpeg Silence spawn error:', err.message));
-        this.silenceProcess.stdout?.on('error', (err: Error) => {
-            console.error('FFmpeg Silence stdout error:', err.message || err);
-        });
-
-        this.mixer = await this.createMixerWithLoops();
-        this.currentEncoderProcess = this.createEncoderProcess('Ambience');
-
-        if (this.silenceProcess.stdout && this.currentEncoderProcess.stdin) {
-            this.silenceProcess.stdout.pipe(this.mixer).pipe(this.currentEncoderProcess.stdin);
-        }
-
-        const resource = createAudioResource(this.currentEncoderProcess.stdout!, { inputType: StreamType.OggOpus });
-        this.player.play(resource);
-    }
-
-    stopAmbienceStream() {
-        this.clearAmbienceIdleTimer();
-        if (this.silenceProcess) {
-            try {
-                this.silenceProcess.stdout?.unpipe();
-                this.silenceProcess.kill();
-            } catch (e) {}
-            this.silenceProcess = null;
-        }
-        if (this.currentEncoderProcess && !this.isPlaying) {
-            try {
-                this.currentEncoderProcess.stdin?.end();
-                this.currentEncoderProcess.kill();
-            } catch (e) {}
-            this.currentEncoderProcess = null;
-        }
-        if (!this.isPlaying) {
-            if (this.mixer) {
-                try {
-                    this.mixer.unpipe();
-                } catch (e) {}
-            }
-            this.mixer = null;
-            this.player.stop();
-        }
-    }
-
-    stopCurrentProcesses() {
-        this.clearAmbienceIdleTimer();
         if (this.currentFfmpegProcess) {
-            try {
-                this.currentFfmpegProcess.stdout?.unpipe();
-                this.currentFfmpegProcess.kill();
-            } catch (e) {}
+            const proc = this.currentFfmpegProcess;
             this.currentFfmpegProcess = null;
-        }
-        if (this.silenceProcess) {
             try {
-                this.silenceProcess.stdout?.unpipe();
-                this.silenceProcess.kill();
-            } catch (e) {}
-            this.silenceProcess = null;
+                proc.stdout?.removeAllListeners();
+                proc.kill();
+            } catch {}
         }
-        if (this.currentEncoderProcess) {
-            try {
-                this.currentEncoderProcess.stdin?.end();
-                this.currentEncoderProcess.kill();
-            } catch (e) {}
-            this.currentEncoderProcess = null;
-        }
+    }
+
+    private stopEncoderAndMixer() {
         if (this.mixer) {
             try {
                 this.mixer.unpipe();
-            } catch (e) {}
+                this.mixer.stop();
+            } catch {}
             this.mixer = null;
         }
+        if (this.currentEncoderProcess) {
+            const enc = this.currentEncoderProcess;
+            this.currentEncoderProcess = null;
+            try {
+                enc.stdin?.end();
+                enc.kill();
+            } catch {}
+        }
+    }
+
+    stopAllProcesses() {
+        this.clearAmbienceIdleTimer();
+        this.stopMusicDecoder();
+        this.stopEncoderAndMixer();
+        this.player.stop();
     }
 
     pause() {
         if (!this.isPlaying || this.isPaused) return;
         this.isPaused = true;
-        this.seekOffset = this.seekOffset + Math.floor((Date.now() - this.startTimestamp) / 1000);
-        
-        if (this.currentFfmpegProcess) {
-            this.currentFfmpegProcess.kill();
-            this.currentFfmpegProcess = null;
-        }
-        if (this.loopingSfx.size > 0) {
-            this.startAmbienceStream();
-        } else {
-            this.stopCurrentProcesses();
-            this.player.stop();
+
+        if (this.mixer) {
+            this.mixer.setMusicPaused(true);
+            if (!this.mixer.hasActiveSfx() && this.loopingSfx.size === 0) {
+                this.mixer.pauseClock();
+                this.player.pause();
+            }
         }
         this.emit('pause');
+    }
+
+    async resume(): Promise<boolean> {
+        if (!this.isPlaying || !this.isPaused || !this.currentTrack) return false;
+
+        // Instant zero-latency resume if the decoder or buffered PCM is still available
+        if (this.mixer && (this.currentFfmpegProcess || this.mixer.getPlayedMusicSeconds() >= 0)) {
+            this.isPaused = false;
+            this.mixer.setMusicPaused(false);
+            this.mixer.start();
+            this.player.unpause();
+            this.emit('play', this.currentTrack);
+            return true;
+        }
+
+        return false;
     }
 
     stop() {
         this.currentTrack = null;
         this.isPlaying = false;
         this.isPaused = false;
-        if (this.currentFfmpegProcess) {
-            this.currentFfmpegProcess.kill();
-            this.currentFfmpegProcess = null;
-        }
-        if (this.loopingSfx.size > 0) {
-            this.startAmbienceStream();
+        this.seekOffset = 0;
+        this.stopMusicDecoder();
+
+        if (this.loopingSfx.size > 0 || this.mixer?.hasActiveSfx()) {
+            this.scheduleAmbienceIdleCheck();
         } else {
-            this.stopCurrentProcesses();
-            this.player.stop();
+            this.stopAllProcesses();
         }
         this.emit('stop');
     }
@@ -381,13 +395,23 @@ export class AudioStreamer extends EventEmitter {
         }
     }
 
-    getElapsed(): number {
-        let elapsed = 0;
-        if (this.currentTrack && this.isPlaying && !this.isPaused) {
-            elapsed = this.seekOffset + Math.floor((Date.now() - this.startTimestamp) / 1000);
-        } else if (this.currentTrack && this.isPaused) {
-            elapsed = this.seekOffset;
+    setSfxVolume(vol: number) {
+        this.sfxVolume = Math.max(0, Math.min(vol, 2.0));
+        for (const [, loopItem] of this.loopingSfx.entries()) {
+            loopItem.volume = this.sfxVolume;
         }
-        return elapsed;
+        if (this.mixer) {
+            this.mixer.setSfxVolume(this.sfxVolume);
+        }
+    }
+
+    getElapsed(): number {
+        if (!this.currentTrack || !this.isPlaying) {
+            return 0;
+        }
+        if (this.mixer) {
+            return this.seekOffset + this.mixer.getPlayedMusicSeconds();
+        }
+        return this.seekOffset;
     }
 }

@@ -6,7 +6,7 @@ import { Play, Pause, Shuffle, Repeat, Search, Filter, Trash2, MoreVertical, Che
 
 const HoverScroller = ({ text, className, style }: any) => {
   const containerRef = React.useRef<HTMLDivElement>(null);
-  const textRef = React.useRef<HTMLDivElement>(null);
+  const textRef = React.useRef<HTMLSpanElement>(null);
   const [isHovered, setIsHovered] = React.useState(false);
   const [overflowAmount, setOverflowAmount] = React.useState(0);
 
@@ -14,7 +14,7 @@ const HoverScroller = ({ text, className, style }: any) => {
     const check = () => {
       if (containerRef.current && textRef.current) {
         const over = textRef.current.scrollWidth - containerRef.current.clientWidth;
-        setOverflowAmount(over > 0 ? over : 0);
+        setOverflowAmount(over > 2 ? over : 0);
       }
     };
     check();
@@ -29,29 +29,40 @@ const HoverScroller = ({ text, className, style }: any) => {
       ref={containerRef} 
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
-      style={{ overflow: 'hidden', whiteSpace: 'nowrap', width: '100%', minWidth: 0 }}
+      style={{
+        overflow: 'hidden',
+        whiteSpace: 'nowrap',
+        width: '100%',
+        minWidth: 0,
+        height: '22px',
+        display: 'flex',
+        alignItems: 'center'
+      }}
     >
-      <div 
+      <span 
         ref={textRef} 
         className={className} 
         style={{ 
           ...style,
-          display: shouldAnimate ? 'inline-block' : 'block', 
+          display: 'inline-block',
           whiteSpace: 'nowrap',
+          maxWidth: shouldAnimate ? 'none' : '100%',
           overflow: shouldAnimate ? 'visible' : 'hidden',
           textOverflow: shouldAnimate ? 'clip' : 'ellipsis',
-          transition: shouldAnimate ? `transform ${overflowAmount * 0.04}s linear 0.3s` : 'transform 0.3s ease',
-          transform: shouldAnimate ? `translateX(-${overflowAmount + 20}px)` : 'translateX(0)',
+          transition: shouldAnimate ? `transform ${Math.max(1.2, overflowAmount * 0.035)}s linear 0.25s` : 'transform 0.25s ease',
+          transform: shouldAnimate ? `translateX(-${overflowAmount + 16}px)` : 'translateX(0)',
+          willChange: 'transform'
         }}
       >
         {text}
-      </div>
+      </span>
     </div>
   );
 };
 
 export const MainPanel = () => {
   const [isSyncing, setIsSyncing] = React.useState(false);
+  const searchInputRef = React.useRef<HTMLInputElement>(null);
   const {
     status,
     tracks,
@@ -61,6 +72,7 @@ export const MainPanel = () => {
     menuView,
     setMenuView,
     activePlaylistId,
+    selectedTrack,
     setSelectedTrack,
     searchQuery,
     setSearchQuery,
@@ -78,6 +90,13 @@ export const MainPanel = () => {
     sortMethod,
     setSortMethod
   } = usePlayer();
+
+  React.useEffect(() => {
+    if (showSearch) {
+      const t = setTimeout(() => searchInputRef.current?.focus(), 40);
+      return () => clearTimeout(t);
+    }
+  }, [showSearch]);
 
   const handleSyncSounds = async () => {
     if (isSyncing) return;
@@ -103,6 +122,16 @@ export const MainPanel = () => {
       document.removeEventListener('click', handleClickOutside);
     };
   }, [activeMenuId, setActiveMenuId]);
+
+  const triggerTrackPlayback = (track: any, isCurrentTrack: boolean, isPlaying: boolean, isPaused: boolean) => {
+    if (isCurrentTrack && isPlaying) {
+      handleAction('pause');
+    } else if (isCurrentTrack && isPaused) {
+      handleAction('resume');
+    } else {
+      handlePlayTrack(track);
+    }
+  };
 
   return (
     <>
@@ -151,16 +180,29 @@ export const MainPanel = () => {
                 </button>
                 
                 <div className="controls-right" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                  {showSearch && (
-                    <input id="main-search-input" name="mainSearchInput" type="text" className="search-input"
-                      placeholder="Search..." 
+                  <div className={`search-expand-wrapper ${showSearch ? 'open' : ''}`}>
+                    <input
+                      ref={searchInputRef}
+                      id="main-search-input"
+                      name="mainSearchInput"
+                      type="text"
+                      className="search-input"
+                      placeholder="Search..."
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
-                      style={{ padding: '6px 12px', height: '32px', minWidth: '200px' }}
-                      autoFocus
+                      tabIndex={showSearch ? 0 : -1}
                     />
-                  )}
-                  <button className="icon-btn" style={{background: 'none', border: 'none', padding: 0}} onClick={() => setShowSearch(!showSearch)}>
+                  </div>
+                  <button
+                    className="icon-btn"
+                    style={{background: 'none', border: 'none', padding: 0}}
+                    onClick={() => {
+                      if (showSearch && searchQuery) {
+                        setSearchQuery('');
+                      }
+                      setShowSearch(!showSearch);
+                    }}
+                  >
                     <Search size={20} color={showSearch ? "var(--accent)" : "var(--text-muted)"} />
                   </button>
                   
@@ -203,26 +245,30 @@ export const MainPanel = () => {
                 </div>
                 
                 {filteredTracks.map((track: any, index: number) => {
-                  const isCurrentTrack = status.currentTrack && (status.currentTrack.id === track.id || status.currentTrack.query === track.query);
-                  const isPlaying = isCurrentTrack && status.isPlaying && !status.isPaused;
-                  const isPaused = isCurrentTrack && status.isPaused;
+                  const isCurrentTrack = Boolean(status.currentTrack && (status.currentTrack.id === track.id || status.currentTrack.query === track.query));
+                  const isSelectedTrack = Boolean(selectedTrack && ((selectedTrack.id && selectedTrack.id === track.id) || selectedTrack.query === track.query));
+                  const isPlaying = Boolean(isCurrentTrack && status.isPlaying && !status.isPaused);
+                  const isPaused = Boolean(isCurrentTrack && status.isPaused);
 
                   return (
                     <div 
-                      key={index} 
-                      className={`track-row ${isCurrentTrack ? 'active' : ''}`}
+                      key={track.id ?? `${track.query}-${index}`} 
+                      className={`track-row ${isCurrentTrack ? 'active' : ''} ${isSelectedTrack && !isCurrentTrack ? 'selected' : ''}`}
                       onClick={() => {
-                        if (isCurrentTrack && isPlaying) {
-                          handleAction('pause');
-                        } else if (isCurrentTrack && isPaused) {
-                          handleAction('resume');
-                        } else {
-                          setSelectedTrack(track);
-                          handlePlayTrack(track);
-                        }
+                        setSelectedTrack(track);
+                      }}
+                      onDoubleClick={() => {
+                        triggerTrackPlayback(track, isCurrentTrack, isPlaying, isPaused);
                       }}
                     >
-                      <div className="track-num">
+                      <div
+                        className="track-num"
+                        title={isPlaying ? 'Pause' : 'Play'}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          triggerTrackPlayback(track, isCurrentTrack, isPlaying, isPaused);
+                        }}
+                      >
                         {isPlaying ? (
                           <>
                             <div className="icon-playing animated-eq">
@@ -232,20 +278,19 @@ export const MainPanel = () => {
                           </>
                         ) : (
                           <>
-                            <span className="track-number">{isPaused ? index + 1 : index + 1}</span>
+                            <span className="track-number">{index + 1}</span>
                             <Play size={16} fill="currentColor" className="icon-play-hover" />
                           </>
                         )}
                       </div>
                       <div className="track-title-col">
-                        <div className="track-icon" style={{ position: 'relative' }}>
+                        <div className="track-icon" style={{ position: 'relative', flexShrink: 0 }}>
                           {track.thumbnail ? (
                             <img src={resolveMediaUrl(track.thumbnail)} style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '4px' }} alt="thumb" />
                           ) : (
                             <div className="art-placeholder" style={{ borderRadius: '4px' }}></div>
                           )}
-
-                                                </div>
+                        </div>
                         <div style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden', paddingRight: '8px', minWidth: 0, width: '100%' }}>
                           <HoverScroller text={track.title || track.name || track.query || track.url || 'Unknown Track'} className="track-name" />
                         </div>
@@ -331,15 +376,3 @@ export const MainPanel = () => {
     </>
   );
 };
-
-
-
-
-
-
-
-
-
-
-
-

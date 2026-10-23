@@ -71,11 +71,11 @@ client.on('voiceStateUpdate', async (oldState, newState) => {
             await prisma.activeSession.deleteMany({
                 where: { userId }
             });
-            
-            // Если бот вышел из канала
+
+            // Если бот вышел из канала или был отключен
             if (userId === client.user?.id) {
                 const guildPlayer = PlayerManager.getPlayer(guildId);
-                guildPlayer.stop();
+                guildPlayer.onBotDisconnected();
             }
         }
     } catch (e) {

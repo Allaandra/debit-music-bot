@@ -44,6 +44,7 @@ export const usePlayer = (): PlayerContextValue => {
   const library = useLibrary();
 
   const handlePlayTrack = async (track: Track) => {
+    library.setSelectedTrack(null);
     const currentPlaylistName = library.activePlaylistId
       ? library.playlists.find(p => p.id === library.activePlaylistId)?.name || 'Main Library'
       : 'Main Library';

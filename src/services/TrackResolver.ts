@@ -1,10 +1,45 @@
 import path from 'path';
+import fs from 'fs';
 import youtubedl from 'youtube-dl-exec';
 import spotifyUrlInfo from 'spotify-url-info';
 import { Track } from './types';
 
 // @ts-ignore
 const spotify = spotifyUrlInfo(fetch);
+
+// Cache resolved stream URLs for 45 minutes (YouTube/SoundCloud URLs stay valid for 1-6 hours)
+const RESOLVE_CACHE_TTL_MS = 45 * 60 * 1000;
+const MAX_RESOLVE_CACHE_SIZE = 500;
+const resolvedCache = new Map<string, { track: Track; expiresAt: number }>();
+const inFlightResolutions = new Map<string, Promise<Track>>();
+
+// Background prefetch queue (single concurrency so it never competes with active user actions)
+const prefetchQueue: Array<{ type: 'local' | 'url'; query: string }> = [];
+const queuedPrefetchKeys = new Set<string>();
+let isPrefetchRunning = false;
+
+// Self-healing flag: if the configured cookies file is expired ("The page needs to be reloaded"),
+// automatically disable it so every resolution doesn't waste 6.5s failing on stale cookies.
+let cookiesMarkedInvalid = false;
+
+function getCacheKey(type: 'local' | 'url', query: string): string {
+    return `${type}:${query.trim()}`;
+}
+
+function storeResolvedTrack(key: string, track: Track) {
+    if (resolvedCache.has(key)) {
+        resolvedCache.delete(key);
+    }
+    while (resolvedCache.size >= MAX_RESOLVE_CACHE_SIZE) {
+        const oldest = resolvedCache.keys().next().value;
+        if (!oldest) break;
+        resolvedCache.delete(oldest);
+    }
+    resolvedCache.set(key, {
+        track,
+        expiresAt: Date.now() + RESOLVE_CACHE_TTL_MS
+    });
+}
 
 function extractTrackInfo(info: any) {
     if (!info) return null;
@@ -27,6 +62,50 @@ function extractTrackInfo(info: any) {
     };
 }
 
+function buildYtDlpOptions(includeCookies: boolean): any {
+    const opts: any = {
+        dumpSingleJson: true,
+        f: 'bestaudio',
+        noWarnings: true,
+        noPlaylist: true,
+        skipDownload: true,
+        noCheckCertificates: true
+    };
+
+    if (includeCookies && !cookiesMarkedInvalid) {
+        if (process.env.YOUTUBE_COOKIES_FILE) {
+            const resolvedCookiePath = path.resolve(process.env.YOUTUBE_COOKIES_FILE);
+            if (fs.existsSync(resolvedCookiePath)) {
+                opts.cookies = resolvedCookiePath;
+            }
+        } else if (process.env.YOUTUBE_BROWSER_COOKIES) {
+            opts.cookiesFromBrowser = process.env.YOUTUBE_BROWSER_COOKIES;
+        }
+    }
+
+    return opts;
+}
+
+async function runYtDlpWithCookieHeal(target: string): Promise<any> {
+    const hasCookiesConfigured = !cookiesMarkedInvalid && !!(process.env.YOUTUBE_COOKIES_FILE || process.env.YOUTUBE_BROWSER_COOKIES);
+    try {
+        return await youtubedl(target, buildYtDlpOptions(hasCookiesConfigured));
+    } catch (err: any) {
+        const msg = err?.message || '';
+        if (
+            hasCookiesConfigured &&
+            (msg.includes('The page needs to be reloaded') ||
+                msg.includes('cookies are no longer valid') ||
+                msg.includes('This video is unavailable'))
+        ) {
+            console.warn('[TrackResolver] YouTube cookies file appears expired/invalid. Disabling cookies and retrying directly...');
+            cookiesMarkedInvalid = true;
+            return await youtubedl(target, buildYtDlpOptions(false));
+        }
+        throw err;
+    }
+}
+
 export class TrackResolver {
     static isYoutubePlaylist(query: string): boolean {
         try {
@@ -46,7 +125,77 @@ export class TrackResolver {
         return query.includes('spotify.com/playlist') || query.includes('spotify.com/album');
     }
 
-    static async resolveTrack(type: 'local' | 'url', query: string): Promise<Track> {
+    static getCachedTrack(type: 'local' | 'url', query: string): Track | null {
+        const key = getCacheKey(type, query);
+        const cached = resolvedCache.get(key);
+        if (!cached) return null;
+        if (Date.now() > cached.expiresAt) {
+            resolvedCache.delete(key);
+            return null;
+        }
+        return cached.track;
+    }
+
+    static invalidateCache(type: 'local' | 'url', query: string) {
+        resolvedCache.delete(getCacheKey(type, query));
+    }
+
+    static prefetchTrack(type: 'local' | 'url', query: string) {
+        if (!query) return;
+        const key = getCacheKey(type, query);
+        if (this.getCachedTrack(type, query) || inFlightResolutions.has(key) || queuedPrefetchKeys.has(key)) {
+            return;
+        }
+        queuedPrefetchKeys.add(key);
+        prefetchQueue.push({ type, query });
+        this.processPrefetchQueue();
+    }
+
+    private static async processPrefetchQueue() {
+        if (isPrefetchRunning) return;
+        isPrefetchRunning = true;
+        try {
+            while (prefetchQueue.length > 0) {
+                const next = prefetchQueue.shift()!;
+                const key = getCacheKey(next.type, next.query);
+                queuedPrefetchKeys.delete(key);
+                if (this.getCachedTrack(next.type, next.query)) continue;
+                try {
+                    await this.resolveTrack(next.type, next.query);
+                } catch {
+                    // Ignore background prefetch errors
+                }
+            }
+        } finally {
+            isPrefetchRunning = false;
+        }
+    }
+
+    static async resolveTrack(type: 'local' | 'url', query: string, forceRefresh: boolean = false): Promise<Track> {
+        const key = getCacheKey(type, query);
+        if (!forceRefresh) {
+            const cached = this.getCachedTrack(type, query);
+            if (cached) return cached;
+        }
+
+        if (inFlightResolutions.has(key)) {
+            return inFlightResolutions.get(key)!;
+        }
+
+        const promise = this.performResolve(type, query).then((resolved) => {
+            inFlightResolutions.delete(key);
+            storeResolvedTrack(key, resolved);
+            return resolved;
+        }).catch((err) => {
+            inFlightResolutions.delete(key);
+            throw err;
+        });
+
+        inFlightResolutions.set(key, promise);
+        return promise;
+    }
+
+    private static async performResolve(type: 'local' | 'url', query: string): Promise<Track> {
         let title = query;
         let artist = 'Unknown';
         let duration = 0;
@@ -85,24 +234,10 @@ export class TrackResolver {
             }
         }
 
-        const ytDlpOptions: any = {
-            dumpSingleJson: true,
-            f: 'bestaudio',
-            noWarnings: true,
-            noPlaylist: true,
-            skipDownload: true,
-        };
-
-        if (process.env.YOUTUBE_COOKIES_FILE) {
-            ytDlpOptions.cookies = path.resolve(process.env.YOUTUBE_COOKIES_FILE);
-        } else if (process.env.YOUTUBE_BROWSER_COOKIES) {
-            ytDlpOptions.cookiesFromBrowser = process.env.YOUTUBE_BROWSER_COOKIES;
-        }
-
         if (!isDirectUrl) {
             // 1. Try YouTube search first
             try {
-                const ytInfo = await youtubedl(`ytsearch1:${searchQuery}`, ytDlpOptions);
+                const ytInfo = await runYtDlpWithCookieHeal(`ytsearch1:${searchQuery}`);
                 const res = extractTrackInfo(ytInfo);
                 if (res) {
                     title = title !== query && title ? title : res.title;
@@ -119,7 +254,7 @@ export class TrackResolver {
 
             // 2. Fallback to SoundCloud search
             try {
-                const scInfo = await youtubedl(`scsearch1:${searchQuery}`, ytDlpOptions);
+                const scInfo = await youtubedl(`scsearch1:${searchQuery}`, buildYtDlpOptions(false));
                 const scRes = extractTrackInfo(scInfo);
                 if (scRes) {
                     title = title !== query && title ? title : scRes.title;
@@ -138,7 +273,7 @@ export class TrackResolver {
         } else {
             // Direct URL (YouTube, SoundCloud, or other web source)
             try {
-                const info = await youtubedl(searchQuery, ytDlpOptions);
+                const info = await runYtDlpWithCookieHeal(searchQuery);
                 const res = extractTrackInfo(info);
                 if (res) {
                     title = res.title;
@@ -159,7 +294,7 @@ export class TrackResolver {
                         const oembedJson: any = await oembedRes.json();
                         if (oembedJson?.title) {
                             console.log(`[YouTube oEmbed] Retrieved title "${oembedJson.title}", falling back to SoundCloud search...`);
-                            const scInfo = await youtubedl(`scsearch1:${oembedJson.title}`, ytDlpOptions);
+                            const scInfo = await youtubedl(`scsearch1:${oembedJson.title}`, buildYtDlpOptions(false));
                             const scRes = extractTrackInfo(scInfo);
                             if (scRes) {
                                 return {

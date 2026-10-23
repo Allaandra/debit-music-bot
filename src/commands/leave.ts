@@ -9,14 +9,16 @@ export const command: Command = {
         if (!guildId) return;
 
         try {
-            // 1. Принудительно останавливаем воспроизведение, убиваем FFmpeg процессы и отключаем плеер
+            // 1. Принудительно останавливаем воспроизведение, убиваем FFmpeg процессы и рассылаем stateUpdate по WebSocket
             const player = PlayerManager.getPlayer(guildId);
-            player.destroy();
+            player.onBotDisconnected();
 
-            // 2. Сбрасываем активные сессии гильдии в базе данных
-            await prisma.activeSession.deleteMany({
-                where: { guildId }
-            });
+            // 2. Удаляем сессию самого бота, если она была записана
+            if (message.client.user?.id) {
+                await prisma.activeSession.deleteMany({
+                    where: { userId: message.client.user.id }
+                });
+            }
 
             message.reply('🛑 Бот отключился от голосового канала. Воспроизведение остановлено, а очередь очищена.');
         } catch (error) {

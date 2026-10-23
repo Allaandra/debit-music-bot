@@ -48,11 +48,21 @@ export class PlayerService extends EventEmitter {
         return TrackResolver.resolveTrack(type, query);
     }
 
+    prefetchUpcoming() {
+        const upcoming = this.queueManager.queue.slice(0, 2);
+        for (const t of upcoming) {
+            if (t && t.query) {
+                TrackResolver.prefetchTrack(t.type, t.query);
+            }
+        }
+    }
+
     async play(track: Track, offsetSeconds: number = 0) {
         if (offsetSeconds === 0 && this.streamer.currentTrack) {
             this.queueManager.addToHistory(this.streamer.currentTrack);
         }
         await this.streamer.play(track, offsetSeconds);
+        this.prefetchUpcoming();
     }
 
     async playSfx(soundId: number, sfxFilePath: string, volume: number = 1.0, loop: boolean = false) {
@@ -73,7 +83,7 @@ export class PlayerService extends EventEmitter {
 
     async playNext() {
         const nextTrackDB = this.queueManager.getNext(this.streamer.currentTrack);
-        
+
         if (nextTrackDB) {
             try {
                 const nextTrack = await this.resolveTrack(nextTrackDB.type, nextTrackDB.query);
@@ -83,7 +93,7 @@ export class PlayerService extends EventEmitter {
                 if (this.queueManager.repeatMode === 'track') {
                     this.queueManager.repeatMode = 'off';
                 }
-                this.playNext();
+                await this.playNext();
             }
         } else {
             this.streamer.stop();
@@ -96,19 +106,20 @@ export class PlayerService extends EventEmitter {
         if (prevTrack) {
             try {
                 const resolved = await this.resolveTrack(prevTrack.type, prevTrack.query);
-                this.streamer.currentTrack = null; 
+                this.streamer.currentTrack = null;
                 await this.play(resolved);
             } catch (err) {
                 console.error('Не удалось разрешить предыдущий трек:', err);
             }
         } else {
-            this.seek(0);
+            await this.seek(0);
         }
         this.emit('stateUpdate', this.getStatus());
     }
 
     toggleShuffle() {
         this.queueManager.toggleShuffle();
+        this.prefetchUpcoming();
         this.emit('stateUpdate', this.getStatus());
     }
 
@@ -123,27 +134,39 @@ export class PlayerService extends EventEmitter {
 
     async resume() {
         if (!this.streamer.isPaused || !this.streamer.currentTrack) return;
-        
+
+        // Fast-path: instant 0ms resume from live decoder/mixer buffer
+        const resumedInstantly = await this.streamer.resume();
+        if (resumedInstantly) {
+            return;
+        }
+
+        // Fallback if decoder process closed while paused for a long time
         let trackToPlay = this.streamer.currentTrack;
-        if (trackToPlay.type === 'url') {
+        const resumeOffset = this.streamer.getElapsed();
+        if (trackToPlay.type === 'url' && (!trackToPlay.url || !trackToPlay.url.startsWith('http'))) {
             try {
                 trackToPlay = await this.resolveTrack('url', trackToPlay.query);
             } catch (e) {
                 console.error('Failed to re-resolve track on resume', e);
             }
         }
-        this.play(trackToPlay, this.streamer.seekOffset);
+        await this.play(trackToPlay, resumeOffset);
     }
 
-    seek(seconds: number) {
+    async seek(seconds: number) {
         if (this.streamer.currentTrack) {
-            this.play(this.streamer.currentTrack, seconds);
+            await this.play(this.streamer.currentTrack, seconds);
         }
     }
 
     setVolume(volume: number) {
         this.streamer.setVolume(volume);
         this.emit('stateUpdate', this.getStatus());
+    }
+
+    setSfxVolume(volume: number) {
+        this.streamer.setSfxVolume(volume);
     }
 
     getStatus() {
@@ -161,21 +184,26 @@ export class PlayerService extends EventEmitter {
             loopingSfx: this.streamer.getLoopingSfxIds()
         };
     }
+
     stop() {
         this.streamer.stop();
         this.queueManager.setQueue([]);
         this.emit('stateUpdate', this.getStatus());
     }
 
-    destroy() {
+    onBotDisconnected() {
         this.streamer.stopAllSfxLoops();
-        this.stop();
         if (this.connection) {
             try {
                 this.connection.destroy();
-            } catch (e) {}
+            } catch {}
             this.connection = null;
         }
+        this.stop();
+    }
+
+    destroy() {
+        this.onBotDisconnected();
     }
 }
 
@@ -214,7 +242,12 @@ export class PlayerManagerClass extends EventEmitter {
 
         const guildPlayer = this.getPlayer(guildId);
 
-        if (!guildPlayer.connection || guildPlayer.connection.joinConfig.channelId !== channelId) {
+        if (
+            !guildPlayer.connection ||
+            guildPlayer.connection.state.status === 'destroyed' ||
+            guildPlayer.connection. state.status === 'disconnected' ||
+            guildPlayer.connection.joinConfig.channelId !== channelId
+        ) {
             guildPlayer.connection = joinVoiceChannel({
                 channelId,
                 guildId,

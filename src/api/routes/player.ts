@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { Client } from 'discord.js';
 import { prisma } from '../../database';
 import { PlayerManager } from '../../services/PlayerService';
+import { TrackResolver } from '../../services/TrackResolver';
 
 export default function playerRoutes(client: Client) {
     const router = Router();
@@ -25,7 +26,7 @@ export default function playerRoutes(client: Client) {
             const existing = await prisma.track.findFirst({
                 where: { query: track.query, ownerId: userId }
             });
-            
+
             if (!existing) {
                 await prisma.track.create({
                     data: {
@@ -69,12 +70,10 @@ export default function playerRoutes(client: Client) {
                     ]
                 });
             }
-            
+
             const trackIndex = allTracks.findIndex(t => t.query === track.query);
-            
+
             if (trackIndex !== -1) {
-                // Копируем все треки после текущего в очередь
-                // Приводим Prisma-типы к типам нашего PlayerManager (Track)
                 const queueTracks = allTracks.slice(trackIndex + 1).map(t => ({
                     type: t.type as 'local' | 'url',
                     query: t.query,
@@ -85,6 +84,7 @@ export default function playerRoutes(client: Client) {
                 }));
 
                 guildPlayer.queueManager.setQueue(queueTracks, playlistName || 'Main Library');
+                guildPlayer.prefetchUpcoming();
                 guildPlayer.emit('stateUpdate', guildPlayer.getStatus());
             }
 
@@ -94,8 +94,7 @@ export default function playerRoutes(client: Client) {
                 guildId,
                 state: guildPlayer.getStatus()
             });
-        }
-        catch (error: any) {
+        } catch (error: any) {
             if (error.statusCode === 404) {
                 return res.status(404).json({ error: error.message });
             }
@@ -112,7 +111,16 @@ export default function playerRoutes(client: Client) {
             const session = await prisma.activeSession.findUnique({
                 where: { userId }
             });
-            if (!session) return res.status(404).json({ error: 'Сессия не найдена' });
+            if (!session) {
+                return res.json({
+                    isPlaying: false,
+                    isPaused: false,
+                    currentTrack: null,
+                    elapsed: 0,
+                    queue: [],
+                    loopingSfx: []
+                });
+            }
 
             const guildPlayer = PlayerManager.getPlayer(session.guildId);
             res.json({ ...guildPlayer.getStatus(), guildId: session.guildId });
@@ -128,6 +136,13 @@ export default function playerRoutes(client: Client) {
         if (!action) return res.status(400).json({ error: 'Не переданы параметры' });
 
         try {
+            if (action === 'prefetch') {
+                if (payload?.type && payload?.query) {
+                    TrackResolver.prefetchTrack(payload.type, payload.query);
+                }
+                return res.json({ status: 'success' });
+            }
+
             const session = await prisma.activeSession.findUnique({
                 where: { userId }
             });
@@ -138,16 +153,16 @@ export default function playerRoutes(client: Client) {
             if (action === 'pause') {
                 guildPlayer.pause();
             } else if (action === 'resume') {
-                guildPlayer.resume();
+                await guildPlayer.resume();
             } else if (action === 'seek') {
                 const seconds = Number(payload?.seconds);
                 if (!isNaN(seconds) && seconds >= 0) {
-                    guildPlayer.seek(seconds);
+                    await guildPlayer.seek(seconds);
                 }
             } else if (action === 'skip') {
-                guildPlayer.playNext();
+                await guildPlayer.playNext();
             } else if (action === 'previous') {
-                guildPlayer.playPrevious();
+                await guildPlayer.playPrevious();
             } else if (action === 'shuffle') {
                 guildPlayer.toggleShuffle();
             } else if (action === 'repeat') {
@@ -156,6 +171,11 @@ export default function playerRoutes(client: Client) {
                 const vol = Number(payload?.volume);
                 if (!isNaN(vol) && vol >= 0 && vol <= 2.0) {
                     guildPlayer.setVolume(vol);
+                }
+            } else if (action === 'sfxVolume') {
+                const vol = Number(payload?.volume);
+                if (!isNaN(vol) && vol >= 0 && vol <= 2.0) {
+                    guildPlayer.setSfxVolume(vol);
                 }
             }
 
