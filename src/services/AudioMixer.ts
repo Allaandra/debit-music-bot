@@ -472,9 +472,9 @@ function prepareCleanSfxBuffer(raw: Buffer): Buffer {
         if (val > peak) peak = val;
     }
 
-    // Target peak ~24000 (-2.7 dBFS), max boost 3.5x so quiet ambient tails aren't over-amplified
-    const targetPeak = 24000;
-    const gain = peak > 0 ? Math.min(3.5, targetPeak / peak) : 1.0;
+    // Target peak ~30000 (-0.77 dBFS), max boost 4.5x so quiet ambient tails aren't over-amplified
+    const targetPeak = 30000;
+    const gain = peak > 0 ? Math.min(4.5, targetPeak / peak) : 1.0;
 
     // 5ms (240 frames) micro fade-in/out to prevent clicks
     const fadeFrames = Math.min(240, Math.floor(frameCount / 4));

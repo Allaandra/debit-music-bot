@@ -107,18 +107,18 @@ export const PlayerBar = () => {
           {/* SFX Volume slider */}
           <div className="volume-control-group" title={`SFX Volume: ${Math.round((player.sfxVolume ?? 0.8) * 100)}%`}>
             <span style={{ fontSize: '10px', fontWeight: 700, color: 'var(--accent)', cursor: 'default' }}>SFX</span>
-            <div className="volume-bar" style={{ position: 'relative', width: '60px' }}>
+            <div className="volume-bar" style={{ position: 'relative', width: '70px' }}>
               <input
                 id="sfx-volume-bar"
                 name="sfxVolumeBar"
                 type="range"
                 min="0"
-                max="100"
+                max="200"
                 value={Math.round((player.sfxVolume ?? 0.8) * 100)}
                 onChange={(e) => player.setSfxVolume(Number(e.target.value) / 100)}
                 style={{ position: 'absolute', width: '100%', opacity: 0, cursor: 'pointer', zIndex: 2 }}
               />
-              <div className="volume-filled" style={{ width: `${Math.round((player.sfxVolume ?? 0.8) * 100)}%` }}></div>
+              <div className="volume-filled" style={{ width: `${Math.min(100, Math.round(((player.sfxVolume ?? 0.8) * 100) / 2))}%` }}></div>
             </div>
           </div>
 
