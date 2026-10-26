@@ -1,6 +1,8 @@
 node_modules/
 dist/
 .env
+cookies.txt
+settings.json
 database.sqlite
 database.sqlite-journal
 *.log

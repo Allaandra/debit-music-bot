@@ -7,6 +7,8 @@ import { EventEmitter } from 'events';
 import { AudioMixer, getSfxPcmBuffer } from './AudioMixer';
 
 const AMBIENCE_IDLE_TIMEOUT_MS = 5000;
+const STREAM_USER_AGENT =
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36';
 
 export class AudioStreamer extends EventEmitter {
     player: AudioPlayer;
@@ -153,6 +155,10 @@ export class AudioStreamer extends EventEmitter {
         return mixer;
     }
 
+    async warmupPipeline(): Promise<void> {
+        await this.ensurePipeline();
+    }
+
     private async ensurePipeline(): Promise<void> {
         if (this.mixer && this.currentEncoderProcess && !this.currentEncoderProcess.killed) {
             this.mixer.start();
@@ -199,31 +205,43 @@ export class AudioStreamer extends EventEmitter {
         }
 
         const isUrl = input.startsWith('http');
+        const isM3u8 = input.includes('.m3u8');
         const ffmpegArgs: string[] = [
             '-hide_banner',
             '-loglevel', 'error',
-            '-fflags', '+nobuffer+discardcorrupt',
+            '-fflags', '+nobuffer+discardcorrupt+fastseek',
             '-flags', 'low_delay',
-            '-probesize', '262144',
-            '-analyzeduration', '500000'
+            '-probesize', '32768',
+            '-analyzeduration', '0'
         ];
 
         if (isUrl) {
             ffmpegArgs.push(
+                '-user_agent', STREAM_USER_AGENT,
                 '-reconnect', '1',
                 '-reconnect_streamed', '1',
                 '-reconnect_delay_max', '5',
                 '-reconnect_on_network_error', '1',
                 '-reconnect_on_http_error', '4xx,5xx'
             );
+            if (isM3u8) {
+                ffmpegArgs.push('-http_persistent', '1', '-multiple_requests', '1');
+            }
         }
 
-        if (offsetSeconds > 0) {
+        // Fast input seek before -i for direct files/YouTube streams (near 0ms latency);
+        // output seek after -i for SoundCloud HLS (.m3u8) streams to ensure playlist segment demuxing
+        if (offsetSeconds > 0 && !isM3u8) {
+            ffmpegArgs.push('-ss', offsetSeconds.toString());
+        }
+
+        ffmpegArgs.push('-i', input);
+
+        if (offsetSeconds > 0 && isM3u8) {
             ffmpegArgs.push('-ss', offsetSeconds.toString());
         }
 
         ffmpegArgs.push(
-            '-i', input,
             '-vn',
             '-f', 's16le',
             '-ar', '48000',
@@ -231,12 +249,30 @@ export class AudioStreamer extends EventEmitter {
             'pipe:1'
         );
 
+        await this.ensurePipeline();
+
         const decoderProc = spawn(ffmpegPath as string, ffmpegArgs, { stdio: ['ignore', 'pipe', 'pipe'] });
         this.currentFfmpegProcess = decoderProc;
 
+        let sawForbidden = false;
+        let hasStartedAudio = false;
+
         decoderProc.stderr?.on('data', (data: Buffer) => {
             const msg = data.toString();
-            if (msg.includes('Error') && !msg.includes('-10054') && !msg.includes('Will reconnect')) {
+            if (msg.includes('403 Forbidden') || msg.includes('Server returned 403')) {
+                sawForbidden = true;
+                if (hasStartedAudio && this.currentFfmpegProcess === decoderProc) {
+                    this.emit('streamForbidden', track, this.getElapsed());
+                }
+                return;
+            }
+            if (
+                msg.includes('Error') &&
+                !msg.includes('-10054') &&
+                !msg.includes('Will reconnect') &&
+                !msg.includes('Error in the pull function') &&
+                !msg.includes('Input/output error')
+            ) {
                 console.error('FFmpeg Decoder Error:', msg.trim());
             }
         });
@@ -247,21 +283,65 @@ export class AudioStreamer extends EventEmitter {
             this.emit('error', err);
         });
 
-        decoderProc.on('close', () => {
-            if (this.currentFfmpegProcess === decoderProc) {
-                this.currentFfmpegProcess = null;
-            }
-        });
-
         decoderProc.stdout?.on('error', (err: Error) => {
             console.error('FFmpeg Decoder stdout error:', err.message || err);
         });
 
-        await this.ensurePipeline();
         if (this.mixer && decoderProc.stdout) {
             this.mixer.setMusicSource(decoderProc.stdout);
         }
 
+        // Wait until the first 60ms of decoded PCM audio enters the mixer (so progress bar starts at exact 0:00),
+        // or reject immediately if FFmpeg fails with 403 Forbidden so PlayerService can refresh the URL.
+        await new Promise<void>((resolve, reject) => {
+            const mixerRef = this.mixer;
+            let settled = false;
+
+            const cleanup = () => {
+                clearTimeout(timeoutId);
+                mixerRef?.off('musicStart', onMusicStart);
+                decoderProc.off('close', onClose);
+            };
+
+            const onMusicStart = () => {
+                if (settled) return;
+                settled = true;
+                hasStartedAudio = true;
+                cleanup();
+                resolve();
+            };
+
+            const onClose = (code: number | null) => {
+                if (this.currentFfmpegProcess === decoderProc) {
+                    this.currentFfmpegProcess = null;
+                }
+                if (settled) return;
+                settled = true;
+                cleanup();
+                if (sawForbidden) {
+                    const err: any = new Error('Stream URL returned 403 Forbidden');
+                    err.isForbidden = true;
+                    reject(err);
+                } else if (!hasStartedAudio) {
+                    reject(new Error(`FFmpeg decoder closed before producing audio frames (code ${code})`));
+                } else {
+                    resolve();
+                }
+            };
+
+            const timeoutId = setTimeout(() => {
+                if (settled) return;
+                settled = true;
+                hasStartedAudio = true;
+                cleanup();
+                resolve();
+            }, 2500);
+
+            mixerRef?.once('musicStart', onMusicStart);
+            decoderProc.once('close', onClose);
+        });
+
+        this.startTimestamp = Date.now();
         this.emit('play', track);
     }
 

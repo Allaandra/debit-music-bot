@@ -16,6 +16,7 @@ import http from 'http';
 import jwt from 'jsonwebtoken';
 import { Server } from 'socket.io';
 import { PlayerManager } from '../services/PlayerService';
+import { TrackResolver } from '../services/TrackResolver';
 import { prisma } from '../database';
 
 function parseCookies(cookieHeader?: string): Record<string, string> {
@@ -36,6 +37,11 @@ function parseCookies(cookieHeader?: string): Record<string, string> {
 }
 
 export function startApi(client: Client) {
+    TrackResolver.verifyAndLogCookies();
+    const warmupTimer = setTimeout(() => {
+        TrackResolver.warmupOnStartup();
+    }, 1500);
+
     const stopSoundSync = startBackgroundSoundSync();
     const app = express();
     app.use(cors({ origin: true, credentials: true })); // Allow cookies for cross-origin if needed
@@ -43,10 +49,10 @@ export function startApi(client: Client) {
     app.use(cookieParser());
 
     app.use('/api/auth', authRoutes());
-    
+
     // Protect all other /api routes
     app.use('/api', requireAuth);
-    
+
     app.use('/api', playerRoutes(client));
     app.use('/api/tracks', tracksRoutes());
     app.use('/api/playlists', playlistsRoutes());
@@ -106,7 +112,7 @@ export function startApi(client: Client) {
         socket.on('subscribe', (guildId) => {
             if (!guildId || typeof guildId !== 'string') return;
             socket.join(`guild_${guildId}`);
-            
+
             // Если игрок уже есть, отправляем текущее состояние
             if (PlayerManager.players.has(guildId)) {
                 const player = PlayerManager.getPlayer(guildId);
@@ -135,6 +141,7 @@ export function startApi(client: Client) {
         server,
         io,
         close: async () => {
+            clearTimeout(warmupTimer);
             stopSoundSync();
             return new Promise<void>((resolve) => {
                 io.close(() => {

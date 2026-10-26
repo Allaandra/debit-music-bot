@@ -17,36 +17,18 @@ export default function playerRoutes(client: Client) {
         }
 
         try {
-            const { guildPlayer, guildId } = await PlayerManager.ensureUserConnection(client, userId);
+            // Запускаем подключение к голосовому каналу/прогрев FFmpeg-энкодера и резолв трека параллельно,
+            // чтобы первое подключение после запуска сервера происходило без дополнительной задержки
+            const [{ guildPlayer, guildId }, track] = await Promise.all([
+                PlayerManager.ensureUserConnection(client, userId).then(async (connInfo) => {
+                    await connInfo.guildPlayer.streamer.warmupPipeline();
+                    return connInfo;
+                }),
+                TrackResolver.resolveTrack(type, query)
+            ]);
 
-            const track = await guildPlayer.resolveTrack(type, query);
-            await guildPlayer.play(track);
-
-            // Сохраняем в историю/библиотеку треков, если его еще там нет
-            const existing = await prisma.track.findFirst({
-                where: { query: track.query, ownerId: userId }
-            });
-
-            if (!existing) {
-                await prisma.track.create({
-                    data: {
-                        title: track.title,
-                        artist: track.artist || 'Unknown',
-                        type: track.type,
-                        query: track.query,
-                        duration: track.duration,
-                        thumbnail: track.thumbnail,
-                        ownerId: userId
-                    }
-                });
-            } else if (track.thumbnail && existing.thumbnail !== track.thumbnail) {
-                await prisma.track.update({
-                    where: { id: existing.id },
-                    data: { thumbnail: track.thumbnail }
-                });
-            }
-
-            // Автоматически ставим в очередь все следующие треки из базы данных
+            // Автоматически ставим в очередь все следующие треки из базы данных ДО начала воспроизведения,
+            // чтобы предзагрузка (prefetch) брала следующий трек текущего плейлиста, а не старый трек
             let allTracks: any[] = [];
             if (playlistId) {
                 const playlist = await prisma.playlist.findFirst({
@@ -72,7 +54,6 @@ export default function playerRoutes(client: Client) {
             }
 
             const trackIndex = allTracks.findIndex(t => t.query === track.query);
-
             if (trackIndex !== -1) {
                 const queueTracks = allTracks.slice(trackIndex + 1).map(t => ({
                     type: t.type as 'local' | 'url',
@@ -85,7 +66,32 @@ export default function playerRoutes(client: Client) {
 
                 guildPlayer.queueManager.setQueue(queueTracks, playlistName || 'Main Library');
                 guildPlayer.prefetchUpcoming();
-                guildPlayer.emit('stateUpdate', guildPlayer.getStatus());
+            }
+
+            await guildPlayer.play(track);
+
+            // Сохраняем в историю/библиотеку треков, если его еще там нет
+            const existing = await prisma.track.findFirst({
+                where: { query: track.query, ownerId: userId }
+            });
+
+            if (!existing) {
+                await prisma.track.create({
+                    data: {
+                        title: track.title,
+                        artist: track.artist || 'Unknown',
+                        type: track.type,
+                        query: track.query,
+                        duration: track.duration,
+                        thumbnail: track.thumbnail,
+                        ownerId: userId
+                    }
+                });
+            } else if (track.thumbnail && existing.thumbnail !== track.thumbnail) {
+                await prisma.track.update({
+                    where: { id: existing.id },
+                    data: { thumbnail: track.thumbnail }
+                });
             }
 
             res.json({

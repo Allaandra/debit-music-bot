@@ -60,9 +60,10 @@ const formatTimeHelper = (seconds: number): string => {
 
 const PlaybackProgressProvider: React.FC<{
   status: PlayerStatus;
+  syncVersion: number;
   children: React.ReactNode;
-}> = ({ status, children }) => {
-  const statusSyncKey = `${status.currentTrack?.query ?? ''}:${status.elapsed ?? 0}:${status.isPlaying}:${status.isPaused}`;
+}> = ({ status, syncVersion, children }) => {
+  const statusSyncKey = `${status.currentTrack?.query ?? ''}:${status.elapsed ?? 0}:${status.isPlaying}:${status.isPaused}:${syncVersion}`;
   const [tickState, setTickState] = useState<{ key: string; bonusSeconds: number }>({
     key: statusSyncKey,
     bonusSeconds: 0
@@ -115,6 +116,7 @@ export const PlaybackProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   });
 
   const [seekValue, setSeekValue] = useState<number | null>(null);
+  const [syncVersion, setSyncVersion] = useState<number>(0);
   const [guildId, setGuildId] = useState<string | null>(null);
   const [sfxVolume, setSfxVolumeState] = useState<number>(() => {
     const saved = localStorage.getItem('sfxVolume');
@@ -143,6 +145,14 @@ export const PlaybackProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   }, [musicVolume]);
 
   useEffect(() => {
+    const savedMusic = localStorage.getItem('musicVolume');
+    const savedSfx = localStorage.getItem('sfxVolume');
+    if (savedMusic !== null && !isNaN(Number(savedMusic))) {
+      api.action('volume', { volume: Number(savedMusic) }).catch(() => {});
+    }
+    if (savedSfx !== null && !isNaN(Number(savedSfx))) {
+      api.action('sfxVolume', { volume: Number(savedSfx) }).catch(() => {});
+    }
     return () => {
       if (volumeDebounceRef.current) {
         clearTimeout(volumeDebounceRef.current);
@@ -157,6 +167,7 @@ export const PlaybackProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     try {
       const data = await api.fetchStatus();
       if (data) {
+        setSyncVersion(v => v + 1);
         setStatus(prev => ({
           ...prev,
           ...data,
@@ -191,6 +202,7 @@ export const PlaybackProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
     socket.on('stateUpdate', (newState: Partial<PlayerStatus> & { guildId?: string }) => {
       if (!newState) return;
+      setSyncVersion(v => v + 1);
       setStatus(prev => ({
         ...prev,
         ...newState,
@@ -233,9 +245,30 @@ export const PlaybackProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   }, [fetchStatus]);
 
   const handleAction = useCallback(async (action: string, payload?: any) => {
+    if (action === 'seek' && payload?.seconds !== undefined) {
+      const targetSec = Number(payload.seconds);
+      if (!isNaN(targetSec)) {
+        setStatus(prev => ({ ...prev, elapsed: targetSec }));
+      }
+    } else if (action === 'skip') {
+      setSyncVersion(v => v + 1);
+      setStatus(prev => {
+        if (!prev.queue || prev.queue.length === 0) return prev;
+        const next = prev.queue[0];
+        return {
+          ...prev,
+          currentTrack: next,
+          elapsed: 0,
+          isPlaying: true,
+          isPaused: false,
+          queue: prev.queue.slice(1)
+        };
+      });
+    }
     try {
       const res = await api.action(action, payload);
       if (res?.state) {
+        setSyncVersion(v => v + 1);
         setStatus(prev => ({
           ...prev,
           ...res.state,
@@ -282,12 +315,13 @@ export const PlaybackProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   }, [handleAction]);
 
   const handlePlayTrack = useCallback(async (track: Track, playlistId?: number | null, playlistName?: string) => {
-    // Optimistically reflect selected track as currentTrack so UI & Info Panel respond immediately
+    // Optimistically reflect selected track as currentTrack at 0:00 while waiting for stream to prebuffer
+    setSyncVersion(v => v + 1);
     setStatus(prev => ({
       ...prev,
       currentTrack: track,
       elapsed: 0,
-      isPlaying: true,
+      isPlaying: false,
       isPaused: false
     }));
     try {
@@ -296,6 +330,7 @@ export const PlaybackProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         setGuildId(res.guildId);
       }
       if (res?.state) {
+        setSyncVersion(v => v + 1);
         setStatus(prev => ({
           ...prev,
           ...res.state,
@@ -333,7 +368,7 @@ export const PlaybackProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         handlePlayTrack
       }}
     >
-      <PlaybackProgressProvider status={status}>
+      <PlaybackProgressProvider status={status} syncVersion={syncVersion}>
         {children}
       </PlaybackProgressProvider>
     </PlaybackContext.Provider>

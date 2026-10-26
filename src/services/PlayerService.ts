@@ -1,11 +1,34 @@
 import { VoiceConnection, joinVoiceChannel } from '@discordjs/voice';
 import { Client } from 'discord.js';
 import { EventEmitter } from 'events';
+import fs from 'fs';
+import path from 'path';
 import { prisma } from '../database';
 import { Track } from './types';
 import { TrackResolver } from './TrackResolver';
 import { QueueManager } from './QueueManager';
 import { AudioStreamer } from './AudioStreamer';
+
+interface PersistedSettings {
+    guildVolumes?: Record<string, { music?: number; sfx?: number }>;
+}
+
+const SETTINGS_FILE = path.resolve('settings.json');
+
+function loadPersistedSettings(): PersistedSettings {
+    try {
+        if (fs.existsSync(SETTINGS_FILE)) {
+            return JSON.parse(fs.readFileSync(SETTINGS_FILE, 'utf8'));
+        }
+    } catch {}
+    return {};
+}
+
+function savePersistedSettings(settings: PersistedSettings) {
+    try {
+        fs.writeFileSync(SETTINGS_FILE, JSON.stringify(settings, null, 2), 'utf8');
+    } catch {}
+}
 
 export class PlayerService extends EventEmitter {
     guildId: string;
@@ -18,6 +41,17 @@ export class PlayerService extends EventEmitter {
         this.queueManager = new QueueManager();
         this.streamer = new AudioStreamer();
 
+        const settings = loadPersistedSettings();
+        const guildVol = settings.guildVolumes?.[guildId];
+        if (guildVol) {
+            if (typeof guildVol.music === 'number') {
+                this.streamer.volume = guildVol.music;
+            }
+            if (typeof guildVol.sfx === 'number') {
+                this.streamer.sfxVolume = guildVol.sfx;
+            }
+        }
+
         this.streamer.on('idle', () => {
             this.playNext();
         });
@@ -25,6 +59,19 @@ export class PlayerService extends EventEmitter {
         this.streamer.on('error', (err) => {
             console.error(`Player error on guild ${this.guildId}:`, err.message);
             this.playNext();
+        });
+
+        this.streamer.on('streamForbidden', async (track: Track, elapsed: number) => {
+            if (!track || track.type !== 'url') return;
+            console.warn(`[PlayerService] Поток вернул 403 Forbidden во время проигрывания "${track.title}". Обновляем ссылку...`);
+            try {
+                TrackResolver.invalidateCache(track.type, track.query);
+                const freshTrack = await TrackResolver.resolveTrack(track.type, track.query, true);
+                await this.streamer.play(freshTrack, elapsed);
+            } catch (err: any) {
+                console.error('[PlayerService] Не удалось обновить истёкший поток:', err.message);
+                this.playNext();
+            }
         });
 
         // Продвигаем события дальше для WebSocket
@@ -49,11 +96,9 @@ export class PlayerService extends EventEmitter {
     }
 
     prefetchUpcoming() {
-        const upcoming = this.queueManager.queue.slice(0, 2);
-        for (const t of upcoming) {
-            if (t && t.query) {
-                TrackResolver.prefetchTrack(t.type, t.query);
-            }
+        const nextTrack = this.queueManager.queue[0];
+        if (nextTrack && nextTrack.query) {
+            TrackResolver.prefetchTrack(nextTrack.type, nextTrack.query);
         }
     }
 
@@ -61,8 +106,20 @@ export class PlayerService extends EventEmitter {
         if (offsetSeconds === 0 && this.streamer.currentTrack) {
             this.queueManager.addToHistory(this.streamer.currentTrack);
         }
-        await this.streamer.play(track, offsetSeconds);
+        // Prefetch the upcoming track immediately in the background without waiting for playback to finish starting
         this.prefetchUpcoming();
+        try {
+            await this.streamer.play(track, offsetSeconds);
+        } catch (err: any) {
+            if (err?.isForbidden && track.type === 'url') {
+                console.warn(`[PlayerService] Кэшированная ссылка устарела (403) для "${track.title}". Получаем свежий поток...`);
+                TrackResolver.invalidateCache(track.type, track.query);
+                const freshTrack = await TrackResolver.resolveTrack(track.type, track.query, true);
+                await this.streamer.play(freshTrack, offsetSeconds);
+            } else {
+                throw err;
+            }
+        }
     }
 
     async playSfx(soundId: number, sfxFilePath: string, volume: number = 1.0, loop: boolean = false) {
@@ -85,6 +142,11 @@ export class PlayerService extends EventEmitter {
         const nextTrackDB = this.queueManager.getNext(this.streamer.currentTrack);
 
         if (nextTrackDB) {
+            // Optimistically update status to show next track immediately to frontend via WebSocket
+            this.streamer.currentTrack = nextTrackDB;
+            this.streamer.seekOffset = 0;
+            this.emit('stateUpdate', this.getStatus());
+
             try {
                 const nextTrack = await this.resolveTrack(nextTrackDB.type, nextTrackDB.query);
                 await this.play(nextTrack);
@@ -155,18 +217,34 @@ export class PlayerService extends EventEmitter {
     }
 
     async seek(seconds: number) {
-        if (this.streamer.currentTrack) {
-            await this.play(this.streamer.currentTrack, seconds);
+        if (!this.streamer.currentTrack) return;
+        let track = this.streamer.currentTrack;
+        if (track.type === 'url') {
+            const cached = TrackResolver.getCachedTrack(track.type, track.query);
+            if (cached && cached.url) {
+                track = cached;
+            }
         }
+        await this.play(track, seconds);
     }
 
     setVolume(volume: number) {
         this.streamer.setVolume(volume);
+        const settings = loadPersistedSettings();
+        if (!settings.guildVolumes) settings.guildVolumes = {};
+        if (!settings.guildVolumes[this.guildId]) settings.guildVolumes[this.guildId] = {};
+        settings.guildVolumes[this.guildId].music = this.streamer.volume;
+        savePersistedSettings(settings);
         this.emit('stateUpdate', this.getStatus());
     }
 
     setSfxVolume(volume: number) {
         this.streamer.setSfxVolume(volume);
+        const settings = loadPersistedSettings();
+        if (!settings.guildVolumes) settings.guildVolumes = {};
+        if (!settings.guildVolumes[this.guildId]) settings.guildVolumes[this.guildId] = {};
+        settings.guildVolumes[this.guildId].sfx = this.streamer.sfxVolume;
+        savePersistedSettings(settings);
     }
 
     getStatus() {

@@ -2,12 +2,13 @@ import path from 'path';
 import fs from 'fs';
 import youtubedl from 'youtube-dl-exec';
 import spotifyUrlInfo from 'spotify-url-info';
+import { prisma } from '../database';
 import { Track } from './types';
 
 // @ts-ignore
 const spotify = spotifyUrlInfo(fetch);
 
-// Cache resolved stream URLs for 45 minutes (YouTube/SoundCloud URLs stay valid for 1-6 hours)
+// Maximum cache TTL (capped by actual signed URL expiration time minus 60s safety margin)
 const RESOLVE_CACHE_TTL_MS = 45 * 60 * 1000;
 const MAX_RESOLVE_CACHE_SIZE = 500;
 const resolvedCache = new Map<string, { track: Track; expiresAt: number }>();
@@ -18,15 +19,98 @@ const prefetchQueue: Array<{ type: 'local' | 'url'; query: string }> = [];
 const queuedPrefetchKeys = new Set<string>();
 let isPrefetchRunning = false;
 
-// Self-healing flag: if the configured cookies file is expired ("The page needs to be reloaded"),
-// automatically disable it so every resolution doesn't waste 6.5s failing on stale cookies.
-let cookiesMarkedInvalid = false;
+const YOUTUBE_AUTH_COOKIE_NAMES = [
+    'SID',
+    'HSID',
+    'SSID',
+    'APISID',
+    'SAPISID',
+    '__Secure-1PSID',
+    '__Secure-3PSID',
+    'LOGIN_INFO'
+];
+
+function resolveCookieFilePath(): string | null {
+    const envPath = process.env.YOUTUBE_COOKIES_FILE;
+    if (envPath) {
+        const resolved = path.resolve(envPath);
+        if (fs.existsSync(resolved)) return resolved;
+    }
+    const candidates = [
+        path.resolve('cookies.txt'),
+        path.join(process.cwd(), 'cookies.txt'),
+        path.resolve(__dirname, '..', '..', 'cookies.txt'),
+        'D:\\Bot\\cookies.txt'
+    ];
+    for (const cand of candidates) {
+        if (fs.existsSync(cand)) return cand;
+    }
+    return null;
+}
 
 function getCacheKey(type: 'local' | 'url', query: string): string {
     return `${type}:${query.trim()}`;
 }
 
+/**
+ * Extracts the real expiration timestamp (ms) from a signed SoundCloud CloudFront Policy or YouTube expire param,
+ * subtracting a 60-second safety margin so expired stream URLs are never served from cache.
+ */
+function getStreamUrlExpiresAt(streamUrl: string): number {
+    const defaultExpiry = Date.now() + RESOLVE_CACHE_TTL_MS;
+    if (!streamUrl || !streamUrl.startsWith('http')) {
+        return defaultExpiry;
+    }
+    try {
+        const u = new URL(streamUrl);
+        const policyParam = u.searchParams.get('Policy');
+        if (policyParam) {
+            const b64 = policyParam.replace(/-/g, '+').replace(/_/g, '/').replace(/~/g, '=');
+            const raw = Buffer.from(b64, 'base64').toString('utf8');
+            const epochMatch = raw.match(/"AWS:EpochTime"\s*:\s*(\d+)/);
+            if (epochMatch && epochMatch[1]) {
+                const epochSec = Number(epochMatch[1]);
+                if (epochSec > 0) {
+                    return Math.min(defaultExpiry, epochSec * 1000 - 60_000);
+                }
+            }
+        }
+        const expParam = u.searchParams.get('expire') || u.searchParams.get('expires');
+        if (expParam && /^\d+$/.test(expParam)) {
+            return Math.min(defaultExpiry, Number(expParam) * 1000 - 60_000);
+        }
+    } catch {}
+    return defaultExpiry;
+}
+
+/**
+ * SoundCloud's outer playlist.m3u8 URL has a CloudFront Policy valid for only ~4 minutes (260s),
+ * whereas the segment URLs inside playlist.m3u8 carry a wildcard /* Policy valid for 2 hours (7340s).
+ * Upgrading playlist.m3u8 with the wildcard query string prevents 403 Forbidden errors on cached/paused tracks.
+ */
+async function upgradeSoundCloudM3u8Url(streamUrl: string): Promise<string> {
+    if (!streamUrl.includes('soundcloud.cloud') || !streamUrl.includes('playlist.m3u8')) {
+        return streamUrl;
+    }
+    try {
+        const res = await fetch(streamUrl);
+        if (!res.ok) return streamUrl;
+        const text = await res.text();
+        const match = text.match(/(?:init\.mp4|data000\.\w+)\?(\S+)/);
+        if (match && match[1]) {
+            const cleanQuery = match[1].replace(/["']/g, '');
+            const baseUrl = streamUrl.split('?')[0];
+            return `${baseUrl}?${cleanQuery}`;
+        }
+    } catch {}
+    return streamUrl;
+}
+
 function storeResolvedTrack(key: string, track: Track) {
+    const expiresAt = track.type === 'url' ? getStreamUrlExpiresAt(track.url || '') : Date.now() + RESOLVE_CACHE_TTL_MS;
+    if (expiresAt <= Date.now()) {
+        return;
+    }
     if (resolvedCache.has(key)) {
         resolvedCache.delete(key);
     }
@@ -37,18 +121,60 @@ function storeResolvedTrack(key: string, track: Track) {
     }
     resolvedCache.set(key, {
         track,
-        expiresAt: Date.now() + RESOLVE_CACHE_TTL_MS
+        expiresAt
     });
 }
 
-function extractTrackInfo(info: any) {
+function isPreviewEntry(entry: any): boolean {
+    if (!entry) return false;
+    if (typeof entry.format_id === 'string' && entry.format_id.includes('preview')) {
+        return true;
+    }
+    if (Array.isArray(entry.formats) && entry.formats.length > 0) {
+        const allPreview = entry.formats.every(
+            (f: any) => typeof f.format_id === 'string' && f.format_id.includes('preview')
+        );
+        if (allPreview) return true;
+    }
+    return false;
+}
+
+function extractTrackInfo(info: any, rejectPreviews: boolean = false) {
     if (!info) return null;
     let entry = info;
     if (Array.isArray(info.entries)) {
-        if (info.entries.length === 0) return null;
-        entry = info.entries[0];
+        const validEntries = info.entries.filter(Boolean);
+        if (validEntries.length === 0) return null;
+        // Prefer the first full-length (non-30s Go+ preview) entry
+        const fullEntry = validEntries.find((e: any) => !isPreviewEntry(e));
+        if (fullEntry) {
+            entry = fullEntry;
+        } else if (rejectPreviews) {
+            return null;
+        } else {
+            entry = validEntries[0];
+        }
+    } else if (rejectPreviews && isPreviewEntry(entry)) {
+        return null;
     }
-    const streamUrl = entry?.url;
+
+    // Prefer entry.url selected by yt-dlp according to -f bestaudio/best; fallback to progressive formats if entry.url missing
+    let streamUrl = entry?.url;
+    if (!streamUrl && Array.isArray(entry?.formats)) {
+        const progressive = entry.formats.find(
+            (f: any) =>
+                typeof f.url === 'string' &&
+                f.url.startsWith('http') &&
+                (f.protocol === 'http' || f.protocol === 'https') &&
+                f.acodec &&
+                f.acodec !== 'none' &&
+                !String(f.format_id || '').includes('preview')
+        );
+        if (progressive?.url) {
+            streamUrl = progressive.url;
+        }
+    }
+
     if (!streamUrl || typeof streamUrl !== 'string' || !streamUrl.startsWith('http')) {
         return null;
     }
@@ -62,22 +188,25 @@ function extractTrackInfo(info: any) {
     };
 }
 
-function buildYtDlpOptions(includeCookies: boolean): any {
+function buildYtDlpOptions(includeCookies: boolean, isYoutube: boolean = false): any {
     const opts: any = {
         dumpSingleJson: true,
-        f: 'bestaudio',
+        f: isYoutube ? 'bestaudio/best' : 'bestaudio',
         noWarnings: true,
         noPlaylist: true,
         skipDownload: true,
-        noCheckCertificates: true
+        noCheckCertificates: true,
+        jsRuntimes: 'node'
     };
 
-    if (includeCookies && !cookiesMarkedInvalid) {
-        if (process.env.YOUTUBE_COOKIES_FILE) {
-            const resolvedCookiePath = path.resolve(process.env.YOUTUBE_COOKIES_FILE);
-            if (fs.existsSync(resolvedCookiePath)) {
-                opts.cookies = resolvedCookiePath;
-            }
+    if (isYoutube) {
+        opts.extractorArgs = 'youtube:player_client=web_embedded,web';
+    }
+
+    if (includeCookies) {
+        const cookiePath = resolveCookieFilePath();
+        if (cookiePath) {
+            opts.cookies = cookiePath;
         } else if (process.env.YOUTUBE_BROWSER_COOKIES) {
             opts.cookiesFromBrowser = process.env.YOUTUBE_BROWSER_COOKIES;
         }
@@ -86,27 +215,107 @@ function buildYtDlpOptions(includeCookies: boolean): any {
     return opts;
 }
 
-async function runYtDlpWithCookieHeal(target: string): Promise<any> {
-    const hasCookiesConfigured = !cookiesMarkedInvalid && !!(process.env.YOUTUBE_COOKIES_FILE || process.env.YOUTUBE_BROWSER_COOKIES);
-    try {
-        return await youtubedl(target, buildYtDlpOptions(hasCookiesConfigured));
-    } catch (err: any) {
-        const msg = err?.message || '';
-        if (
-            hasCookiesConfigured &&
-            (msg.includes('The page needs to be reloaded') ||
-                msg.includes('cookies are no longer valid') ||
-                msg.includes('This video is unavailable'))
-        ) {
-            console.warn('[TrackResolver] YouTube cookies file appears expired/invalid. Disabling cookies and retrying directly...');
-            cookiesMarkedInvalid = true;
-            return await youtubedl(target, buildYtDlpOptions(false));
+/**
+ * Runs yt-dlp for YouTube targets using the user's cookies + Node.js JS challenge solver (jsRuntimes: 'node').
+ */
+async function runYoutubeYtDlp(target: string): Promise<any> {
+    const cookiePath = resolveCookieFilePath();
+    const hasCookies = !!(cookiePath || process.env.YOUTUBE_BROWSER_COOKIES);
+
+    if (hasCookies) {
+        try {
+            const info = await youtubedl(target, buildYtDlpOptions(true, true));
+            console.log(`[Cookies] 🍪 YouTube-поток успешно получен с использованием cookies (${target})`);
+            return info;
+        } catch (cookieErr: any) {
+            const firstLine = cookieErr?.message?.split('\n').find((l: string) => l.includes('ERROR')) || cookieErr?.message?.split('\n')[0];
+            console.error(`[Cookies] ❌ Ошибка при запросе к YouTube с cookies (${target}):`, firstLine);
+            throw cookieErr;
         }
-        throw err;
     }
+
+    console.warn(`[Cookies] ⚠️ Запрос к YouTube выполняется без cookies (${target}) — рекомендуется настроить cookies.txt`);
+    return await youtubedl(target, buildYtDlpOptions(false, true));
 }
 
 export class TrackResolver {
+    /**
+     * Checks and logs the status of YouTube cookies at server startup.
+     */
+    static verifyAndLogCookies(): void {
+        const cookiePath = resolveCookieFilePath();
+        if (cookiePath) {
+            try {
+                const raw = fs.readFileSync(cookiePath, 'utf8');
+                const lines = raw.split(/\r?\n/).filter(l => l.trim() && !l.startsWith('#'));
+                const ytLines = lines.filter(l => l.includes('youtube.com') || l.includes('google.com'));
+                const nowSec = Math.floor(Date.now() / 1000);
+
+                const authSet = new Set(YOUTUBE_AUTH_COOKIE_NAMES);
+                const foundAuth = new Set<string>();
+                let expiredAuthCount = 0;
+
+                for (const line of ytLines) {
+                    const parts = line.split('\t');
+                    const expiry = Number(parts[4]);
+                    const name = parts[5];
+                    if (name && authSet.has(name)) {
+                        if (expiry > 0 && expiry < nowSec) {
+                            expiredAuthCount++;
+                        } else {
+                            foundAuth.add(name);
+                        }
+                    }
+                }
+
+                if (foundAuth.size > 0 && expiredAuthCount === 0) {
+                    console.log(
+                        `[Cookies] ✅ Файл ${path.basename(cookiePath)} успешно собран и загружен: ` +
+                        `${ytLines.length} куки YouTube (ключи авторизации: ${foundAuth.size}/${YOUTUBE_AUTH_COOKIE_NAMES.length} активны, JS-runtime: node).`
+                    );
+                } else if (foundAuth.size > 0 && expiredAuthCount > 0) {
+                    console.warn(
+                        `[Cookies] ⚠️ Файл ${path.basename(cookiePath)} загружен (${ytLines.length} куки), но ${expiredAuthCount} ключей авторизации истекли.`
+                    );
+                } else {
+                    console.warn(
+                        `[Cookies] ⚠️ Файл ${path.basename(cookiePath)} найден (${ytLines.length} куки), но в нём нет ключей авторизации аккаунта YouTube.`
+                    );
+                }
+                return;
+            } catch (err: any) {
+                console.error(`[Cookies] ❌ Ошибка чтения файла cookies (${cookiePath}):`, err.message);
+                return;
+            }
+        }
+
+        if (process.env.YOUTUBE_BROWSER_COOKIES) {
+            console.log(`[Cookies] ✅ Включено автоматическое извлечение cookies из браузера: ${process.env.YOUTUBE_BROWSER_COOKIES}`);
+            return;
+        }
+
+        console.warn('[Cookies] ⚠️ Куки YouTube не настроены (файл cookies.txt не найден).');
+    }
+
+    /**
+     * Warms up yt-dlp and prefetches the top tracks from the database in the background after server start
+     * so the very first track connection has minimal latency.
+     */
+    static async warmupOnStartup(): Promise<void> {
+        try {
+            const recentTracks = await prisma.track.findMany({
+                where: { type: 'url' },
+                orderBy: [{ addedAt: 'desc' }, { id: 'desc' }],
+                take: 1
+            });
+            for (const t of recentTracks) {
+                if (t.query) {
+                    this.prefetchTrack('url', t.query);
+                }
+            }
+        } catch {}
+    }
+
     static isYoutubePlaylist(query: string): boolean {
         try {
             const url = new URL(query.trim());
@@ -176,6 +385,8 @@ export class TrackResolver {
         if (!forceRefresh) {
             const cached = this.getCachedTrack(type, query);
             if (cached) return cached;
+        } else {
+            resolvedCache.delete(key);
         }
 
         if (inFlightResolutions.has(key)) {
@@ -200,7 +411,7 @@ export class TrackResolver {
         let artist = 'Unknown';
         let duration = 0;
         let streamUrl = query;
-        let thumbnail = undefined;
+        let thumbnail: string | undefined = undefined;
         let platform: string | undefined = undefined;
 
         if (type === 'local') {
@@ -220,29 +431,61 @@ export class TrackResolver {
         let searchQuery = query.trim();
         let isDirectUrl = searchQuery.startsWith('http://') || searchQuery.startsWith('https://');
 
+        // Fast-path: check local SQLite database for already-known track metadata (saves ~1s network call to Spotify)
+        try {
+            const dbTrack = await prisma.track.findFirst({
+                where: { query: searchQuery }
+            });
+            if (dbTrack && dbTrack.title && dbTrack.title !== searchQuery) {
+                title = dbTrack.title;
+                artist = dbTrack.artist || 'Unknown';
+                duration = dbTrack.duration || 0;
+                thumbnail = dbTrack.thumbnail || undefined;
+            }
+        } catch {}
+
         // Check if Spotify link
         if (searchQuery.includes('spotify.com') || searchQuery.startsWith('spotify:')) {
-            try {
-                const data = await spotify.getPreview(searchQuery);
-                title = data.title;
-                artist = data.artist;
-                thumbnail = data.image;
-                searchQuery = `${title} ${artist}`;
-                isDirectUrl = false;
-            } catch (spotifyErr: any) {
-                console.error('[Spotify] Failed to get preview:', spotifyErr.message || spotifyErr);
+            if (title === query || artist === 'Unknown' || !thumbnail) {
+                try {
+                    const data = await spotify.getPreview(searchQuery);
+                    title = data.title || title;
+                    artist = data.artist || artist;
+                    thumbnail = data.image || thumbnail;
+                } catch (spotifyErr: any) {
+                    console.error('[Spotify] Failed to get preview:', spotifyErr.message || spotifyErr);
+                }
             }
+            searchQuery = artist && artist !== 'Unknown' ? `${artist} - ${title}` : title;
+            isDirectUrl = false;
         }
 
         if (!isDirectUrl) {
-            // 1. Try YouTube search first
+            // 1. PRIMARY: Search SoundCloud first (scsearch3 to skip any 30s Go+ preview if full track exists)
             try {
-                const ytInfo = await runYtDlpWithCookieHeal(`ytsearch1:${searchQuery}`);
+                const scInfo = await youtubedl(`scsearch3:${searchQuery}`, buildYtDlpOptions(false, false));
+                const scRes = extractTrackInfo(scInfo, true);
+                if (scRes) {
+                    title = title !== query && title ? title : scRes.title;
+                    artist = artist !== 'Unknown' && artist ? artist : scRes.artist;
+                    duration = scRes.duration || duration;
+                    streamUrl = await upgradeSoundCloudM3u8Url(scRes.streamUrl);
+                    thumbnail = thumbnail || scRes.thumbnail;
+                    platform = 'SoundCloud';
+                    return { type, query, title, artist, duration, url: streamUrl, thumbnail, platform };
+                }
+            } catch (scErr: any) {
+                console.warn(`[SoundCloud] Search error for "${searchQuery}":`, scErr.message?.split('\n')[0]);
+            }
+
+            // 2. FALLBACK: Try YouTube search (with cookies) if SoundCloud had no full-length match
+            try {
+                const ytInfo = await runYoutubeYtDlp(`ytsearch1:${searchQuery}`);
                 const res = extractTrackInfo(ytInfo);
                 if (res) {
                     title = title !== query && title ? title : res.title;
                     artist = artist !== 'Unknown' && artist ? artist : res.artist;
-                    duration = duration || res.duration;
+                    duration = res.duration || duration;
                     streamUrl = res.streamUrl;
                     thumbnail = thumbnail || res.thumbnail;
                     platform = 'YouTube';
@@ -252,67 +495,49 @@ export class TrackResolver {
                 console.warn(`[YouTube] Search error for "${searchQuery}":`, ytErr.message?.split('\n')[0]);
             }
 
-            // 2. Fallback to SoundCloud search
-            try {
-                const scInfo = await youtubedl(`scsearch1:${searchQuery}`, buildYtDlpOptions(false));
-                const scRes = extractTrackInfo(scInfo);
-                if (scRes) {
-                    title = title !== query && title ? title : scRes.title;
-                    artist = artist !== 'Unknown' && artist ? artist : scRes.artist;
-                    duration = duration || scRes.duration;
-                    streamUrl = scRes.streamUrl;
-                    thumbnail = thumbnail || scRes.thumbnail;
-                    platform = 'SoundCloud';
-                    return { type, query, title, artist, duration, url: streamUrl, thumbnail, platform };
-                }
-            } catch (scErr: any) {
-                console.warn(`[SoundCloud] Search error for "${searchQuery}":`, scErr.message?.split('\n')[0]);
-            }
-
-            throw new Error(`Не удалось найти трек "${query}" ни на YouTube, ни на SoundCloud.`);
+            throw new Error(`Не удалось найти трек "${query}" ни на SoundCloud, ни на YouTube.`);
         } else {
-            // Direct URL (YouTube, SoundCloud, or other web source)
+            // Direct URL (SoundCloud, YouTube, or other web source)
+            const isYoutubeUrl = searchQuery.includes('youtube.com') || searchQuery.includes('youtu.be');
+
+            // Direct extraction (YouTube URLs use cookies + jsRuntimes: 'node'; SoundCloud URLs upgrade m3u8 policy)
             try {
-                const info = await runYtDlpWithCookieHeal(searchQuery);
+                const info = isYoutubeUrl
+                    ? await runYoutubeYtDlp(searchQuery)
+                    : await youtubedl(searchQuery, buildYtDlpOptions(false, false));
                 const res = extractTrackInfo(info);
                 if (res) {
-                    title = res.title;
-                    artist = res.artist;
-                    duration = res.duration;
-                    streamUrl = res.streamUrl;
-                    thumbnail = res.thumbnail;
-                    platform = res.extractor?.includes('SoundCloud') ? 'SoundCloud' : 'YouTube';
+                    title = title !== query && title ? title : res.title;
+                    artist = artist !== 'Unknown' && artist ? artist : res.artist;
+                    duration = res.duration || duration;
+                    streamUrl = await upgradeSoundCloudM3u8Url(res.streamUrl);
+                    thumbnail = thumbnail || res.thumbnail;
+                    platform = res.extractor?.toLowerCase().includes('soundcloud') ? 'SoundCloud' : 'YouTube';
                     return { type, query, title, artist, duration, url: streamUrl, thumbnail, platform };
                 }
             } catch (urlErr: any) {
-                console.error(`[TrackResolver] Failed to resolve direct URL ${searchQuery}:`, urlErr.message?.split('\n')[0]);
-
-                // If YouTube direct link blocked, try oEmbed + SoundCloud fallback
-                if (searchQuery.includes('youtube.com') || searchQuery.includes('youtu.be')) {
+                // If direct YouTube URL failed, try SoundCloud fallback by title
+                if (isYoutubeUrl && title && title !== query) {
                     try {
-                        const oembedRes = await fetch(`https://www.youtube.com/oembed?url=${encodeURIComponent(searchQuery)}&format=json`);
-                        const oembedJson: any = await oembedRes.json();
-                        if (oembedJson?.title) {
-                            console.log(`[YouTube oEmbed] Retrieved title "${oembedJson.title}", falling back to SoundCloud search...`);
-                            const scInfo = await youtubedl(`scsearch1:${oembedJson.title}`, buildYtDlpOptions(false));
-                            const scRes = extractTrackInfo(scInfo);
-                            if (scRes) {
-                                return {
-                                    type,
-                                    query,
-                                    title: scRes.title,
-                                    artist: scRes.artist,
-                                    duration: scRes.duration,
-                                    url: scRes.streamUrl,
-                                    thumbnail: scRes.thumbnail,
-                                    platform: 'SoundCloud'
-                                };
-                            }
+                        const fallbackQuery = artist && artist !== 'Unknown' ? `${artist} - ${title}` : title;
+                        const scInfo = await youtubedl(`scsearch3:${fallbackQuery}`, buildYtDlpOptions(false, false));
+                        const scRes = extractTrackInfo(scInfo, true);
+                        if (scRes) {
+                            streamUrl = await upgradeSoundCloudM3u8Url(scRes.streamUrl);
+                            return {
+                                type,
+                                query,
+                                title,
+                                artist,
+                                duration: scRes.duration || duration,
+                                url: streamUrl,
+                                thumbnail: thumbnail || scRes.thumbnail,
+                                platform: 'SoundCloud'
+                            };
                         }
-                    } catch (oembedErr) {
-                        console.error('[YouTube oEmbed] Fallback failed:', oembedErr);
-                    }
+                    } catch {}
                 }
+                console.error(`[TrackResolver] Failed to resolve direct URL ${searchQuery}:`, urlErr.message?.split('\n')[0]);
                 throw new Error(`Не удалось воспроизвести ссылку: ${urlErr.message?.split('\n')[0]}`);
             }
 

@@ -328,6 +328,13 @@ export const LibraryProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const activePlaylist = (Array.isArray(playlists) ? playlists : []).find(p => p.id === activePlaylistId);
   const playlistName = activePlaylist ? activePlaylist.name : 'All Tracks';
 
+  const firstVisibleTrack = filteredTracks[0];
+  useEffect(() => {
+    if (firstVisibleTrack && firstVisibleTrack.type === 'url' && firstVisibleTrack.query) {
+      api.action('prefetch', { type: firstVisibleTrack.type, query: firstVisibleTrack.query }).catch(() => {});
+    }
+  }, [firstVisibleTrack]);
+
   return (
     <LibraryContext.Provider
       value={{

@@ -1,8 +1,8 @@
+import 'dotenv/config';
 import { startApi } from './api/server';
 import { Client, GatewayIntentBits, Collection } from 'discord.js';
 import fs from 'fs';
 import path from 'path';
-import 'dotenv/config';
 import { Command } from './types';
 
 process.on('unhandledRejection', (reason, promise) => {
@@ -39,8 +39,25 @@ for (const file of commandFiles) {
     client.commands.set(command.name, command);
 }
 
-client.once('clientReady', () => {
+client.once('clientReady', async () => {
     console.log(`Бот в сети. Авторизован как ${client.user?.tag}`);
+
+    // Синхронизируем активные голосовые сессии пользователей, которые уже находятся в голосовых каналах при запуске бота
+    try {
+        for (const [guildId, guild] of client.guilds.cache) {
+            for (const [memberId, voiceState] of guild.voiceStates.cache) {
+                if (voiceState.channelId && !voiceState.member?.user.bot) {
+                    await prisma.activeSession.upsert({
+                        where: { userId: memberId },
+                        update: { guildId, channelId: voiceState.channelId },
+                        create: { userId: memberId, guildId, channelId: voiceState.channelId }
+                    });
+                }
+            }
+        }
+    } catch (e) {
+        console.error('Ошибка начальной синхронизации голосовых сессий:', e);
+    }
 });
 
 import { prisma } from './database';

@@ -11,9 +11,9 @@ export const PCM_BYTES_PER_SECOND = PCM_SAMPLE_RATE * PCM_STEREO_FRAME_BYTES; //
 export const TICK_MS = 20;
 export const FRAME_BYTES = (PCM_BYTES_PER_SECOND * TICK_MS) / 1000; // 3840 bytes
 
-// Buffer 2s–4s of decoded music PCM in RAM to absorb network jitter while keeping backpressure on FFmpeg
-const MUSIC_HIGH_WATER_BYTES = PCM_BYTES_PER_SECOND * 4; // ~768 KB (4 sec)
-const MUSIC_LOW_WATER_BYTES = PCM_BYTES_PER_SECOND * 2;  // ~384 KB (2 sec)
+// Buffer 8s–15s of decoded music PCM in RAM to absorb network jitter without stalling TLS sockets
+const MUSIC_HIGH_WATER_BYTES = PCM_BYTES_PER_SECOND * 15; // ~2.88 MB (15 sec)
+const MUSIC_LOW_WATER_BYTES = PCM_BYTES_PER_SECOND * 8;   // ~1.53 MB (8 sec)
 
 interface ActiveSfx {
     instanceId: number;
@@ -126,8 +126,9 @@ export class AudioMixer extends Readable {
             if (working.length > 0) {
                 this.musicChunks.push(working);
                 this.musicBufferedBytes += working.length;
-                if (this.musicPrebuffering && this.musicBufferedBytes >= FRAME_BYTES * 3) {
+                if (this.musicPrebuffering && this.musicBufferedBytes >= FRAME_BYTES) {
                     this.musicPrebuffering = false;
+                    this.emit('musicStart');
                 }
             }
 
@@ -143,9 +144,13 @@ export class AudioMixer extends Readable {
             if (this.musicSource !== source) return;
             this.musicSourceEnded = true;
             this.musicPrebuffering = false;
+            // Only emit musicEnd if the track actually played audio.
+            // If the decoder exited with 0 bytes (e.g. seek re-spawn or error), do NOT skip the track.
             if (this.musicBufferedBytes === 0 && this.musicActive) {
                 this.musicActive = false;
-                this.emit('musicEnd');
+                if (this.playedMusicBytes > 0) {
+                    this.emit('musicEnd');
+                }
             }
         };
 
@@ -324,8 +329,10 @@ export class AudioMixer extends Readable {
 
         if (this.musicSourceEnded && this.musicBufferedBytes === 0 && this.musicActive) {
             this.musicActive = false;
-            // Emit on next tick so current frame finishes pushing first
-            setImmediate(() => this.emit('musicEnd'));
+            // Emit on next tick so current frame finishes pushing first, only if audio actually played
+            if (this.playedMusicBytes > 0) {
+                setImmediate(() => this.emit('musicEnd'));
+            }
         }
 
         return written;

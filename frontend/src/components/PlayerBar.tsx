@@ -79,6 +79,16 @@ export const PlayerBar = () => {
                   handleAction('seek', { seconds: Number(e.currentTarget.value) });
                   setSeekValue(null);
                 }}
+                onTouchEnd={(e) => {
+                  handleAction('seek', { seconds: Number(e.currentTarget.value) });
+                  setSeekValue(null);
+                }}
+                onKeyUp={(e) => {
+                  if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+                    handleAction('seek', { seconds: Number(e.currentTarget.value) });
+                    setSeekValue(null);
+                  }
+                }}
                 style={{ width: '100%', position: 'absolute', zIndex: 2, opacity: 0, cursor: 'pointer', height: '100%' }}
                 disabled={!duration}
               />
