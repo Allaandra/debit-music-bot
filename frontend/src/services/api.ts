@@ -1,3 +1,5 @@
+import axios from 'axios';
+
 export const BACKEND_ORIGIN = import.meta.env.DEV
     ? `http://${window.location.hostname}:3001`
     : window.location.origin;
@@ -11,109 +13,130 @@ export function resolveMediaUrl(url?: string | null): string {
     return url;
 }
 
-// Use a wrapper to automatically include credentials
-const fetchAuth = (url: string, options: RequestInit = {}) => {
-    return fetch(url, { ...options, credentials: 'include' });
-};
+export const apiClient = axios.create({
+    baseURL: BASE_URL,
+    withCredentials: true
+});
+
+export function getApiErrorMessage(error: unknown, fallback: string = 'Произошла ошибка'): string {
+    if (axios.isAxiosError(error)) {
+        return (
+            (error.response?.data as any)?.error ||
+            (error.response?.data as any)?.message ||
+            error.message ||
+            fallback
+        );
+    }
+    if (error instanceof Error) {
+        return error.message;
+    }
+    return fallback;
+}
 
 export const api = {
     async fetchMe() {
-        const res = await fetchAuth(`${BASE_URL}/auth/me`);
-        return res.ok ? await res.json() : null;
+        try {
+            const res = await apiClient.get('/auth/me');
+            return res.data;
+        } catch {
+            return null;
+        }
     },
 
     async fetchTracks(playlistId: number | null) {
-        let url = `${BASE_URL}/tracks`;
-        if (playlistId) {
-            url = `${BASE_URL}/playlists/${playlistId}/tracks`;
+        try {
+            const url = playlistId ? `/playlists/${playlistId}/tracks` : '/tracks';
+            const res = await apiClient.get(url);
+            return Array.isArray(res.data) ? res.data : [];
+        } catch {
+            return [];
         }
-        const res = await fetchAuth(url);
-        return res.ok ? await res.json() : [];
     },
 
     async fetchPlaylists() {
-        const res = await fetchAuth(`${BASE_URL}/playlists`);
-        return res.ok ? await res.json() : [];
+        try {
+            const res = await apiClient.get('/playlists');
+            return Array.isArray(res.data) ? res.data : [];
+        } catch {
+            return [];
+        }
     },
 
     async fetchStatus() {
-        const res = await fetchAuth(`${BASE_URL}/status`);
-        return res.ok ? await res.json() : null;
+        try {
+            const res = await apiClient.get('/status');
+            return res.data;
+        } catch {
+            return null;
+        }
     },
 
     async checkTrackInPlaylists(trackId: number, playlists: any[]) {
         return Promise.all(
             playlists.map(pl =>
-                fetchAuth(`${BASE_URL}/playlists/${pl.id}/tracks`)
-                    .then(r => r.json())
-                    .then((tracks: any[]) => tracks.some((t: any) => t.id === trackId) ? pl.name : null)
+                apiClient
+                    .get(`/playlists/${pl.id}/tracks`)
+                    .then(res => (Array.isArray(res.data) && res.data.some((t: any) => t.id === trackId) ? pl.name : null))
                     .catch(() => null)
             )
         ).then(results => results.filter(Boolean) as string[]);
     },
 
     async action(action: string, payload?: any) {
-        const res = await fetchAuth(`${BASE_URL}/action`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ action, payload })
-        });
-        return res.ok ? await res.json() : null;
+        try {
+            const res = await apiClient.post('/action', { action, payload });
+            return res.data;
+        } catch {
+            return null;
+        }
     },
 
     async addTrack(query: string, type: 'url' | 'local' = 'url') {
-        const res = await fetchAuth(`${BASE_URL}/tracks`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ query, type })
-        });
-        return await res.json();
+        const res = await apiClient.post('/tracks', { query, type });
+        return res.data;
     },
 
     async importPlaylist(query: string, createPlaylist: boolean, playlistName: string) {
-        await fetchAuth(`${BASE_URL}/tracks/import_playlist`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ query, createPlaylist, playlistName })
-        });
+        const res = await apiClient.post('/tracks/import_playlist', { query, createPlaylist, playlistName });
+        return res.data;
     },
 
     async deleteTrackCompletely(trackId: number) {
-        await fetchAuth(`${BASE_URL}/tracks/${trackId}`, { method: 'DELETE' });
+        await apiClient.delete(`/tracks/${trackId}`);
     },
 
     async deleteTrackFromPlaylist(playlistId: number, trackId: number) {
-        await fetchAuth(`${BASE_URL}/playlists/${playlistId}/tracks/${trackId}`, { method: 'DELETE' });
+        await apiClient.delete(`/playlists/${playlistId}/tracks/${trackId}`);
     },
 
     async playTrack(track: any, playlistId: number | null, playlistName: string) {
-        const res = await fetchAuth(`${BASE_URL}/play`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
+        try {
+            const res = await apiClient.post('/play', {
                 query: track.query,
                 type: track.type,
                 playlistId,
                 playlistName
-            })
-        });
-        return res.ok ? await res.json() : null;
+            });
+            return res.data;
+        } catch {
+            return null;
+        }
     },
 
     async uploadFile(file: File, playlistId?: number) {
         const formData = new FormData();
         formData.append('file', file);
         if (playlistId) formData.append('playlistId', playlistId.toString());
-        const res = await fetchAuth(`${BASE_URL}/upload`, { method: 'POST', body: formData });
-        return res.ok ? await res.json() : null;
+        const res = await apiClient.post('/upload', formData);
+        return res.data;
     },
 
     async uploadFiles(files: File[], playlistId?: number) {
         const formData = new FormData();
         files.forEach(f => formData.append('files', f));
         if (playlistId) formData.append('playlistId', playlistId.toString());
-        const res = await fetchAuth(`${BASE_URL}/upload`, { method: 'POST', body: formData });
-        return res.ok ? await res.json() : null;
+        const res = await apiClient.post('/upload', formData);
+        return res.data;
     },
 
     async uploadSfxBatch(files: File[], playlistId: number, isGlobal: boolean = false) {
@@ -121,50 +144,45 @@ export const api = {
         files.forEach(f => formData.append('sounds', f));
         formData.append('playlistId', playlistId.toString());
         if (isGlobal) formData.append('isGlobal', 'true');
-        const res = await fetchAuth(`${BASE_URL}/sfx/upload`, {
-            method: 'POST',
-            body: formData
-        });
-        return res.ok ? await res.json() : null;
+        const res = await apiClient.post('/sfx/upload', formData);
+        return res.data;
     },
 
     async syncSounds() {
-        const res = await fetchAuth(`${BASE_URL}/sounds/sync`, { method: 'POST' });
-        return res.ok ? await res.json() : null;
+        try {
+            const res = await apiClient.post('/sounds/sync');
+            return res.data;
+        } catch {
+            return null;
+        }
     },
 
     async createPlaylist(name: string) {
-        await fetchAuth(`${BASE_URL}/playlists`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name })
-        });
+        const res = await apiClient.post('/playlists', { name });
+        return res.data;
     },
 
     async addTrackToPlaylist(playlistId: number, trackId: number) {
-        await fetchAuth(`${BASE_URL}/playlists/${playlistId}/tracks`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ trackId })
-        });
+        const res = await apiClient.post(`/playlists/${playlistId}/tracks`, { trackId });
+        return res.data;
     },
 
     async fetchSfxPlaylists() {
-        const res = await fetchAuth(`${BASE_URL}/sfx/playlists`);
-        return res.ok ? await res.json() : [];
+        try {
+            const res = await apiClient.get('/sfx/playlists');
+            return Array.isArray(res.data) ? res.data : [];
+        } catch {
+            return [];
+        }
     },
 
     async createSfxPlaylist(name: string, icon?: string) {
-        const res = await fetchAuth(`${BASE_URL}/sfx/playlists`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name, icon })
-        });
-        return await res.json();
+        const res = await apiClient.post('/sfx/playlists', { name, icon });
+        return res.data;
     },
 
     async deleteSfxPlaylist(id: number) {
-        await fetchAuth(`${BASE_URL}/sfx/playlists/${id}`, { method: 'DELETE' });
+        await apiClient.delete(`/sfx/playlists/${id}`);
     },
 
     async uploadSfx(file: File, playlistId: number, title?: string, isGlobal: boolean = false) {
@@ -173,40 +191,27 @@ export const api = {
         formData.append('playlistId', playlistId.toString());
         if (title) formData.append('title', title);
         if (isGlobal) formData.append('isGlobal', 'true');
-        const res = await fetchAuth(`${BASE_URL}/sfx/upload`, {
-            method: 'POST',
-            body: formData
-        });
-        return await res.json();
+        const res = await apiClient.post('/sfx/upload', formData);
+        return res.data;
     },
 
     async toggleSfxGlobal(id: number) {
-        const res = await fetchAuth(`${BASE_URL}/sfx/sounds/${id}/toggle-global`, {
-            method: 'PATCH'
-        });
-        return await res.json();
+        const res = await apiClient.patch(`/sfx/sounds/${id}/toggle-global`);
+        return res.data;
     },
 
     async deleteSfxSound(id: number) {
-        await fetchAuth(`${BASE_URL}/sfx/sounds/${id}`, { method: 'DELETE' });
+        await apiClient.delete(`/sfx/sounds/${id}`);
     },
 
     async playSfx(soundId: number, volume: number = 1.0, loop: boolean = false) {
-        const res = await fetchAuth(`${BASE_URL}/sfx/play`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ soundId, volume, loop })
-        });
-        return await res.json();
+        const res = await apiClient.post('/sfx/play', { soundId, volume, loop });
+        return res.data;
     },
 
     async stopSfxLoop(soundId: number) {
-        const res = await fetchAuth(`${BASE_URL}/sfx/loop/stop`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ soundId })
-        });
-        return await res.json();
+        const res = await apiClient.post('/sfx/loop/stop', { soundId });
+        return res.data;
     },
 
     getSfxAudioUrl(soundId: number) {
@@ -214,26 +219,27 @@ export const api = {
     },
 
     async logout() {
-        await fetchAuth(`${BASE_URL}/auth/logout`, { method: 'POST' });
+        await apiClient.post('/auth/logout');
     },
 
     async deletePlaylist(playlistId: number, deleteTracks: boolean) {
-        await fetchAuth(`${BASE_URL}/playlists/${playlistId}?deleteTracks=${deleteTracks}`, { method: 'DELETE' });
-    },
-
-    async editPlaylist(playlistId: number, data: { name?: string; icon?: string }) {
-        await fetchAuth(`${BASE_URL}/playlists/${playlistId}`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(data)
+        await apiClient.delete(`/playlists/${playlistId}`, {
+            params: { deleteTracks }
         });
     },
 
+    async editPlaylist(playlistId: number, data: { name?: string; icon?: string }) {
+        const res = await apiClient.put(`/playlists/${playlistId}`, data);
+        return res.data;
+    },
+
     async checkTrackInPlaylistsSingle(playlistId: number, trackId: number): Promise<boolean> {
-        const res = await fetchAuth(`${BASE_URL}/playlists/${playlistId}/tracks`);
-        if (!res.ok) return false;
-        const tracks: any[] = await res.json();
-        return tracks.some((t: any) => t.id === trackId);
+        try {
+            const res = await apiClient.get(`/playlists/${playlistId}/tracks`);
+            const tracks: any[] = res.data;
+            return Array.isArray(tracks) && tracks.some((t: any) => t.id === trackId);
+        } catch {
+            return false;
+        }
     }
 };
-
