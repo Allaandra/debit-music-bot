@@ -1,68 +1,239 @@
-/* Modal */
+/* ==========================================================================
+   UNIFIED GLASSMORPHISM MODAL SYSTEM
+   ========================================================================== */
+
+/* Dark frosted backdrop matching original delete modals */
 .modal-overlay {
   position: fixed;
-  top: 0; left: 0; right: 0; bottom: 0;
-  background-color: rgba(0,0,0,0.7);
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
   display: flex;
   justify-content: center;
   align-items: center;
-  z-index: 1000;
-}
-.modal-content h3 {
-  font-family: var(--font-display);
-  font-size: 22px;
-  font-weight: 700;
-  letter-spacing: 0.02em;
-  margin: 0;
+  z-index: 9999;
+  padding: 16px;
+  animation: modalOverlayFadeIn 0.18s ease-out;
 }
 
-.modal-content p {
-  font-size: 14px;
-  line-height: 1.5;
+@keyframes modalOverlayFadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 
+/* Modal card matching original panel-bg styling */
 .modal-content {
   background-color: var(--panel-bg);
+  border: 1px solid var(--border-color, rgba(255, 255, 255, 0.12));
+  border-radius: 12px;
   padding: 24px;
-  border-radius: 8px;
-  width: 400px;
+  width: 100%;
+  max-width: 420px;
   display: flex;
   flex-direction: column;
-  gap: 16px;
-  box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+  animation: modalContentZoomIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  box-sizing: border-box;
 }
-.modal-input {
-  padding: 12px;
-  border-radius: 4px;
-  border: none;
-  background-color: var(--placeholder-bg);
-  color: white;
-  font-size: 16px;
-}
-.modal-input:focus {
-  outline: 1px solid rgba(255,255,255,0.5);
-}
-.modal-buttons {
-  display: flex;
-  justify-content: flex-end;
-  gap: 12px;
-}
-.modal-btn {
-  padding: 8px 16px;
-  border-radius: 4px;
-  border: none;
-  cursor: pointer;
-  font-weight: bold;
-}
-.modal-btn.cancel {
-  background: transparent;
-  color: var(--text-main);
-}
-.modal-btn.create {
-  background-color: #1db954;
-  color: white;
-}
-.delete-option-btn { transition: background 0.2s; } 
-.delete-option-btn:hover { background: rgba(255,255,255,0.2) !important; } 
-.delete-option-btn.danger:hover { background: rgba(255, 60, 60, 0.4) !important; }
 
+@keyframes modalContentZoomIn {
+  from {
+    opacity: 0;
+    transform: scale(0.96) translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+/* Typography in modals */
+.modal-title {
+  font-family: var(--font-display, 'Podkova', serif);
+  font-size: 21px;
+  font-weight: 700;
+  color: var(--text-main, #ffffff);
+  margin: 0 0 6px 0;
+  letter-spacing: 0.02em;
+}
+
+.modal-target-badge {
+  font-size: 14px;
+  color: var(--text-main, #ffffff);
+  font-weight: 600;
+  margin: 0 0 10px 0;
+  word-break: break-word;
+}
+
+.modal-description {
+  font-size: 13.5px;
+  color: var(--text-muted, #9ca3af);
+  line-height: 1.5;
+  margin: 0 0 20px 0;
+}
+
+/* Input elements in modals */
+.modal-input-field {
+  width: 100%;
+  padding: 10px 14px;
+  border-radius: 8px;
+  border: 1px solid var(--border-light);
+  background: rgba(0, 0, 0, 0.2);
+  color: #ffffff;
+  font-size: 14px;
+  outline: none;
+  transition: all 0.15s ease;
+  box-sizing: border-box;
+}
+
+.modal-input-field:focus {
+  border-color: var(--accent, #86e59c);
+  background: rgba(0, 0, 0, 0.3);
+  box-shadow: 0 0 0 2px rgba(134, 229, 156, 0.25);
+}
+
+.modal-form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
+}
+
+.modal-label {
+  font-size: 12px;
+  color: var(--text-muted, #9ca3af);
+  font-weight: 500;
+}
+
+/* Full-width action button stack */
+.modal-actions-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+  margin-top: 4px;
+}
+
+.modal-btn-primary {
+  width: 100%;
+  padding: 12px;
+  border-radius: 8px;
+  border: none;
+  font-size: 14px;
+  font-weight: 600;
+  background: var(--accent, #86e59c);
+  color: var(--bottom-bar-bg, #0b110d);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.modal-btn-primary:hover:not(:disabled) {
+  filter: brightness(1.1);
+  transform: translateY(-1px);
+}
+
+.modal-btn-primary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.modal-btn-secondary {
+  width: 100%;
+  padding: 12px;
+  border-radius: 8px;
+  border: none;
+  background: rgba(255, 255, 255, 0.1);
+  color: #ffffff;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.modal-btn-secondary:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.modal-btn-danger {
+  width: 100%;
+  padding: 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 60, 60, 0.5);
+  background: rgba(255, 60, 60, 0.2);
+  color: #ff5555;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.modal-btn-danger:hover {
+  background: rgba(255, 60, 60, 0.35);
+  border-color: rgba(255, 80, 80, 0.7);
+}
+
+.modal-btn-cancel {
+  width: 100%;
+  padding: 12px;
+  border-radius: 8px;
+  border: none;
+  background: transparent;
+  color: #ffffff;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  margin-top: 4px;
+  transition: all 0.15s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.modal-btn-cancel:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.1);
+  color: #ffffff;
+}
+
+/* Backward compatibility aliases */
+.delete-option-btn {
+  width: 100%;
+  padding: 12px;
+  border-radius: 8px;
+  border: none;
+  background: rgba(255, 255, 255, 0.1);
+  color: #ffffff;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.15s ease;
+}
+
+.delete-option-btn:hover {
+  background: rgba(255, 255, 255, 0.2) !important;
+}
+
+.delete-option-btn.danger {
+  border: 1px solid rgba(255, 60, 60, 0.5);
+  background: rgba(255, 60, 60, 0.2);
+  color: #ff5555;
+  font-weight: 600;
+}
+
+.delete-option-btn.danger:hover {
+  background: rgba(255, 60, 60, 0.4) !important;
+}

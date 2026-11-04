@@ -1,6 +1,8 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { usePlayer } from '../context/PlayerContext';
-export const Modals = () => {
+
+export const Modals: React.FC = () => {
   const {
     editPlaylistModal,
     setEditPlaylistModal,
@@ -23,182 +25,108 @@ export const Modals = () => {
     handleCreatePlaylist
   } = usePlayer();
 
+  // In-modal safety confirmation steps (replaces native window.confirm)
+  const [confirmDeleteTrackCompletely, setConfirmDeleteTrackCompletely] = useState(false);
+  const [confirmDeletePlaylistWithTracks, setConfirmDeletePlaylistWithTracks] = useState(false);
+
+  // Close modals on Escape key
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        if (!importing) {
+          setIsModalOpen(false);
+          setDeleteTrackModal(null);
+          setImportPlaylistModal(null);
+          setEditPlaylistModal(null);
+          setDeletePlaylistModal(null);
+          setConfirmDeleteTrackCompletely(false);
+          setConfirmDeletePlaylistWithTracks(false);
+        }
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [importing, setIsModalOpen, setDeleteTrackModal, setImportPlaylistModal, setEditPlaylistModal, setDeletePlaylistModal]);
+
   return (
     <>
-      {isModalOpen && (
-        <div className="modal-overlay" style={{position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center'}} onClick={() => setIsModalOpen(false)}>
-          <div className="modal-content" style={{background: 'var(--glass-bg)', backdropFilter: 'blur(20px)', padding: '24px', borderRadius: '12px', border: '1px solid var(--border-light)', minWidth: '300px'}} onClick={e => e.stopPropagation()}>
-            <h3 style={{margin: '0 0 16px 0'}}>New Playlist</h3>
-            <form onSubmit={handleCreatePlaylist} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-              <input 
-                id="newPlaylistName"
-                name="newPlaylistName"
-                type="text" 
-                autoFocus
-                placeholder="Playlist name..." 
-                value={newPlaylistName}
-                onChange={(e) => setNewPlaylistName(e.target.value)}
-                style={{padding: '10px', borderRadius: '8px', border: '1px solid var(--border-light)', background: 'rgba(0,0,0,0.2)', color: 'white'}}
-              />
-              <div style={{display: 'flex', gap: '8px', justifyContent: 'flex-end'}}>
-                <button type="button" onClick={() => setIsModalOpen(false)} style={{padding: '8px 16px', borderRadius: '8px', border: 'none', background: 'transparent', color: 'white', cursor: 'pointer'}}>Cancel</button>
-                <button type="submit" style={{padding: '8px 16px', borderRadius: '8px', border: 'none', background: 'var(--accent)', color: 'white', cursor: 'pointer'}}>Create</button>
+      {/* 1. NEW PLAYLIST MODAL */}
+      {isModalOpen && createPortal(
+        <div className="modal-overlay" onClick={() => setIsModalOpen(false)}>
+          <div className="modal-content" onClick={e => e.stopPropagation()}>
+            <h3 className="modal-title">New Playlist</h3>
+            <p className="modal-description">
+              Create a custom playlist to organize music for your TTRPG campaign:
+            </p>
+            <form onSubmit={handleCreatePlaylist} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              <div className="modal-form-group">
+                <label className="modal-label" htmlFor="newPlaylistName">Playlist name:</label>
+                <input
+                  id="newPlaylistName"
+                  name="newPlaylistName"
+                  type="text"
+                  autoFocus
+                  required
+                  placeholder="e.g. Tavern Ambience, Boss Fight..."
+                  value={newPlaylistName}
+                  onChange={(e) => setNewPlaylistName(e.target.value)}
+                  className="modal-input-field"
+                />
+              </div>
+              <div className="modal-actions-stack">
+                <button type="submit" className="modal-btn-primary" disabled={!newPlaylistName.trim()}>
+                  Create Playlist
+                </button>
+                <button type="button" onClick={() => setIsModalOpen(false)} className="modal-btn-cancel">
+                  Cancel
+                </button>
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
-      {deleteTrackModal && (
-        <div className="modal-overlay" style={{position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center'}} onClick={() => setDeleteTrackModal(null)}>
-          <div className="modal-content" style={{background: 'var(--glass-bg)', backdropFilter: 'blur(20px)', padding: '24px', borderRadius: '12px', border: '1px solid var(--border-light)', maxWidth: '400px'}} onClick={e => e.stopPropagation()}>
-            <h3 style={{margin: '0 0 8px 0'}}>Remove Track</h3>
-            <p style={{margin: '0 0 16px 0'}}><strong>{deleteTrackModal.title || deleteTrackModal.query}</strong></p>
-            <p style={{ margin: '0 0 24px 0', fontSize: '14px', color: 'var(--text-muted)' }}>
-              Do you want to remove this track from the current playlist, or delete it completely from your library?
-            </p>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              <button 
-                className="delete-option-btn"
-                onClick={() => deleteTrackFromPlaylist(deleteTrackModal)}
-                style={{ width: '100%', padding: '12px', borderRadius: '8px', border: 'none', background: 'rgba(255,255,255,0.1)', color: 'white', cursor: 'pointer' }}
-              >
-                Remove from Playlist Only
-              </button>
-              <button 
-                onClick={() => {
-                  const isLocal = deleteTrackModal.type === 'local';
-                  const msg = isLocal 
-                    ? 'Вы уверены, что хотите удалить этот локальный файл? (Он будет навсегда удален с жесткого диска!)' 
-                    : 'Вы уверены, что хотите полностью удалить этот трек из библиотеки?';
-                  if (window.confirm(msg)) {
-                    deleteTrackCompletely(deleteTrackModal);
-                  }
-                }}
-                className="delete-option-btn danger"
-                  style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid rgba(255, 60, 60, 0.5)', background: 'rgba(255, 60, 60, 0.2)', color: '#ff5555', cursor: 'pointer' }}
-              >
-                Delete Completely from Library
-              </button>
-              <button 
-                className="delete-option-btn"
-                onClick={() => setDeleteTrackModal(null)}
-                style={{ width: '100%', padding: '12px', borderRadius: '8px', border: 'none', background: 'transparent', color: 'white', cursor: 'pointer', marginTop: '8px' }}
-              >
-                Cancel
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* 2. REMOVE TRACK MODAL */}
+      {deleteTrackModal && createPortal(
+        <div
+          className="modal-overlay"
+          onClick={() => {
+            setDeleteTrackModal(null);
+            setConfirmDeleteTrackCompletely(false);
+          }}
+        >
+          <div className="modal-content" onClick={e => e.stopPropagation()}>
+            <h3 className="modal-title">Remove Track</h3>
+            <p className="modal-target-badge">{deleteTrackModal.title || deleteTrackModal.query}</p>
 
-      {importPlaylistModal && (
-        <div className="modal-overlay" style={{position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center'}} onClick={() => !importing && setImportPlaylistModal(null)}>
-          <div className="modal-content" style={{background: 'var(--glass-bg)', backdropFilter: 'blur(20px)', padding: '24px', borderRadius: '12px', border: '1px solid var(--border-light)', maxWidth: '400px'}} onClick={e => e.stopPropagation()}>
-            <h3 style={{margin: '0 0 8px 0'}}>Import Playlist</h3>
-            <p style={{margin: '0 0 8px 0'}}>Detected playlist <strong>{importPlaylistModal.title}</strong> with {importPlaylistModal.count} tracks.</p>
-            <p style={{ margin: '0 0 24px 0', fontSize: '14px', color: 'var(--text-muted)' }}>
-              Do you want to create a new folder (playlist) for these tracks, or just add them all to the main library?
-            </p>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              <button 
-                onClick={() => handleImportPlaylist(true)}
-                disabled={importing}
-                style={{ width: '100%', padding: '12px', borderRadius: '8px', border: 'none', background: 'var(--accent)', color: 'white', cursor: importing ? 'not-allowed' : 'pointer' }}
-              >
-                {importing ? 'Importing...' : 'Create Playlist & Add Tracks'}
-              </button>
-              <button 
-                onClick={() => handleImportPlaylist(false)}
-                disabled={importing}
-                style={{ width: '100%', padding: '12px', borderRadius: '8px', border: 'none', background: 'rgba(255,255,255,0.1)', color: 'white', cursor: importing ? 'not-allowed' : 'pointer' }}
-              >
-                {importing ? 'Importing...' : 'Add to Main Library Only'}
-              </button>
-              <button 
-                onClick={() => setImportPlaylistModal(null)}
-                disabled={importing}
-                style={{ width: '100%', padding: '12px', borderRadius: '8px', border: 'none', background: 'transparent', color: 'white', cursor: importing ? 'not-allowed' : 'pointer', marginTop: '8px' }}
-              >
-                Cancel
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-    
-      {editPlaylistModal && (
-        <div className="modal-overlay" style={{position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center'}} onClick={() => setEditPlaylistModal(null)}>
-          <div className="modal-content" style={{background: 'var(--glass-bg)', backdropFilter: 'blur(20px)', padding: '24px', borderRadius: '12px', border: '1px solid var(--border-light)', minWidth: '300px'}} onClick={e => e.stopPropagation()}>
-                        <h3 style={{margin: '0 0 16px 0'}}>{editPlaylistModal.editMode === 'cover' ? 'Edit Cover' : 'Rename Playlist'}</h3>
-            <form onSubmit={(e) => {
-              e.preventDefault();
-              const form = e.target;
-              let newName = editPlaylistModal.name;
-              let newIcon = editPlaylistModal.icon;
-              
-              if (editPlaylistModal.editMode === 'cover') {
-                const iconInput = form.elements.namedItem('plicon') as HTMLInputElement;
-                if (iconInput) newIcon = iconInput.value;
-              } else {
-                const input = form.elements.namedItem('plname') as HTMLInputElement;
-                if (input) newName = input.value;
-              }
-              
-              editPlaylist(editPlaylistModal.id, newName || undefined, newIcon || undefined);
-            }} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-              {editPlaylistModal.editMode === 'cover' ? (
-                <input 
-                  id="plicon"
-                  name="plicon"
-                  type="text" 
-                  autoFocus
-                  defaultValue={editPlaylistModal.icon || ''}
-                  placeholder="Playlist cover URL..." 
-                  style={{padding: '10px', borderRadius: '8px', border: '1px solid var(--border-light)', background: 'rgba(0,0,0,0.2)', color: 'white'}}
-                />
-              ) : (
-                <input 
-                  id="plname"
-                  name="plname"
-                  type="text" 
-                  autoFocus
-                  defaultValue={editPlaylistModal.name}
-                  placeholder="Playlist name..." 
-                  style={{padding: '10px', borderRadius: '8px', border: '1px solid var(--border-light)', background: 'rgba(0,0,0,0.2)', color: 'white'}}
-                />
-              )}
-              <div style={{display: 'flex', gap: '8px', justifyContent: 'flex-end'}}>
-                <button type="button" onClick={() => setEditPlaylistModal(null)} style={{padding: '8px 16px', borderRadius: '8px', border: 'none', background: 'transparent', color: 'white', cursor: 'pointer'}}>Cancel</button>
-                <button type="submit" style={{padding: '8px 16px', borderRadius: '8px', border: 'none', background: 'var(--accent)', color: 'white', cursor: 'pointer'}}>Save</button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {deletePlaylistModal && (
-        <div className="modal-overlay" style={{position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center'}} onClick={() => setDeletePlaylistModal(null)}>
-          <div className="modal-content" style={{background: 'var(--glass-bg)', backdropFilter: 'blur(20px)', padding: '24px', borderRadius: '12px', border: '1px solid var(--border-light)', maxWidth: '400px'}} onClick={e => e.stopPropagation()}>
-            <h3 style={{margin: '0 0 8px 0'}}>Delete Playlist</h3>
-            <p style={{margin: '0 0 16px 0'}}><strong>{deletePlaylistModal.name}</strong></p>
-            {deletePlaylistModal.trackCount === 0 ? (
+            {!confirmDeleteTrackCompletely ? (
               <>
-                <p style={{ margin: '0 0 24px 0', fontSize: '14px', color: 'var(--text-muted)' }}>
-                  This playlist is empty. Are you sure you want to delete it?
+                <p className="modal-description">
+                  Do you want to remove this track from the current playlist, or delete it completely from your library?
                 </p>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                  <button 
-                    onClick={() => deletePlaylist(deletePlaylistModal.id, false)}
-                    className="delete-option-btn danger"
-                  style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid rgba(255, 60, 60, 0.5)', background: 'rgba(255, 60, 60, 0.2)', color: '#ff5555', cursor: 'pointer' }}
+                <div className="modal-actions-stack">
+                  <button
+                    type="button"
+                    className="modal-btn-secondary"
+                    onClick={() => {
+                      deleteTrackFromPlaylist(deleteTrackModal);
+                      setConfirmDeleteTrackCompletely(false);
+                    }}
                   >
-                    Yes, Delete Playlist
+                    Remove from Playlist Only
                   </button>
-                  <button 
-                    className="delete-option-btn"
-                  onClick={() => setDeletePlaylistModal(null)}
-                  style={{ width: '100%', padding: '12px', borderRadius: '8px', border: 'none', background: 'transparent', color: 'white', cursor: 'pointer', marginTop: '8px' }}
+                  <button
+                    type="button"
+                    className="modal-btn-danger"
+                    onClick={() => setConfirmDeleteTrackCompletely(true)}
+                  >
+                    Delete Completely from Library
+                  </button>
+                  <button
+                    type="button"
+                    className="modal-btn-cancel"
+                    onClick={() => setDeleteTrackModal(null)}
                   >
                     Cancel
                   </button>
@@ -206,41 +134,251 @@ export const Modals = () => {
               </>
             ) : (
               <>
-                <p style={{ margin: '0 0 24px 0', fontSize: '14px', color: 'var(--text-muted)' }}>
-                  This playlist has {deletePlaylistModal.trackCount} tracks. Do you want to delete the playlist only, or also completely delete all its tracks from your library?
+                <p className="modal-description" style={{ color: '#ff8888' }}>
+                  {deleteTrackModal.type === 'local'
+                    ? '⚠️ Warning: This local audio file will be permanently deleted from your disk. This action cannot be undone!'
+                    : '⚠️ Are you sure? This track will be permanently removed from your library and all playlists.'}
                 </p>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                  <button 
-                    className="delete-option-btn"
-                    onClick={() => deletePlaylist(deletePlaylistModal.id, false)}
-                    style={{ width: '100%', padding: '12px', borderRadius: '8px', border: 'none', background: 'rgba(255,255,255,0.1)', color: 'white', cursor: 'pointer' }}
-                  >
-                    Delete Playlist Only
-                  </button>
-                  <button 
+                <div className="modal-actions-stack">
+                  <button
+                    type="button"
+                    className="modal-btn-danger"
                     onClick={() => {
-                      if (window.confirm('Вы уверены? Музыка будет полностью удалена из библиотеки!')) {
-                        deletePlaylist(deletePlaylistModal.id, true);
-                      }
+                      deleteTrackCompletely(deleteTrackModal);
+                      setConfirmDeleteTrackCompletely(false);
                     }}
-                    className="delete-option-btn danger"
-                  style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid rgba(255, 60, 60, 0.5)', background: 'rgba(255, 60, 60, 0.2)', color: '#ff5555', cursor: 'pointer' }}
                   >
-                    Delete Playlist AND its Tracks
+                    Yes, Permanently Delete
                   </button>
-                  <button 
-                    className="delete-option-btn"
-                  onClick={() => setDeletePlaylistModal(null)}
-                  style={{ width: '100%', padding: '12px', borderRadius: '8px', border: 'none', background: 'transparent', color: 'white', cursor: 'pointer', marginTop: '8px' }}
+                  <button
+                    type="button"
+                    className="modal-btn-secondary"
+                    onClick={() => setConfirmDeleteTrackCompletely(false)}
                   >
-                    Cancel
+                    Back
                   </button>
                 </div>
               </>
             )}
           </div>
-        </div>
+        </div>,
+        document.body
       )}
-</>
+
+      {/* 3. IMPORT PLAYLIST MODAL */}
+      {importPlaylistModal && createPortal(
+        <div
+          className="modal-overlay"
+          onClick={() => !importing && setImportPlaylistModal(null)}
+        >
+          <div className="modal-content" onClick={e => e.stopPropagation()}>
+            <h3 className="modal-title">Import Playlist</h3>
+            <p className="modal-target-badge">
+              {importPlaylistModal.title} ({importPlaylistModal.count} tracks)
+            </p>
+            <p className="modal-description">
+              Do you want to create a new dedicated playlist for these tracks, or add them all to your main library?
+            </p>
+            <div className="modal-actions-stack">
+              <button
+                type="button"
+                className="modal-btn-primary"
+                onClick={() => handleImportPlaylist(true)}
+                disabled={importing}
+              >
+                {importing ? 'Importing...' : 'Create Playlist & Add Tracks'}
+              </button>
+              <button
+                type="button"
+                className="modal-btn-secondary"
+                onClick={() => handleImportPlaylist(false)}
+                disabled={importing}
+              >
+                {importing ? 'Importing...' : 'Add to Main Library Only'}
+              </button>
+              <button
+                type="button"
+                className="modal-btn-cancel"
+                onClick={() => setImportPlaylistModal(null)}
+                disabled={importing}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* 4. EDIT PLAYLIST MODAL (RENAME / COVER) */}
+      {editPlaylistModal && createPortal(
+        <div className="modal-overlay" onClick={() => setEditPlaylistModal(null)}>
+          <div className="modal-content" onClick={e => e.stopPropagation()}>
+            <h3 className="modal-title">
+              {editPlaylistModal.editMode === 'cover' ? 'Edit Playlist Cover' : 'Rename Playlist'}
+            </h3>
+            <p className="modal-description">
+              {editPlaylistModal.editMode === 'cover'
+                ? 'Enter a direct image URL for the playlist cover art:'
+                : 'Enter a new title for this playlist:'}
+            </p>
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                const form = e.target as HTMLFormElement;
+                let newName = editPlaylistModal.name;
+                let newIcon = editPlaylistModal.icon;
+
+                if (editPlaylistModal.editMode === 'cover') {
+                  const iconInput = form.elements.namedItem('plicon') as HTMLInputElement;
+                  if (iconInput) newIcon = iconInput.value;
+                } else {
+                  const input = form.elements.namedItem('plname') as HTMLInputElement;
+                  if (input) newName = input.value;
+                }
+
+                editPlaylist(editPlaylistModal.id, newName || undefined, newIcon || undefined);
+              }}
+              style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}
+            >
+              <div className="modal-form-group">
+                <label className="modal-label" htmlFor={editPlaylistModal.editMode === 'cover' ? 'plicon' : 'plname'}>
+                  {editPlaylistModal.editMode === 'cover' ? 'Cover image URL:' : 'Playlist title:'}
+                </label>
+                {editPlaylistModal.editMode === 'cover' ? (
+                  <input
+                    id="plicon"
+                    name="plicon"
+                    type="url"
+                    autoFocus
+                    defaultValue={editPlaylistModal.icon || ''}
+                    placeholder="https://example.com/cover.jpg"
+                    className="modal-input-field"
+                  />
+                ) : (
+                  <input
+                    id="plname"
+                    name="plname"
+                    type="text"
+                    autoFocus
+                    required
+                    defaultValue={editPlaylistModal.name}
+                    placeholder="Playlist name..."
+                    className="modal-input-field"
+                  />
+                )}
+              </div>
+              <div className="modal-actions-stack">
+                <button type="submit" className="modal-btn-primary">
+                  Save Changes
+                </button>
+                <button type="button" onClick={() => setEditPlaylistModal(null)} className="modal-btn-cancel">
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* 5. DELETE PLAYLIST MODAL */}
+      {deletePlaylistModal && createPortal(
+        <div
+          className="modal-overlay"
+          onClick={() => {
+            setDeletePlaylistModal(null);
+            setConfirmDeletePlaylistWithTracks(false);
+          }}
+        >
+          <div className="modal-content" onClick={e => e.stopPropagation()}>
+            <h3 className="modal-title">Delete Playlist</h3>
+            <p className="modal-target-badge">{deletePlaylistModal.name}</p>
+
+            {deletePlaylistModal.trackCount === 0 ? (
+              <>
+                <p className="modal-description">
+                  This playlist is empty. Are you sure you want to delete it?
+                </p>
+                <div className="modal-actions-stack">
+                  <button
+                    type="button"
+                    className="modal-btn-danger"
+                    onClick={() => deletePlaylist(deletePlaylistModal.id, false)}
+                  >
+                    Yes, Delete Playlist
+                  </button>
+                  <button
+                    type="button"
+                    className="modal-btn-cancel"
+                    onClick={() => setDeletePlaylistModal(null)}
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </>
+            ) : !confirmDeletePlaylistWithTracks ? (
+              <>
+                <p className="modal-description">
+                  This playlist contains {deletePlaylistModal.trackCount} tracks. Do you want to delete the playlist only, or also delete all its tracks from your library?
+                </p>
+                <div className="modal-actions-stack">
+                  <button
+                    type="button"
+                    className="modal-btn-secondary"
+                    onClick={() => {
+                      deletePlaylist(deletePlaylistModal.id, false);
+                      setConfirmDeletePlaylistWithTracks(false);
+                    }}
+                  >
+                    Delete Playlist Only
+                  </button>
+                  <button
+                    type="button"
+                    className="modal-btn-danger"
+                    onClick={() => setConfirmDeletePlaylistWithTracks(true)}
+                  >
+                    Delete Playlist AND Its Tracks
+                  </button>
+                  <button
+                    type="button"
+                    className="modal-btn-cancel"
+                    onClick={() => setDeletePlaylistModal(null)}
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <p className="modal-description" style={{ color: '#ff8888' }}>
+                  ⚠️ Warning: All {deletePlaylistModal.trackCount} tracks in this playlist will be permanently removed from your library! Are you sure?
+                </p>
+                <div className="modal-actions-stack">
+                  <button
+                    type="button"
+                    className="modal-btn-danger"
+                    onClick={() => {
+                      deletePlaylist(deletePlaylistModal.id, true);
+                      setConfirmDeletePlaylistWithTracks(false);
+                    }}
+                  >
+                    Yes, Delete Playlist and All Tracks
+                  </button>
+                  <button
+                    type="button"
+                    className="modal-btn-secondary"
+                    onClick={() => setConfirmDeletePlaylistWithTracks(false)}
+                  >
+                    Back
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>,
+        document.body
+      )}
+    </>
   );
 };

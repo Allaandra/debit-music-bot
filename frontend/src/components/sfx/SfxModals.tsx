@@ -1,7 +1,6 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import {
-  X,
   Repeat,
   Headphones,
   Lock,
@@ -95,29 +94,46 @@ export const SfxModals: React.FC<SfxModalsProps> = ({
   handlePreviewBrowser,
   handleToggleGlobal
 }) => {
+  // Close modals on Escape key
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        if (!isUploading && !isCreatingPlaylist) {
+          setDeleteCategoryModal(null);
+          setDeleteSoundModal(null);
+          setIsUploadOpen(false);
+          setIsNewPlaylistOpen(false);
+          setActiveMenu(null);
+        }
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isUploading, isCreatingPlaylist, setDeleteCategoryModal, setDeleteSoundModal, setIsUploadOpen, setIsNewPlaylistOpen, setActiveMenu]);
+
   return (
     <>
-      {/* CONFIRM DELETE CATEGORY MODAL */}
+      {/* 1. CONFIRM DELETE SFX CATEGORY MODAL */}
       {deleteCategoryModal && createPortal(
         <div className="modal-overlay" onClick={() => setDeleteCategoryModal(null)}>
           <div className="modal-content" onClick={e => e.stopPropagation()}>
-            <h3 style={{ margin: '0 0 8px 0' }}>Delete Category</h3>
-            <p style={{ margin: '0 0 16px 0' }}><strong>{deleteCategoryModal.name}</strong></p>
-            <p style={{ margin: '0 0 24px 0', fontSize: '14px', color: 'var(--text-muted)' }}>
+            <h3 className="modal-title">Delete Category</h3>
+            <p className="modal-target-badge">{deleteCategoryModal.name}</p>
+            <p className="modal-description">
               Are you sure you want to delete this category and all sound effects in it?
             </p>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            <div className="modal-actions-stack">
               <button
+                type="button"
                 onClick={confirmDeleteCategory}
-                className="delete-option-btn danger"
-                style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid rgba(255, 60, 60, 0.5)', background: 'rgba(255, 60, 60, 0.2)', color: '#ff5555', cursor: 'pointer' }}
+                className="modal-btn-danger"
               >
-                Yes, delete category
+                Yes, Delete Category
               </button>
               <button
-                className="delete-option-btn"
+                type="button"
+                className="modal-btn-cancel"
                 onClick={() => setDeleteCategoryModal(null)}
-                style={{ width: '100%', padding: '12px', borderRadius: '8px', border: 'none', background: 'transparent', color: 'white', cursor: 'pointer', marginTop: '8px' }}
               >
                 Cancel
               </button>
@@ -127,27 +143,27 @@ export const SfxModals: React.FC<SfxModalsProps> = ({
         document.body
       )}
 
-      {/* CONFIRM DELETE SOUND MODAL */}
+      {/* 2. CONFIRM DELETE SFX SOUND MODAL */}
       {deleteSoundModal && createPortal(
         <div className="modal-overlay" onClick={() => setDeleteSoundModal(null)}>
           <div className="modal-content" onClick={e => e.stopPropagation()}>
-            <h3 style={{ margin: '0 0 8px 0' }}>Delete Sound</h3>
-            <p style={{ margin: '0 0 16px 0' }}><strong>{deleteSoundModal.title}</strong></p>
-            <p style={{ margin: '0 0 24px 0', fontSize: '14px', color: 'var(--text-muted)' }}>
+            <h3 className="modal-title">Delete Sound</h3>
+            <p className="modal-target-badge">{deleteSoundModal.title}</p>
+            <p className="modal-description">
               Are you sure you want to permanently delete this sound effect?
             </p>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            <div className="modal-actions-stack">
               <button
+                type="button"
                 onClick={confirmDeleteSound}
-                className="delete-option-btn danger"
-                style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid rgba(255, 60, 60, 0.5)', background: 'rgba(255, 60, 60, 0.2)', color: '#ff5555', cursor: 'pointer' }}
+                className="modal-btn-danger"
               >
-                Yes, delete sound
+                Yes, Delete Sound
               </button>
               <button
-                className="delete-option-btn"
+                type="button"
+                className="modal-btn-cancel"
                 onClick={() => setDeleteSoundModal(null)}
-                style={{ width: '100%', padding: '12px', borderRadius: '8px', border: 'none', background: 'transparent', color: 'white', cursor: 'pointer', marginTop: '8px' }}
               >
                 Cancel
               </button>
@@ -157,25 +173,21 @@ export const SfxModals: React.FC<SfxModalsProps> = ({
         document.body
       )}
 
-      {/* UPLOAD MODAL */}
+      {/* 3. UPLOAD SFX MODAL */}
       {isUploadOpen && createPortal(
-        <div className="modal-overlay" onClick={() => setIsUploadOpen(false)}>
+        <div className="modal-overlay" onClick={() => !isUploading && setIsUploadOpen(false)}>
           <div className="modal-content" onClick={e => e.stopPropagation()}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-              <h3 style={{ margin: 0 }}>Upload SFX Sound</h3>
-              <button
-                onClick={() => setIsUploadOpen(false)}
-                style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}
-              >
-                <X size={18} />
-              </button>
-            </div>
-            <form onSubmit={handleUploadSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                <label style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 500 }}>
+            <h3 className="modal-title">Upload SFX Sound</h3>
+            <p className="modal-description">
+              Add a new sound effect or ambient loop to your DM soundboard:
+            </p>
+            <form onSubmit={handleUploadSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              <div className="modal-form-group">
+                <label className="modal-label" htmlFor="sfx-file-input">
                   Audio file (.mp3, .wav, .ogg, .m4a):
                 </label>
                 <input
+                  id="sfx-file-input"
                   type="file"
                   accept=".mp3,.wav,.ogg,.m4a"
                   required
@@ -186,31 +198,36 @@ export const SfxModals: React.FC<SfxModalsProps> = ({
                       setUploadTitle(f.name.replace(/\.[^/.]+$/, '').replace(/^[0-9]+_/, '').replace(/_/g, ' '));
                     }
                   }}
-                  style={{ padding: '8px', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.15)', background: 'rgba(0,0,0,0.2)', color: 'white' }}
+                  className="modal-input-field"
+                  style={{ padding: '8px 12px' }}
                 />
               </div>
 
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                <label style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 500 }}>
+              <div className="modal-form-group">
+                <label className="modal-label" htmlFor="sfx-title-input">
                   Sound title:
                 </label>
                 <input
+                  id="sfx-title-input"
                   type="text"
-                  placeholder="e.g. Sword Slash, Fireball..."
+                  required
+                  placeholder="e.g. Sword Slash, Fireball, Tavern Bell..."
                   value={uploadTitle}
                   onChange={e => setUploadTitle(e.target.value)}
-                  style={{ padding: '10px', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.15)', background: 'rgba(0,0,0,0.2)', color: 'white' }}
+                  className="modal-input-field"
                 />
               </div>
 
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                <label style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 500 }}>
+              <div className="modal-form-group">
+                <label className="modal-label" htmlFor="sfx-category-select">
                   Category:
                 </label>
                 <select
+                  id="sfx-category-select"
                   value={uploadPlaylistId || activeCategoryId || ''}
                   onChange={e => setUploadPlaylistId(Number(e.target.value))}
-                  style={{ padding: '10px', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.15)', background: 'var(--panel-bg)', color: 'white' }}
+                  className="modal-input-field"
+                  style={{ background: 'var(--panel-bg, #1a221b)', cursor: 'pointer' }}
                 >
                   {playlists.filter((p: any) => p.id > 0).map((pl: any) => (
                     <option key={pl.id} value={pl.id}>
@@ -220,33 +237,34 @@ export const SfxModals: React.FC<SfxModalsProps> = ({
                 </select>
               </div>
 
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '4px 0' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '4px 0' }}>
                 <input
                   type="checkbox"
                   id="sfx-global-check"
                   checked={uploadIsGlobal}
                   onChange={e => setUploadIsGlobal(e.target.checked)}
-                  style={{ cursor: 'pointer', accentColor: 'var(--accent)' }}
+                  style={{ cursor: 'pointer', accentColor: 'var(--accent, #86e59c)', width: '16px', height: '16px' }}
                 />
-                <label htmlFor="sfx-global-check" style={{ fontSize: '12px', color: 'var(--text-main)', cursor: 'pointer' }}>
+                <label htmlFor="sfx-global-check" style={{ fontSize: '12.5px', color: 'var(--text-main)', cursor: 'pointer' }}>
                   Make sound shared for all DMs 🌐
                 </label>
               </div>
 
-              <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 8 }}>
-                <button
-                  type="button"
-                  onClick={() => setIsUploadOpen(false)}
-                  style={{ padding: '8px 16px', borderRadius: '6px', border: 'none', background: 'transparent', color: 'white', cursor: 'pointer' }}
-                >
-                  Cancel
-                </button>
+              <div className="modal-actions-stack">
                 <button
                   type="submit"
                   disabled={!uploadFile || isUploading}
-                  style={{ padding: '8px 16px', borderRadius: '6px', border: 'none', background: 'var(--accent)', color: 'var(--bottom-bar-bg, #0b110d)', fontWeight: 600, cursor: 'pointer' }}
+                  className="modal-btn-primary"
                 >
-                  {isUploading ? 'Uploading...' : 'Upload'}
+                  {isUploading ? 'Uploading...' : 'Upload Sound'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsUploadOpen(false)}
+                  disabled={isUploading}
+                  className="modal-btn-cancel"
+                >
+                  Cancel
                 </button>
               </div>
             </form>
@@ -255,39 +273,33 @@ export const SfxModals: React.FC<SfxModalsProps> = ({
         document.body
       )}
 
-      {/* NEW CATEGORY MODAL */}
+      {/* 4. NEW SFX CATEGORY MODAL */}
       {isNewPlaylistOpen && createPortal(
-        <div className="modal-overlay" onClick={() => setIsNewPlaylistOpen(false)}>
+        <div className="modal-overlay" onClick={() => !isCreatingPlaylist && setIsNewPlaylistOpen(false)}>
           <div className="modal-content" onClick={e => e.stopPropagation()}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-              <h3 style={{ margin: 0 }}>New SFX Category</h3>
-              <button
-                onClick={() => setIsNewPlaylistOpen(false)}
-                style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}
-              >
-                <X size={18} />
-              </button>
-            </div>
-            <form onSubmit={handleCreatePlaylistSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                <label style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 500 }}>
+            <h3 className="modal-title">New SFX Category</h3>
+            <p className="modal-description">
+              Create a custom category to group your battle, spell, or ambient sounds:
+            </p>
+            <form onSubmit={handleCreatePlaylistSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              <div className="modal-form-group">
+                <label className="modal-label" htmlFor="new-sfx-cat-name">
                   Category name:
                 </label>
                 <input
+                  id="new-sfx-cat-name"
                   type="text"
-                  placeholder="e.g. Monsters, Traps..."
+                  placeholder="e.g. Monsters, Traps, Weather..."
                   value={newPlaylistName}
                   required
                   autoFocus
                   onChange={e => setNewPlaylistName(e.target.value)}
-                  style={{ padding: '10px', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.15)', background: 'rgba(0,0,0,0.2)', color: 'white' }}
+                  className="modal-input-field"
                 />
               </div>
 
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                <label style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 500 }}>
-                  Category icon:
-                </label>
+              <div className="modal-form-group">
+                <label className="modal-label">Category icon:</label>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(8, 1fr)', gap: 6, marginTop: 4 }}>
                   {Object.entries(SFX_CATEGORY_ICONS)
                     .filter(([id]) => id !== 'globe')
@@ -320,20 +332,21 @@ export const SfxModals: React.FC<SfxModalsProps> = ({
                 </div>
               </div>
 
-              <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 8 }}>
-                <button
-                  type="button"
-                  onClick={() => setIsNewPlaylistOpen(false)}
-                  style={{ padding: '8px 16px', borderRadius: '6px', border: 'none', background: 'transparent', color: 'white', cursor: 'pointer' }}
-                >
-                  Cancel
-                </button>
+              <div className="modal-actions-stack">
                 <button
                   type="submit"
                   disabled={!newPlaylistName.trim() || isCreatingPlaylist}
-                  style={{ padding: '8px 16px', borderRadius: '6px', border: 'none', background: 'var(--accent)', color: 'var(--bottom-bar-bg, #0b110d)', fontWeight: 600, cursor: 'pointer' }}
+                  className="modal-btn-primary"
                 >
-                  {isCreatingPlaylist ? 'Creating...' : 'Create'}
+                  {isCreatingPlaylist ? 'Creating...' : 'Create Category'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsNewPlaylistOpen(false)}
+                  disabled={isCreatingPlaylist}
+                  className="modal-btn-cancel"
+                >
+                  Cancel
                 </button>
               </div>
             </form>
@@ -342,7 +355,7 @@ export const SfxModals: React.FC<SfxModalsProps> = ({
         document.body
       )}
 
-      {/* Floating Action Menu for sound cards (Portal guarantees it is never trapped under stairs or clipped) */}
+      {/* 5. FLOATING ACTION MENU POPOVER FOR SOUND CARDS */}
       {activeMenu && createPortal(
         <div
           className="sfx-sound-dropdown"

@@ -73,7 +73,11 @@ export const UIProvider: React.FC<{ children: React.ReactNode }> = ({ children }
   const [deletePlaylistModal, setDeletePlaylistModal] = useState<Playlist | null>(null);
   const [editPlaylistModal, setEditPlaylistModal] = useState<Playlist | null>(null);
 
-  useEffect(() => { localStorage.setItem('theme', theme); }, [theme]);
+  useEffect(() => {
+    localStorage.setItem('theme', theme);
+    document.body.classList.remove('theme-forest', 'theme-dark', 'theme-light');
+    document.body.classList.add(`theme-${theme}`);
+  }, [theme]);
   useEffect(() => { localStorage.setItem('leftCollapsed', JSON.stringify(leftCollapsed)); }, [leftCollapsed]);
   useEffect(() => { localStorage.setItem('rightCollapsed', JSON.stringify(rightCollapsed)); }, [rightCollapsed]);
   useEffect(() => { localStorage.setItem('rightPanelMode', rightPanelMode); }, [rightPanelMode]);
