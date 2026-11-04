@@ -1,8 +1,6 @@
 import axios from 'axios';
 
-export const BACKEND_ORIGIN = import.meta.env.DEV
-    ? `http://${window.location.hostname}:3001`
-    : window.location.origin;
+export const BACKEND_ORIGIN = window.location.origin;
 
 export const BASE_URL = `${BACKEND_ORIGIN}/api`;
 export const SOCKET_URL = BACKEND_ORIGIN;
