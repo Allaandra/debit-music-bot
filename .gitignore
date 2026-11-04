@@ -9,6 +9,8 @@ database.sqlite-journal
 .DS_Store
 
 Agent Workspace/
+.agents/
+.agent/
 
 # Игнорировать все аудиофайлы и папки пользователей в sounds
 sounds/*
