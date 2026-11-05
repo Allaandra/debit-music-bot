@@ -6,6 +6,7 @@ settings.json
 database.sqlite
 database.sqlite-journal
 *.log
+CHANGELOG.md
 .DS_Store
 
 Agent Workspace/
@@ -18,4 +19,3 @@ sounds/*
 !sounds/default_sfx/
 sounds/default_sfx/*
 !sounds/default_sfx/.gitkeep
-
