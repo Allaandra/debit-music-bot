@@ -115,6 +115,11 @@ export const LoginScreen: React.FC = () => {
     return saved !== null ? saved === 'true' : true;
   });
 
+  const [isLoggingIn, setIsLoggingIn] = useState<boolean>(false);
+  const [authError, setAuthError] = useState<string | null>(() => {
+    return new URLSearchParams(window.location.search).get('auth_error');
+  });
+
   const sparklesRef = useRef(sparklesEnabled);
   const parallaxRef = useRef(parallaxEnabled);
 
@@ -298,10 +303,31 @@ export const LoginScreen: React.FC = () => {
             Please log in with Discord to access your library and files
           </p>
 
+          {authError && (
+            <div
+              className="login-auth-error"
+              style={{
+                color: '#ff7070',
+                fontSize: '13px',
+                marginBottom: '14px',
+                lineHeight: 1.4,
+                padding: '8px 12px',
+                backgroundColor: 'rgba(255, 112, 112, 0.1)',
+                border: '1px solid rgba(255, 112, 112, 0.3)',
+                borderRadius: '8px'
+              }}
+            >
+              {authError}
+            </div>
+          )}
+
           <button
             className="login-discord-login-btn"
             type="button"
+            disabled={isLoggingIn}
+            style={isLoggingIn ? { opacity: 0.7, cursor: 'not-allowed' } : undefined}
             onClick={() => {
+              setIsLoggingIn(true);
               window.location.href = `${BASE_URL}/auth/login`;
             }}
           >

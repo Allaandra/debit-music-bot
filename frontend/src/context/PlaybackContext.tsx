@@ -131,6 +131,7 @@ export const PlaybackProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
   const socketRef = useRef<Socket | null>(null);
   const guildIdRef = useRef<string | null>(null);
+  const pendingTrackQueryRef = useRef<string | null>(null);
 
   useEffect(() => {
     guildIdRef.current = guildId;
@@ -168,12 +169,15 @@ export const PlaybackProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       const data = await api.fetchStatus();
       if (data) {
         setSyncVersion(v => v + 1);
-        setStatus(prev => ({
-          ...prev,
-          ...data,
-          currentTrack: data.currentTrack ?? null,
-          queue: data.queue || []
-        }));
+        setStatus(prev => {
+          const isStale = Boolean(pendingTrackQueryRef.current && data.currentTrack?.query !== pendingTrackQueryRef.current);
+          return {
+            ...prev,
+            ...data,
+            currentTrack: isStale ? prev.currentTrack : (data.currentTrack ?? null),
+            queue: data.queue || []
+          };
+        });
         if (data.guildId) {
           setGuildId(data.guildId);
         }
@@ -203,12 +207,17 @@ export const PlaybackProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     socket.on('stateUpdate', (newState: Partial<PlayerStatus> & { guildId?: string }) => {
       if (!newState) return;
       setSyncVersion(v => v + 1);
-      setStatus(prev => ({
-        ...prev,
-        ...newState,
-        currentTrack: 'currentTrack' in newState ? (newState.currentTrack ?? null) : prev.currentTrack,
-        queue: newState.queue || prev.queue || []
-      }));
+      setStatus(prev => {
+        const isStale = Boolean(pendingTrackQueryRef.current && newState.currentTrack?.query !== pendingTrackQueryRef.current);
+        return {
+          ...prev,
+          ...newState,
+          currentTrack: isStale
+            ? prev.currentTrack
+            : ('currentTrack' in newState ? (newState.currentTrack ?? null) : prev.currentTrack),
+          queue: newState.queue || prev.queue || []
+        };
+      });
       if (newState.guildId) {
         setGuildId(newState.guildId);
       }
@@ -324,6 +333,7 @@ export const PlaybackProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       isPlaying: false,
       isPaused: false
     }));
+    pendingTrackQueryRef.current = track.query;
     try {
       const res = await api.playTrack(track, playlistId ?? null, playlistName || 'Main Library');
       if (res?.guildId) {
@@ -341,6 +351,8 @@ export const PlaybackProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     } catch (e) {
       console.error('Failed to play track', e);
       fetchStatus();
+    } finally {
+      pendingTrackQueryRef.current = null;
     }
   }, [fetchStatus]);
 

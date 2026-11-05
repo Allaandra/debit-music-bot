@@ -8,7 +8,7 @@ export default function playerRoutes(client: Client) {
     const router = Router();
 
     router.post('/play', async (req, res) => {
-        const { type, query, playlistId, playlistName } = req.body;
+        const { type, query, playlistId, playlistName, title, artist, duration, thumbnail } = req.body;
         const userId = (req as any).user?.id;
         if (!userId) return res.status(401).json({ error: 'Unauthorized' });
 
@@ -17,6 +17,22 @@ export default function playerRoutes(client: Client) {
         }
 
         try {
+            const session = await prisma.activeSession.findUnique({ where: { userId } });
+            if (session) {
+                const immediatePlayer = PlayerManager.getPlayer(session.guildId);
+                (immediatePlayer.streamer as any).stopMusicDecoder();
+                immediatePlayer.streamer.currentTrack = {
+                    type,
+                    query,
+                    title: title || query,
+                    artist: artist || 'Unknown',
+                    duration: duration || 0,
+                    thumbnail: thumbnail || undefined
+                } as any;
+                immediatePlayer.streamer.seekOffset = 0;
+                immediatePlayer.emit('stateUpdate', immediatePlayer.getStatus());
+            }
+
             // Запускаем подключение к голосовому каналу/прогрев FFmpeg-энкодера и резолв трека параллельно,
             // чтобы первое подключение после запуска сервера происходило без дополнительной задержки
             const [{ guildPlayer, guildId }, track] = await Promise.all([

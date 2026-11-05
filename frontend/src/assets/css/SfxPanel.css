@@ -133,14 +133,14 @@
   background: rgba(255, 255, 255, 0.16);
 }
 
-/* Crisp active state with 86E59C border, without harsh glow or jumping */
+/* Crisp active state with accent border, without harsh glow or jumping */
 .sfx-category-card.active {
   background: rgba(255, 255, 255, 0.12);
-  border: 2px solid #86E59C;
+  border: 2px solid var(--accent);
 }
 
 .sfx-category-card.active .sfx-category-name {
-  color: #86E59C;
+  color: var(--accent);
 }
 
 .sfx-category-inner {
@@ -169,7 +169,7 @@
 
 .sfx-category-card.active .sfx-category-icon-svg {
   opacity: 1;
-  color: #86E59C;
+  color: var(--accent);
 }
 
 .sfx-category-name {
@@ -554,6 +554,15 @@
 .sfx-dropdown-item.danger:hover {
   color: #ff5555;
   background: rgba(255, 85, 85, 0.18);
+}
+
+.theme-light .sfx-dropdown-item:hover {
+  background: rgba(0, 0, 0, 0.06);
+}
+
+.theme-light .sfx-dropdown-item.danger:hover {
+  color: #b91c1c;
+  background: rgba(220, 38, 38, 0.1);
 }
 
 /* EMPTY STATE */

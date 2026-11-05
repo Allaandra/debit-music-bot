@@ -251,9 +251,9 @@ export class TrackResolver {
         }
 
         if (!isDirectUrl) {
-            // 1. PRIMARY: Search SoundCloud first (scsearch3 to skip any 30s Go+ preview if full track exists)
+            // 1. PRIMARY: Search SoundCloud first (scsearch2 to skip any 30s Go+ preview if full track exists)
             try {
-                const scInfo = await youtubedl(`scsearch3:${searchQuery}`, buildYtDlpOptions(false, false));
+                const scInfo = await youtubedl(`scsearch2:${searchQuery}`, buildYtDlpOptions(false, false));
                 const scRes = extractTrackInfo(scInfo, true);
                 if (scRes) {
                     title = title !== query && title ? title : scRes.title;
@@ -310,7 +310,7 @@ export class TrackResolver {
                 if (isYoutubeUrl && title && title !== query) {
                     try {
                         const fallbackQuery = artist && artist !== 'Unknown' ? `${artist} - ${title}` : title;
-                        const scInfo = await youtubedl(`scsearch3:${fallbackQuery}`, buildYtDlpOptions(false, false));
+                        const scInfo = await youtubedl(`scsearch2:${fallbackQuery}`, buildYtDlpOptions(false, false));
                         const scRes = extractTrackInfo(scInfo, true);
                         if (scRes) {
                             streamUrl = await upgradeSoundCloudM3u8Url(scRes.streamUrl);

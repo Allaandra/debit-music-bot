@@ -112,6 +112,10 @@ export const api = {
             const res = await apiClient.post('/play', {
                 query: track.query,
                 type: track.type,
+                title: track.title,
+                artist: track.artist,
+                duration: track.duration,
+                thumbnail: track.thumbnail,
                 playlistId,
                 playlistName
             });

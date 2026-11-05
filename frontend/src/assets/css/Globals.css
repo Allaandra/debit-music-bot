@@ -266,5 +266,14 @@ body {
   background: rgba(255, 85, 85, 0.18);
 }
 
+.theme-light .dropdown-item:hover {
+  background: rgba(0, 0, 0, 0.06);
+}
+
+.theme-light .dropdown-item.danger:hover {
+  color: #b91c1c;
+  background: rgba(220, 38, 38, 0.1);
+}
+
 
 

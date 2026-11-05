@@ -96,9 +96,13 @@ export class PlayerService extends EventEmitter {
     }
 
     prefetchUpcoming() {
-        const nextTrack = this.queueManager.queue[0];
-        if (nextTrack && nextTrack.query) {
-            TrackResolver.prefetchTrack(nextTrack.type, nextTrack.query);
+        const first = this.queueManager.queue[0];
+        if (first && first.query) {
+            TrackResolver.prefetchTrack(first.type, first.query);
+        }
+        const second = this.queueManager.queue[1];
+        if (second && second.query) {
+            TrackResolver.prefetchTrack(second.type, second.query);
         }
     }
 
@@ -144,6 +148,7 @@ export class PlayerService extends EventEmitter {
         if (nextTrackDB) {
             // Optimistically update status to show next track immediately to frontend via WebSocket
             this.streamer.currentTrack = nextTrackDB;
+            (this.streamer as any).stopMusicDecoder();
             this.streamer.seekOffset = 0;
             this.emit('stateUpdate', this.getStatus());
 

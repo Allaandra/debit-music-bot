@@ -19,17 +19,58 @@ export default function authRoutes() {
         }
     }
 
+    function getRedirectUri(req: any): string {
+        if (process.env.DISCORD_REDIRECT_URI) {
+            return process.env.DISCORD_REDIRECT_URI;
+        }
+        let host = req.get('host') || 'localhost:3001';
+        if (host.startsWith('127.0.0.1')) {
+            host = host.replace(/^127\.0\.0\.1/, 'localhost');
+        }
+        return `http://${host}/api/auth/callback`;
+    }
+
+    function getSafeReturnTo(stateStr?: unknown): string {
+        if (!stateStr || typeof stateStr !== 'string') return '/';
+        try {
+            const decoded = Buffer.from(stateStr, 'base64url').toString('utf-8');
+            let candidate = decoded;
+            try {
+                const parsed = JSON.parse(decoded);
+                if (parsed && typeof parsed.returnTo === 'string') {
+                    candidate = parsed.returnTo;
+                }
+            } catch {
+                // Not JSON, use decoded string directly
+            }
+
+            if (candidate.startsWith('/') && !candidate.startsWith('//')) {
+                return candidate;
+            }
+            const parsedUrl = new URL(candidate);
+            if (
+                (parsedUrl.protocol === 'http:' || parsedUrl.protocol === 'https:') &&
+                (parsedUrl.hostname === 'localhost' || parsedUrl.hostname === '127.0.0.1')
+            ) {
+                return candidate;
+            }
+        } catch {
+            // Parsing failure fallback
+        }
+        return '/';
+    }
+
     router.get('/login', (req, res) => {
         const clientId = process.env.DISCORD_CLIENT_ID;
         if (!clientId) {
             return res.status(500).send('Discord Client ID is missing in .env');
         }
         
-        // Dynamically get the host so it works on phone (if registered in Discord portal)
-        const host = req.get('host') || 'localhost:3001';
-        const redirectUri = encodeURIComponent(`http://${host}/api/auth/callback`);
+        const redirectUri = encodeURIComponent(getRedirectUri(req));
+        const returnTo = (req.headers.referer as string) || (req.query.returnTo as string) || '/';
+        const state = Buffer.from(returnTo, 'utf-8').toString('base64url');
         
-        const discordAuthUrl = `https://discord.com/api/oauth2/authorize?client_id=${clientId}&redirect_uri=${redirectUri}&response_type=code&scope=identify`;
+        const discordAuthUrl = `https://discord.com/api/oauth2/authorize?client_id=${clientId}&redirect_uri=${redirectUri}&response_type=code&scope=identify&state=${state}`;
         res.redirect(discordAuthUrl);
     });
 
@@ -39,8 +80,7 @@ export default function authRoutes() {
 
         const clientId = process.env.DISCORD_CLIENT_ID!;
         const clientSecret = process.env.DISCORD_CLIENT_SECRET!;
-        const host = req.get('host') || 'localhost:3001';
-        const redirectUri = `http://${host}/api/auth/callback`;
+        const redirectUri = getRedirectUri(req);
 
         try {
             // Exchange code for token
@@ -59,7 +99,7 @@ export default function authRoutes() {
             const tokenData = await tokenResponse.json();
             if (tokenData.error) {
                 console.error('OAuth Error:', tokenData);
-                return res.status(400).send('Discord OAuth Error: ' + tokenData.error_description);
+                return res.redirect(`/?auth_error=${encodeURIComponent(tokenData.error_description || tokenData.error)}`);
             }
 
             // Get user info
@@ -85,11 +125,13 @@ export default function authRoutes() {
             // Set cookie and redirect to frontend
             res.cookie('auth_token', token, {
                 httpOnly: true,
+                sameSite: 'lax',
                 maxAge: 30 * 24 * 60 * 60 * 1000 // 30 days
             });
 
-            // Redirect back to the frontend root
-            res.redirect('/');
+            // Redirect back to returnTo or frontend root
+            const returnTo = getSafeReturnTo(req.query.state);
+            res.redirect(returnTo);
         } catch (error) {
             console.error('Auth callback error:', error);
             res.status(500).send('Internal Server Error during authentication');

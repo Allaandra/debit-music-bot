@@ -37,19 +37,19 @@
 }
 
 .theme-light {
-  --app-outer-bg: #d6d6d6;
-  --base-bg: #e5e5e5; 
-  --app-bg: #f5f5f5;  
-  --panel-bg: #ffffff; 
-  --bottom-bar-bg: #f5f5f5; 
-  --text-main: #121212;
-  --text-muted: #666666; 
-  --border-color: rgba(0, 0, 0, 0.1);
-  --track-active: rgba(0, 0, 0, 0.05);
-  --accent: #2ab54c; 
+  --app-outer-bg: #d4dad5;
+  --base-bg: #dde3de; 
+  --app-bg: #e6ece7;  
+  --panel-bg: #edf2ee; 
+  --bottom-bar-bg: #e2e8e3; 
+  --text-main: #141f17;
+  --text-muted: #4e6354; 
+  --border-color: rgba(0, 0, 0, 0.12);
+  --track-active: rgba(0, 0, 0, 0.06);
+  --accent: #1e7e34; 
   --dark-text: #ffffff; 
-  --placeholder-bg: #cccccc;
+  --placeholder-bg: #c8d0c9;
   --shadow-color: rgba(0, 0, 0, 0.1);
-  --shadow-glow: rgba(42, 181, 76, 0.3);
-  --shadow-glow-strong: rgba(42, 181, 76, 0.6);
+  --shadow-glow: rgba(30, 126, 52, 0.25);
+  --shadow-glow-strong: rgba(30, 126, 52, 0.5);
 }

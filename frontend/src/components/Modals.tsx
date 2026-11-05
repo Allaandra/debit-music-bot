@@ -134,7 +134,7 @@ export const Modals: React.FC = () => {
               </>
             ) : (
               <>
-                <p className="modal-description" style={{ color: '#ff8888' }}>
+                <p className="modal-description modal-warning-text">
                   {deleteTrackModal.type === 'local'
                     ? '⚠️ Warning: This local audio file will be permanently deleted from your disk. This action cannot be undone!'
                     : '⚠️ Are you sure? This track will be permanently removed from your library and all playlists.'}
@@ -351,7 +351,7 @@ export const Modals: React.FC = () => {
               </>
             ) : (
               <>
-                <p className="modal-description" style={{ color: '#ff8888' }}>
+                <p className="modal-description modal-warning-text">
                   ⚠️ Warning: All {deletePlaylistModal.trackCount} tracks in this playlist will be permanently removed from your library! Are you sure?
                 </p>
                 <div className="modal-actions-stack">

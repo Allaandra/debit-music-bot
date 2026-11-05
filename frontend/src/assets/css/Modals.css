@@ -78,6 +78,12 @@
   margin: 0 0 20px 0;
 }
 
+.modal-warning-text {
+  color: #ff6666;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
 /* Input elements in modals */
 .modal-input-field {
   width: 100%;
@@ -237,3 +243,63 @@
 .delete-option-btn.danger:hover {
   background: rgba(255, 60, 60, 0.4) !important;
 }
+
+/* Light theme overrides */
+.theme-light .modal-btn-secondary {
+  background: rgba(0, 0, 0, 0.06);
+  color: var(--text-main);
+  border: 1px solid rgba(0, 0, 0, 0.12);
+}
+
+.theme-light .modal-btn-secondary:hover:not(:disabled) {
+  background: rgba(0, 0, 0, 0.1);
+}
+
+.theme-light .modal-btn-danger {
+  background: rgba(220, 38, 38, 0.1);
+  border: 1px solid rgba(220, 38, 38, 0.35);
+  color: #b91c1c;
+  font-weight: 600;
+}
+
+.theme-light .modal-btn-danger:hover {
+  background: rgba(220, 38, 38, 0.2);
+  border-color: rgba(220, 38, 38, 0.5);
+  color: #991b1b;
+}
+
+.theme-light .modal-btn-cancel {
+  color: var(--text-muted);
+  background: transparent;
+}
+
+.theme-light .modal-btn-cancel:hover:not(:disabled) {
+  background: rgba(0, 0, 0, 0.05);
+  color: var(--text-main);
+}
+
+.theme-light .delete-option-btn {
+  background: rgba(0, 0, 0, 0.06);
+  color: var(--text-main);
+  border: 1px solid rgba(0, 0, 0, 0.12);
+}
+
+.theme-light .delete-option-btn:hover {
+  background: rgba(0, 0, 0, 0.1) !important;
+}
+
+.theme-light .delete-option-btn.danger {
+  background: rgba(220, 38, 38, 0.1);
+  border-color: rgba(220, 38, 38, 0.35);
+  color: #b91c1c;
+}
+
+.theme-light .delete-option-btn.danger:hover {
+  background: rgba(220, 38, 38, 0.2) !important;
+}
+
+.theme-light .modal-warning-text {
+  color: #b91c1c;
+  font-weight: 600;
+}
+

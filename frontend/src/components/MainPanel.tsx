@@ -62,6 +62,7 @@ const HoverScroller = ({ text, className, style }: any) => {
 
 export const MainPanel = () => {
   const [isSyncing, setIsSyncing] = React.useState(false);
+  const syncFinishedRef = React.useRef(false);
   const searchInputRef = React.useRef<HTMLInputElement>(null);
   const {
     status,
@@ -100,6 +101,7 @@ export const MainPanel = () => {
 
   const handleSyncSounds = async () => {
     if (isSyncing) return;
+    syncFinishedRef.current = false;
     setIsSyncing(true);
     try {
       await api.syncSounds();
@@ -107,7 +109,8 @@ export const MainPanel = () => {
     } catch (e) {
       console.error('Failed to sync sounds:', e);
     } finally {
-      setTimeout(() => setIsSyncing(false), 600);
+      syncFinishedRef.current = true;
+      setTimeout(() => setIsSyncing(false), 4000);
     }
   };
 
@@ -229,6 +232,11 @@ export const MainPanel = () => {
                     className={`icon-btn ${isSyncing ? 'spin-anim' : ''}`}
                     style={{ background: 'none', border: 'none', padding: 0, cursor: isSyncing ? 'default' : 'pointer' }}
                     onClick={handleSyncSounds}
+                    onAnimationIteration={() => {
+                      if (syncFinishedRef.current) {
+                        setIsSyncing(false);
+                      }
+                    }}
                     title={isSyncing ? 'Сканирование файлов...' : 'Принудительный скан локальных файлов (sounds/)'}
                   >
                     <RefreshCw size={19} color={isSyncing ? 'var(--accent)' : 'var(--text-muted)'} />
